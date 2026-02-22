@@ -1384,7 +1384,14 @@ with st.sidebar:
                 st.session_state["sidebar_prefill"] = "priyanka"
                 st.rerun()
         if _active_prefill:
-            st.caption("↩ Hit **Reset** to switch scenario.")
+            if st.button(
+                "↩ Reset scenario",
+                key="sb_reset_link",
+                use_container_width=True,
+                help="Clear the current demo scenario and pick a different one",
+            ):
+                st.session_state.pop("sidebar_prefill", None)
+                st.rerun()
     else:
         # Stage completion tracker
         _stages = [
@@ -1924,8 +1931,13 @@ if "profile" in st.session_state:
 
     # ── Tab 1: Domain Map ─────────────────────────────────────────────────────
     with tab_domains:
-        st.markdown("### Domain Knowledge Assessment")
-        st.caption("Confidence scores and knowledge levels across the exam domains.")
+        st.markdown('<a href="#" style="font-size:0.75rem;color:#9CA3AF;text-decoration:none;">↑ Back to top</a>', unsafe_allow_html=True)
+        st.markdown("### 🗺️ Domain Knowledge Assessment")
+        st.caption(
+            "Your personalised exam domain map. Each bar shows your current confidence level "
+            "across the key syllabus areas — making it easy to see exactly where to focus "
+            "and which topics you can spend less time on."
+        )
 
         # ── Pre-compute insight data ──────────────────────────────────────────
         labels    = [dp.domain_name.replace(" Solutions", "").replace("Implement ", "")
@@ -2248,6 +2260,12 @@ if "profile" in st.session_state:
 
     # ── Tab 2: Study Setup ────────────────────────────────────────────────────
     with tab_plan:
+        st.markdown('<a href="#" style="font-size:0.75rem;color:#9CA3AF;text-decoration:none;">↑ Back to top</a>', unsafe_allow_html=True)
+        st.caption(
+            "📅 **Study Setup** — your complete preparation blueprint. "
+            "Check your prerequisites, see how long yours will take, and review "
+            "the weekly phase plan built around your availability and target exam date."
+        )
         plan: StudyPlan = st.session_state.get("plan")
 
         # ── 1. Prerequisites ──────────────────────────────────────────────────
@@ -2511,21 +2529,38 @@ if "profile" in st.session_state:
 
     # ── Tab 3: Learning Path ──────────────────────────────────────────────────
     with tab_path:
-        st.markdown("### 📚 Curated Microsoft Learn Path")
-        st.caption("Personalised MS Learn modules selected by the Learning Path Curator Agent based on your profile.")
+        st.markdown('<a href="#" style="font-size:0.75rem;color:#9CA3AF;text-decoration:none;">↑ Back to top</a>', unsafe_allow_html=True)
+        st.markdown("### 📚 Your Learning Path")
+        st.caption(
+            "📚 **Learning Path** — a curated list of Microsoft Learn modules tailored to your "
+            "skill gaps. Modules are grouped by exam domain and ordered by priority, so you "
+            "always know what to study next. Domains you already know well are automatically "
+            "skipped to save you time."
+        )
 
         _lp: LearningPath = st.session_state.get("learning_path")
         if not _lp:
             st.info("Generate your learner profile first to see curated learning modules.")
         else:
-            # Summary banner
-            _pr_result = st.session_state.get("guardrail_path")
+            # User-friendly summary banner (no agent jargon)
+            _pr_result     = st.session_state.get("guardrail_path")
+            _total_modules = len(_lp.all_modules)
+            _active_doms   = len([dp for dp in profile.domain_profiles if not dp.skip_recommended])
+            _skipped_doms  = len([dp for dp in profile.domain_profiles if dp.skip_recommended])
+            _total_lp_hrs  = sum(getattr(m, "duration_min", 0) for m in _lp.all_modules) / 60.0
+            _skip_note     = (
+                f"&nbsp; {_skipped_doms} domain(s) skipped — strong prior knowledge detected there."
+                if _skipped_doms else ""
+            )
             st.markdown(
                 f"""<div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);
                      border-left:5px solid #2563eb;border-radius:10px;padding:12px 18px;
-                     margin-bottom:16px;">
-                  <b style="color:#1e3a8a;">📚 Learning Path Curator Agent</b><br/>
-                  <span style="color:#374151;font-size:0.9rem;">{_lp.summary}</span>
+                     margin-bottom:16px;font-size:0.9rem;color:#374151;">
+                  ✅ &nbsp;<b>Your personalised learning path is ready!</b><br/>
+                  <span>We found <b>{_total_modules} Microsoft Learn modules</b> across
+                  <b>{_active_doms} exam domain{"s" if _active_doms != 1 else ""}</b>
+                  (~<b>{_total_lp_hrs:.1f} hours</b> of self-paced content).{_skip_note}
+                  Modules are ordered by priority — work through them top to bottom.</span>
                 </div>""",
                 unsafe_allow_html=True,
             )
@@ -2612,6 +2647,12 @@ if "profile" in st.session_state:
 
     # ── Tab 4: Recommendations ────────────────────────────────────────────────
     with tab_recs:
+        st.markdown('<a href="#" style="font-size:0.75rem;color:#9CA3AF;text-decoration:none;">↑ Back to top</a>', unsafe_allow_html=True)
+        st.caption(
+            "💡 **Recommendations** — a plain-English summary of what your results mean and "
+            "what to do next. Covers your learning style, risk areas, the exam that best matches "
+            "your profile right now, and actionable next steps."
+        )
         # ── 1. Personalised Recommendation ───────────────────────────────────
         st.markdown("### 💡 Personalised Recommendation")
 
@@ -2863,6 +2904,12 @@ if "profile" in st.session_state:
 
     # ── Tab 4: My Progress ────────────────────────────────────────────────────
     with tab_progress:
+        st.markdown('<a href="#" style="font-size:0.75rem;color:#9CA3AF;text-decoration:none;">↑ Back to top</a>', unsafe_allow_html=True)
+        st.caption(
+            "📈 **My Progress** — track how far you've come. Log the hours you've studied, "
+            "modules completed, and practice scores, then get an instant readiness gauge "
+            "showing whether you're on track for your exam date."
+        )
         st.markdown("### 📈 My Progress Check-In")
 
         _has_plan = "plan" in st.session_state
@@ -3235,11 +3282,14 @@ if "profile" in st.session_state:
 
     # ── Tab 6: Knowledge Check (Assessment Agent) ────────────────────────────
     with tab_quiz:
-        st.markdown("### 🧪 Knowledge Check — Readiness Quiz")
+        st.markdown('<a href="#" style="font-size:0.75rem;color:#9CA3AF;text-decoration:none;">↑ Back to top</a>', unsafe_allow_html=True)
         st.caption(
-            "A domain-weighted mini-exam generated by the Assessment Agent. "
-            "Passing score ≥ 60%. Your result feeds the Certification Recommendation Agent."
+            "🧪 **Knowledge Check** — test yourself with a short domain-weighted quiz. "
+            "Choose how many questions you want, answer them, and get an instant readiness "
+            "score. Passing threshold is 60%. Use this to identify any remaining weak spots "
+            "before your exam."
         )
+        st.markdown("### 🧪 Knowledge Check — Readiness Quiz")
 
         _q_count = st.slider(
             "Number of questions",
@@ -3398,6 +3448,12 @@ if "profile" in st.session_state:
 
     # ── Tab 7: Raw JSON ───────────────────────────────────────────────────────
     with tab_json:
+        st.markdown('<a href="#" style="font-size:0.75rem;color:#9CA3AF;text-decoration:none;">↑ Back to top</a>', unsafe_allow_html=True)
+        st.caption(
+            "📄 **Raw Data** — the full JSON behind your session. Useful for debugging, "
+            "sharing your profile with a colleague, or downloading a record of your "
+            "assessment for offline review."
+        )
         col_j1, col_j2 = st.columns(2)
         with col_j1:
             st.markdown("#### Raw Student Input")
