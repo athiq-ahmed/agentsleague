@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# secrets – never commit
+.env
+.env.*
+*.pem
+*.key
+
+# Azure
+.azure/
+**/.secrets/
+config/secrets.*
