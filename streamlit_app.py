@@ -792,20 +792,20 @@ st.markdown(f"""
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    padding-left: 12px;
+    padding-left: 16px;
     margin-left: 4px;
     border-left: 1px solid rgba(255,255,255,0.2);
     cursor: default;
-    max-width: 180px;
+    max-width: 260px;
   }}
   .az-user-name {{
-    font-size: 12px;
-    font-weight: 400;
+    font-size: 16px;
+    font-weight: 600;
     color: #fff;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 160px;
+    max-width: 240px;
   }}
   .az-user-dir {{
     font-size: 10px;
@@ -978,17 +978,19 @@ az_endpoint = az_key = az_deployment = ""
 # ─── Pre-fill values per scenario ────────────────────────────────────────────
 _PREFILL_SCENARIOS = {
     "Blank — start from scratch": {},
-    "Alex Chen — new learner, AI-102": {
-        "name": "Alex Chen", "background": "3 years Python developer, familiar with REST APIs, no Azure experience.",
-        "certs": "", "style": "Hands-on labs and project-based learning",
-        "hpw": 10.0, "weeks": 8, "concerns": "Azure OpenAI, Bot Service",
-        "goal": "Career move into AI engineering",
+    "Alex Chen — complete beginner, AI-102": {
+        "name": "Alex Chen", "background": "Recent computer science graduate, basic Python skills, no cloud or Azure experience at all.",
+        "certs": "", "style": "Hands-on labs and step-by-step tutorials",
+        "hpw": 12.0, "weeks": 10, "concerns": "Azure Cognitive Services, Azure OpenAI, Bot Service",
+        "goal": "Break into AI engineering as a first job after graduation",
+        "role": "Student / Fresh Graduate",
     },
-    "Priya Sharma — returning, AZ-305": {
-        "name": "Priya Sharma", "background": "5 years cloud architect, certified AZ-104 & AZ-204, strong IaC.",
-        "certs": "AZ-104, AZ-204", "style": "Architecture diagrams and case studies",
-        "hpw": 6.0, "weeks": 4, "concerns": "Well-Architected Framework, cost optimization",
-        "goal": "Solutions Architect Expert to lead enterprise engagements",
+    "Priya Sharma — experienced Azure pro, AZ-305": {
+        "name": "Priya Sharma", "background": "7 years cloud architect, certified AZ-900, AZ-104 & AZ-204, strong in IaC, Terraform, ARM templates, and enterprise Azure networking.",
+        "certs": "AZ-900, AZ-104, AZ-204", "style": "Architecture diagrams, case studies, and real-world scenarios",
+        "hpw": 6.0, "weeks": 4, "concerns": "Well-Architected Framework, cost optimization, hybrid identity",
+        "goal": "Earn Solutions Architect Expert to lead enterprise cloud engagements",
+        "role": "Senior Cloud Architect",
     },
 }
 prefill = {}
@@ -1005,7 +1007,7 @@ else:
 
 st.markdown(f"""
 <div class="az-topbar">
-  <div class="az-topbar-right" style="margin-left:auto;">
+  <div class="az-topbar-right" style="margin-left:auto;display:flex;align-items:center;gap:12px;">
     <div class="az-topbar-user" id="az-profile-trigger" style="cursor:pointer;">
       <span class="az-user-name">{_login_name}</span>
       <span class="az-user-dir">Agents League</span>
@@ -1014,36 +1016,13 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ─── Sign-out dropdown (anchored top-right under profile) ────────────────────
+# ─── Sign-out button (compact, top-right) ────────────────────────────────────
 _so_col1, _so_col2 = st.columns([11, 2])
 with _so_col2:
-    with st.popover("👤 " + _login_name, use_container_width=True):
-        st.markdown(f"""
-        <div style="text-align:center;padding:8px 0 4px;">
-          <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin-bottom:12px;">
-            <div style="display:flex;align-items:center;gap:6px;">
-              <svg width="16" height="16" viewBox="0 0 23 23">
-                <rect width="11" height="11" fill="#f25022"/>
-                <rect x="12" width="11" height="11" fill="#7fba00"/>
-                <rect y="12" width="11" height="11" fill="#00a4ef"/>
-                <rect x="12" y="12" width="11" height="11" fill="#ffb900"/>
-              </svg>
-              <span style="font-weight:600;font-size:0.9rem;color:#1B1B1B;">Microsoft</span>
-            </div>
-          </div>
-          <div style="width:64px;height:64px;border-radius:50%;background:#005A9E;
-                      display:flex;align-items:center;justify-content:center;
-                      margin:0 auto 10px;">
-            <span style="color:#fff;font-size:1.4rem;font-weight:600;">{_login_name[0].upper()}</span>
-          </div>
-          <div style="font-weight:700;font-size:0.95rem;color:#1B1B1B;">{_login_name}</div>
-          <div style="font-size:0.78rem;color:#616161;margin:2px 0 8px;">Agents League</div>
-        </div>
-        """, unsafe_allow_html=True)
-        if st.button("Sign out", key="topbar_signout", use_container_width=True):
-            for k in list(st.session_state.keys()):
-                del st.session_state[k]
-            st.rerun()
+    if st.button("Sign out", key="topbar_signout", use_container_width=True):
+        for k in list(st.session_state.keys()):
+            del st.session_state[k]
+        st.rerun()
 
 # ─── Admin Dashboard link (for admin users) ──────────────────────────────────
 if _utype == "admin":
@@ -1057,12 +1036,12 @@ if not is_returning:
       <div class="scenario-card">
         <div class="sc-icon">👩‍🎓</div>
         <div class="sc-name">Alex Chen</div>
-        <div class="sc-desc">New learner · AI-102</div>
+        <div class="sc-desc">Complete beginner · AI-102</div>
       </div>
       <div class="scenario-card">
         <div class="sc-icon">👨‍💻</div>
         <div class="sc-name">Priya Sharma</div>
-        <div class="sc-desc">Returning · AZ-305</div>
+        <div class="sc-desc">Experienced Azure pro · AZ-305</div>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -1070,10 +1049,10 @@ if not is_returning:
     _sc1, _sc2 = st.columns(2)
     with _sc1:
         if st.button("▶ Alex", key="sc_alex", use_container_width=True):
-            prefill.update(_PREFILL_SCENARIOS["Alex Chen — new learner, AI-102"])
+            prefill.update(_PREFILL_SCENARIOS["Alex Chen — complete beginner, AI-102"])
     with _sc2:
         if st.button("▶ Priya", key="sc_priya", use_container_width=True):
-            prefill.update(_PREFILL_SCENARIOS["Priya Sharma — returning, AZ-305"])
+            prefill.update(_PREFILL_SCENARIOS["Priya Sharma — experienced Azure pro, AZ-305"])
 
 # ─── Intake form ─────────────────────────────────────────────────────────────
 st.markdown("## 📝 Student Intake Form")
@@ -1114,6 +1093,11 @@ with st.form("intake_form", clear_on_submit=False):
             value=prefill.get("style", ""),
             placeholder="e.g. hands-on labs first, or structured reading, or quick reference cards",
             height=80,
+        )
+        current_role = st.text_input(
+            "Current role / job title",
+            value=prefill.get("role", ""),
+            placeholder="e.g. Cloud Engineer, Data Analyst, Student",
         )
 
     with col2:
