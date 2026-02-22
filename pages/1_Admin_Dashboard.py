@@ -723,52 +723,53 @@ for step in trace.steps:
           <ul style="margin:0;padding-left:18px;">{_dec_items}</ul>
         </div>"""
 
-    st.markdown(f"""
-    <div style="background:{CARD_BG};border:1px solid #E1DFDD;border-radius:8px;
-                margin-bottom:16px;overflow:hidden;
-                box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+    # Build card HTML via concatenation — never inject _dec_html inside an
+    # f-string, which causes Streamlit to render it as escaped plain text.
+    _agent_label = _html.escape(step.agent_name.split("(")[0].strip())
+    _agent_id    = _html.escape(str(step.agent_id))
+    _status_lbl  = _html.escape(str(step.status))
+    _dur_lbl     = f"{step.duration_ms:.0f}&nbsp;ms"
+    _icon_lbl    = _html.escape(str(step.icon))
 
-      <!-- Header band with agent colour -->
-      <div style="background:{clr};padding:10px 16px;
-                  display:flex;align-items:center;justify-content:space-between;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <span style="font-size:1.3rem;">{step.icon}</span>
-          <div>
-            <span style="color:#fff;font-size:0.95rem;font-weight:700;display:block;">
-              {step.agent_name.split("(")[0].strip()}</span>
-            <span style="color:rgba(255,255,255,0.65);font-size:0.7rem;font-family:monospace;">
-              id:&nbsp;{step.agent_id}</span>
-          </div>
-        </div>
-        <div style="display:flex;gap:6px;align-items:center;">
-          <span style="background:{status_color}25;color:{status_color};
-                       border:1px solid {status_color}60;border-radius:12px;
-                       padding:2px 10px;font-size:0.75rem;font-weight:700;">
-            {step.status}</span>
-          <span style="background:rgba(255,255,255,0.25);color:#fff;
-                       border-radius:12px;padding:2px 10px;font-size:0.75rem;font-weight:600;">
-            {step.duration_ms:.0f}&nbsp;ms</span>
-        </div>
-      </div>
+    _card_html = (
+        f'<div style="background:{CARD_BG};border:1px solid #E1DFDD;border-radius:8px;'
+        f'margin-bottom:16px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.06);">'
 
-      <!-- I/O two-column grid -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
-        <div style="padding:12px 16px;border-right:1px solid #E1DFDD;">
-          <div style="color:{GREY};font-size:0.7rem;font-weight:700;text-transform:uppercase;
-                      letter-spacing:.06em;margin-bottom:6px;">📨 Input</div>
-          <div style="color:#323130;font-size:0.85rem;line-height:1.5;">{_in_html}</div>
-        </div>
-        <div style="padding:12px 16px;">
-          <div style="color:{GREY};font-size:0.7rem;font-weight:700;text-transform:uppercase;
-                      letter-spacing:.06em;margin-bottom:6px;">📤 Output</div>
-          <div style="color:#323130;font-size:0.85rem;line-height:1.5;">{_out_html}</div>
-        </div>
-      </div>
+        # ── Header band ──
+        f'<div style="background:{clr};padding:10px 16px;'
+        f'display:flex;align-items:center;justify-content:space-between;">'
+        f'<div style="display:flex;align-items:center;gap:10px;">'
+        f'<span style="font-size:1.3rem;">{_icon_lbl}</span>'
+        f'<div>'
+        f'<span style="color:#fff;font-size:0.95rem;font-weight:700;display:block;">{_agent_label}</span>'
+        f'<span style="color:rgba(255,255,255,0.65);font-size:0.7rem;font-family:monospace;">id:&nbsp;{_agent_id}</span>'
+        f'</div></div>'
+        f'<div style="display:flex;gap:6px;align-items:center;">'
+        f'<span style="background:{status_color}25;color:{status_color};'
+        f'border:1px solid {status_color}60;border-radius:12px;'
+        f'padding:2px 10px;font-size:0.75rem;font-weight:700;">{_status_lbl}</span>'
+        f'<span style="background:rgba(255,255,255,0.25);color:#fff;'
+        f'border-radius:12px;padding:2px 10px;font-size:0.75rem;font-weight:600;">{_dur_lbl}</span>'
+        f'</div></div>'
 
-      {_dec_html}
+        # ── I/O grid ──
+        f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">'
+        f'<div style="padding:12px 16px;border-right:1px solid #E1DFDD;">'
+        f'<div style="color:{GREY};font-size:0.7rem;font-weight:700;text-transform:uppercase;'
+        f'letter-spacing:.06em;margin-bottom:6px;">📨 Input</div>'
+        f'<div style="color:#323130;font-size:0.85rem;line-height:1.5;">{_in_html}</div>'
+        f'</div>'
+        f'<div style="padding:12px 16px;">'
+        f'<div style="color:{GREY};font-size:0.7rem;font-weight:700;text-transform:uppercase;'
+        f'letter-spacing:.06em;margin-bottom:6px;">📤 Output</div>'
+        f'<div style="color:#323130;font-size:0.85rem;line-height:1.5;">{_out_html}</div>'
+        f'</div></div>'
+    )
+    # Append decisions block as plain string (no f-string wrapping)
+    _card_html += _dec_html
+    _card_html += '</div>'
 
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(_card_html, unsafe_allow_html=True)
 
     if step.warnings:
         for w in step.warnings:
