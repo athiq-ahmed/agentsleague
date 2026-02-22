@@ -74,6 +74,7 @@ from cert_prep.models import (
     DomainKnowledge,
     RawStudentInput,
     LearnerProfile,
+    get_exam_domains,
 )
 from cert_prep.b1_mock_profiler import run_mock_profiling, run_mock_profiling_with_trace
 from cert_prep.b1_1_study_plan_agent import StudyPlanAgent, StudyPlan, PRIORITY_COLOUR as PLAN_COLOUR
@@ -2035,123 +2036,197 @@ if "profile" in st.session_state:
                     unsafe_allow_html=True,
                 )
 
-        # ── Bar: Domain Confidence Breakdown ────────────────────────────────
+        # ── Domain Weight vs Confidence chart ────────────────────────────────
         st.markdown("---")
-        st.markdown("#### 📊 Domain Confidence Breakdown")
+        st.markdown("#### 📊 Exam Weightage vs Your Confidence")
         st.caption(
-            "Bars show each domain's confidence score, colour-coded by knowledge level. "
-            "The dashed line at 50 % is the risk threshold — anything left of it needs prioritised study time."
+            "Each domain shows two bars: the official exam weight (how much the topic counts toward your score) "
+            "and your current confidence estimate. A large gap between the two means you need to prioritise that domain."
         )
 
-        bar_fig = go.Figure(go.Bar(
-            y=labels,
-            x=scores,
+        # Fetch official domain weights from the registry
+        _exam_domain_list = get_exam_domains(raw.exam_target)
+        _weight_by_id     = {d["id"]: d["weight"] for d in _exam_domain_list}
+
+        _weights = [_weight_by_id.get(dp.domain_id, 1.0 / len(profile.domain_profiles))
+                    for dp in profile.domain_profiles]
+        _conf_pct   = [dp.confidence_score * 100 for dp in profile.domain_profiles]
+        _weight_pct = [w * 100 for w in _weights]
+        _bar_labels = labels  # already short-form
+
+        # Colour each confidence bar by knowledge level
+        _conf_colours = [LEVEL_COLOUR[dp.knowledge_level.value] for dp in profile.domain_profiles]
+
+        # Gap label: show ▼ where confidence < weight (under-studied relative to exam share)
+        _gap_texts = [
+            f"▼ {(w - c):.0f}pp gap" if c < w else f"✓ +{(c - w):.0f}pp"
+            for c, w in zip(_conf_pct, _weight_pct)
+        ]
+        _gap_colours = [
+            "#d13438" if c < w - 5 else ("#ca5010" if c < w else "#27ae60")
+            for c, w in zip(_conf_pct, _weight_pct)
+        ]
+
+        bar_fig = go.Figure()
+
+        # Trace 1 — Exam weight (official %)
+        bar_fig.add_trace(go.Bar(
+            name="Exam Weight",
+            y=_bar_labels,
+            x=_weight_pct,
             orientation="h",
-            marker=dict(
-                color=[LEVEL_COLOUR[dp.knowledge_level.value] for dp in profile.domain_profiles],
-                line=dict(width=0),
-            ),
-            text=[f"{s:.0%}" for s in scores],
-            textposition="auto",
+            marker=dict(color="#BFD4EF", line=dict(color="#0078D4", width=1.2)),
+            text=[f"{w:.0f}%" for w in _weight_pct],
+            textposition="inside",
+            textfont=dict(color="#0078D4", size=11, family="Segoe UI"),
+            hovertemplate="<b>%{y}</b><br>Exam weight: %{x:.1f}%<extra></extra>",
         ))
-        bar_fig.add_vline(x=0.50, line_dash="dot", line_color="#ca5010",
-                          annotation_text="Risk threshold 50%", annotation_position="top right")
-        _x_max = min(1.0, max(scores, default=0.5) + 0.20)
+
+        # Trace 2 — User confidence
+        bar_fig.add_trace(go.Bar(
+            name="Your Confidence",
+            y=_bar_labels,
+            x=_conf_pct,
+            orientation="h",
+            marker=dict(color=_conf_colours, opacity=0.88, line=dict(width=0)),
+            text=[f"{c:.0f}%" for c in _conf_pct],
+            textposition="inside",
+            textfont=dict(color="#fff", size=11, family="Segoe UI"),
+            hovertemplate="<b>%{y}</b><br>Confidence: %{x:.1f}%<extra></extra>",
+        ))
+
+        bar_fig.add_vline(x=50, line_dash="dot", line_color="#ca5010",
+                          annotation_text="50% pass threshold",
+                          annotation_font=dict(color="#ca5010", size=10),
+                          annotation_position="top right")
+
         bar_fig.update_layout(
-            height=len(labels) * 52 + 50,          # fixed 52 px per bar + 50 px margins
-            bargap=0.30,                             # uniform gap ratio
-            margin=dict(l=10, r=40, t=20, b=20),
-            xaxis=dict(range=[0, _x_max], tickformat=".0%", showgrid=True, gridcolor="#eeeeee"),
+            barmode="group",
+            bargroupgap=0.12,
+            bargap=0.28,
+            height=len(_bar_labels) * 72 + 60,
+            margin=dict(l=10, r=50, t=30, b=20),
+            xaxis=dict(
+                range=[0, 105],
+                ticksuffix="%",
+                showgrid=True,
+                gridcolor="#eeeeee",
+                title=dict(text="Percentage (%)", font=dict(size=11, color="#616161")),
+            ),
             yaxis=dict(autorange="reversed"),
             paper_bgcolor="white",
             plot_bgcolor="white",
-            showlegend=False,
-            uniformtext_minsize=7,
+            legend=dict(
+                orientation="h", yanchor="bottom", y=1.02,
+                xanchor="left", x=0,
+                font=dict(size=11),
+                bgcolor="rgba(255,255,255,0.8)",
+                bordercolor="#e0e0e0", borderwidth=1,
+            ),
+            uniformtext_minsize=8,
             uniformtext_mode="hide",
         )
         st.plotly_chart(bar_fig, use_container_width=True)
 
-        # ── Bar chart insights ────────────────────────────────────────────────
-        _level_counts = {}
-        for dp in profile.domain_profiles:
-            lv = dp.knowledge_level.value
-            _level_counts[lv] = _level_counts.get(lv, 0) + 1
-
-        _skip_names  = [dp.domain_name.replace("Implement ","").replace(" Solutions","")
-                        for dp in profile.domain_profiles if dp.skip_recommended]
-        _risk_names  = [dp.domain_name.replace("Implement ","").replace(" Solutions","")
-                        for dp in profile.domain_profiles if dp.domain_id in profile.risk_domains]
-
-        _bar_colour  = GREEN if not _below_thresh else (GOLD if len(_below_thresh) <= 2 else "#d13438")
-
-        # Build level pills
-        _level_pills = ""
-        for lv, cnt in sorted(_level_counts.items(),
-                               key=lambda x: ["strong","moderate","weak","unknown"].index(x[0])
-                               if x[0] in ["strong","moderate","weak","unknown"] else 9):
-            _level_pills += (
-                f'<span style="display:inline-block;background:{LEVEL_COLOUR[lv]};color:#fff;'
-                f'padding:2px 10px;border-radius:12px;font-size:0.78rem;font-weight:600;margin-right:6px;">'
-                f'{cnt} {lv.upper()}</span>'
+        # Gap summary table (domain · exam weight · confidence · gap)
+        _gap_rows = ""
+        for i, dp in enumerate(profile.domain_profiles):
+            _lbl  = _bar_labels[i]
+            _wt   = _weight_pct[i]
+            _cf   = _conf_pct[i]
+            _gc   = _gap_colours[i]
+            _gt   = _gap_texts[i]
+            _bg   = "#FFF1F0" if _gc == "#d13438" else ("#FFFAF0" if _gc == "#ca5010" else "#F0FFF4")
+            _gap_rows += (
+                f'<tr style="background:{_bg};">'
+                f'<td style="padding:5px 10px;font-size:0.82rem;color:#1B1B1B;font-weight:600;">{_lbl}</td>'
+                f'<td style="padding:5px 10px;font-size:0.82rem;text-align:center;color:#0078D4;font-weight:700;">{_wt:.0f}%</td>'
+                f'<td style="padding:5px 10px;font-size:0.82rem;text-align:center;'
+                f'color:{LEVEL_COLOUR[dp.knowledge_level.value]};font-weight:700;">{_cf:.0f}%</td>'
+                f'<td style="padding:5px 10px;font-size:0.82rem;text-align:center;'
+                f'color:{_gc};font-weight:700;">{_gt}</td>'
+                f'</tr>'
             )
+        st.markdown(f"""
+        <table style="width:100%;border-collapse:collapse;margin-top:8px;
+                      border:1px solid #E1DFDD;border-radius:6px;overflow:hidden;">
+          <thead>
+            <tr style="background:#EFF6FF;">
+              <th style="padding:6px 10px;font-size:0.74rem;color:#0078D4;text-align:left;
+                         text-transform:uppercase;letter-spacing:.06em;">Domain</th>
+              <th style="padding:6px 10px;font-size:0.74rem;color:#0078D4;text-align:center;
+                         text-transform:uppercase;letter-spacing:.06em;">Exam Weight</th>
+              <th style="padding:6px 10px;font-size:0.74rem;color:#0078D4;text-align:center;
+                         text-transform:uppercase;letter-spacing:.06em;">Your Confidence</th>
+              <th style="padding:6px 10px;font-size:0.74rem;color:#0078D4;text-align:center;
+                         text-transform:uppercase;letter-spacing:.06em;">Gap</th>
+            </tr>
+          </thead>
+          <tbody>{_gap_rows}</tbody>
+        </table>
+        """, unsafe_allow_html=True)
 
-        # Build risk / skip lines
-        _risk_html = ""
+        # ── Profile snapshot: 4-bullet summary card ──────────────────────────
+        _skip_names = [dp.domain_name.replace("Implement ","").replace(" Solutions","")
+                       for dp in profile.domain_profiles if dp.skip_recommended]
+        _risk_names = [dp.domain_name.replace("Implement ","").replace(" Solutions","")
+                       for dp in profile.domain_profiles if dp.domain_id in profile.risk_domains]
+
+        # Bullet 1 — readiness snapshot
+        _b1_colour = GREEN if avg_conf >= 0.65 else (GOLD if avg_conf >= 0.40 else "#d13438")
+        _b1_icon   = "✅" if avg_conf >= 0.65 else ("⚡" if avg_conf >= 0.40 else "🔴")
+        _b1 = (
+            f"{_b1_icon} <b>Overall readiness:</b> "
+            f"<span style='color:{_b1_colour};font-weight:700;'>{avg_conf:.0%} avg confidence</span> — "
+            f"{profile.experience_level.value.replace('_',' ').title()} level · "
+            f"{len(_above_thresh)}/{len(profile.domain_profiles)} domains above the 50% pass threshold."
+        )
+        # Bullet 2 — top strengths
+        _strong_names = [dp.domain_name.replace("Implement ","").replace(" Solutions","")
+                         for dp in sorted(profile.domain_profiles,
+                                          key=lambda d: d.confidence_score, reverse=True)[:2]]
+        _b2 = (
+            f"🏆 <b>Strongest areas:</b> "
+            + ", ".join(f"<b>{n}</b>" for n in _strong_names)
+            + f" — these can be covered faster, freeing up time for weaker domains."
+        )
+        # Bullet 3 — risk / focus
         if _risk_names:
-            _risk_html = (
-                f'<div class="callout-warning" style="margin-top:8px;">'
-                f'<b>⚠ Risk domains (below 50% threshold):</b><br/>'
-                + "".join(f'<span style="display:inline-block;margin:3px 6px 3px 0;padding:2px 10px;'
-                          f'background:#FFF0F0;border:1px solid #D13438;border-radius:12px;'
-                          f'font-size:0.82rem;color:#D13438;font-weight:600;">{n}</span>'
-                          for n in _risk_names)
-                + '</div>'
+            _b3 = (
+                f"⚠️ <b>Focus areas (below threshold):</b> "
+                + ", ".join(f"<span style='color:#d13438;font-weight:600;'>{n}</span>" for n in _risk_names)
+                + " — allocate extra study time here before sitting the exam."
             )
         else:
-            _risk_html = (
-                f'<div class="callout-tip" style="margin-top:8px;">'
-                f'<b>✓ No domains fall below the risk threshold.</b></div>'
+            _b3 = (
+                f"✅ <b>No domains below the 50% risk threshold</b> — "
+                f"your baseline is solid; shift focus to exam-style practice questions."
             )
-
-        _skip_html = ""
+        # Bullet 4 — fast-track / next step
         if _skip_names:
-            _skip_html = (
-                f'<div style="margin-top:6px;font-size:0.85rem;color:{GREEN};">'
-                f'<b>⏭ Fast-track candidates:</b> {", ".join(_skip_names)}</div>'
+            _b4 = (
+                f"⏭️ <b>Fast-track candidates:</b> "
+                + ", ".join(f"<b>{n}</b>" for n in _skip_names)
+                + " — existing knowledge means these modules need brief review only."
+            )
+        else:
+            _b4 = (
+                f"📅 <b>Recommended next step:</b> review the Study Setup tab to see your "
+                f"week-by-week Gantt plan and confirm your {raw.weeks_available}-week schedule."
             )
 
-        _rec_text = (
-            "Concentrate initial study blocks on <b>" +
-            ", ".join(dp.domain_name.replace("Implement ","").replace(" Solutions","")
-                      for dp in _sorted_dp[:2]) +
-            "</b> domains first to close the biggest gaps."
-            if _below_thresh else
-            "All domains are at or above readiness. Focus remaining time on practice exams and edge-case topics."
-        )
-
-        st.markdown(
-            f"""<div class='callout-note'>
-              <b style='font-size:0.92rem;'>📊 Assessment Summary</b>
-              <div style='margin-top:8px;'>
-                <div style='margin-bottom:6px;'>""",
-            unsafe_allow_html=True)
-        st.markdown(_level_pills, unsafe_allow_html=True)
         st.markdown(f"""
-                <div style='font-size:0.85rem;color:#323130;'>
-                  <b>Domains above 50% threshold:</b>
-                  <span style='color:{_bar_colour};font-weight:700;'>
-                    {len(_above_thresh)} / {len(profile.domain_profiles)}
-                  </span>
-                </div>""", unsafe_allow_html=True)
-        st.markdown(_skip_html, unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown(_risk_html, unsafe_allow_html=True)
-        st.markdown(f"""
-              <div style='margin-top:8px;padding:8px 12px;background:#FAFAFA;border-radius:4px;
-                   font-size:0.85rem;color:#323130;'>
-                <b>💡 Recommendation:</b> {_rec_text}
-              </div>
-            </div>""", unsafe_allow_html=True)
+        <div style="margin-top:16px;background:#F8F9FF;border:1px solid #C7D7F5;
+                    border-left:4px solid #0078D4;border-radius:8px;padding:14px 18px;">
+          <div style="font-size:0.8rem;font-weight:700;color:#0078D4;text-transform:uppercase;
+                      letter-spacing:.07em;margin-bottom:10px;">📋 Profile Snapshot</div>
+          <ul style="margin:0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:7px;">
+            <li style="font-size:0.875rem;color:#1B1B1B;line-height:1.55;">{_b1}</li>
+            <li style="font-size:0.875rem;color:#1B1B1B;line-height:1.55;">{_b2}</li>
+            <li style="font-size:0.875rem;color:#1B1B1B;line-height:1.55;">{_b3}</li>
+            <li style="font-size:0.875rem;color:#1B1B1B;line-height:1.55;">{_b4}</li>
+          </ul>
+        </div>""", unsafe_allow_html=True)
 
     # ── Tab 2: Study Setup ────────────────────────────────────────────────────
     with tab_plan:

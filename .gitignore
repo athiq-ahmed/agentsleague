@@ -16,3 +16,6 @@ config/secrets.*
 
 # Local database
 cert_prep_data.db
+
+# Streamlit credentials (local only)
+.streamlit/credentials.toml
