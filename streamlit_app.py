@@ -1366,40 +1366,61 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    # Navigation section — DEMO SCENARIOS always visible, LEARNING STAGES below when profile exists
-    st.markdown('<p style="color:rgba(255,255,255,0.5);font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;padding-left:4px;">DEMO SCENARIOS</p>', unsafe_allow_html=True)
-    _active_prefill = st.session_state.get("sidebar_prefill")
-    _alex_active    = _active_prefill == "alex"
-    _jordan_active  = _active_prefill == "priyanka"
-    if st.button(
-        "🌱 AI Beginner · AI-102",
-        key="sb_sc_alex",
-        use_container_width=True,
-        disabled=_jordan_active,
-        type="primary" if _alex_active else "secondary",
-    ):
-        if not _alex_active:
-            st.session_state["sidebar_prefill"] = "alex"
-            st.rerun()
-    if st.button(
-        "📊 Data Professional · DP-100",
-        key="sb_sc_jordan",
-        use_container_width=True,
-        disabled=_alex_active,
-        type="primary" if _jordan_active else "secondary",
-    ):
-        if not _jordan_active:
-            st.session_state["sidebar_prefill"] = "priyanka"
-            st.rerun()
-    if _active_prefill:
+    # Navigation section — DEMO SCENARIOS for new users only
+    _is_returning_user = "profile" in st.session_state
+
+    if not _is_returning_user:
+        st.markdown(
+            '<p style="color:rgba(255,255,255,0.5);font-size:0.6rem;font-weight:700;'
+            'text-transform:uppercase;letter-spacing:0.1em;margin-bottom:2px;padding-left:4px;">'
+            'DEMO SCENARIOS</p>'
+            '<p style="color:rgba(255,255,255,0.4);font-size:0.68rem;margin:0 0 6px;padding-left:4px;">'
+            '✨ New here? Pick a scenario to get started.</p>',
+            unsafe_allow_html=True,
+        )
+        _active_prefill = st.session_state.get("sidebar_prefill")
+        _alex_active    = _active_prefill == "alex"
+        _jordan_active  = _active_prefill == "priyanka"
         if st.button(
-            "↩ Reset scenario",
-            key="sb_reset_link",
+            "🌱 AI Beginner · AI-102",
+            key="sb_sc_alex",
             use_container_width=True,
-            help="Clear the current demo scenario and pick a different one",
+            disabled=_jordan_active,
+            type="primary" if _alex_active else "secondary",
         ):
-            st.session_state.pop("sidebar_prefill", None)
-            st.rerun()
+            if not _alex_active:
+                st.session_state["sidebar_prefill"] = "alex"
+                st.rerun()
+        if st.button(
+            "📊 Data Professional · DP-100",
+            key="sb_sc_jordan",
+            use_container_width=True,
+            disabled=_alex_active,
+            type="primary" if _jordan_active else "secondary",
+        ):
+            if not _jordan_active:
+                st.session_state["sidebar_prefill"] = "priyanka"
+                st.rerun()
+        if _active_prefill:
+            if st.button(
+                "↩ Reset scenario",
+                key="sb_reset_link",
+                use_container_width=True,
+                help="Clear the current demo scenario and pick a different one",
+            ):
+                st.session_state.pop("sidebar_prefill", None)
+                st.rerun()
+    else:
+        # Existing user — no demo scenario buttons, just a status note
+        st.markdown(
+            '<div style="background:rgba(255,255,255,0.08);border-left:3px solid rgba(255,255,255,0.3);'
+            'border-radius:4px;padding:8px 10px;margin-bottom:8px;">'
+            '<p style="color:rgba(255,255,255,0.85);font-size:0.78rem;font-weight:600;margin:0 0 2px;">👤 Profile loaded</p>'
+            '<p style="color:rgba(255,255,255,0.5);font-size:0.68rem;margin:0;">'
+            'Demo Scenarios are for new users only. Use the Reset button to start fresh.</p>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
 
     if _utype == "admin":
         st.markdown("---")
