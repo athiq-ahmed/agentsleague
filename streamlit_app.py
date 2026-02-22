@@ -1,3 +1,48 @@
+# Domain badge color mapping
+LEVEL_COLOUR = {
+  "unknown": "#BDBDBD",
+  "weak": "#FF6F00",
+  "moderate": "#0078D4",
+  "strong": "#107C41"
+}
+# Color constants
+BG_DARK = "#F5F5F5"
+BG_CARD = "#FFFFFF"
+BLUE = "#0078D4"
+PURPLE = "#7B2FF2"
+GOLD = "#FFB900"
+ORANGE = "#FF6F00"
+TEXT_PRIMARY = "#1B1B1B"
+TEXT_MUTED = "#616161"
+BLUE_LITE = "#EFF6FF"
+BORDER = "#E1DFDD"
+GREEN = "#107C41"
+GREEN_LITE = "#F0FFF4"
+RED_LITE = "#FFF8F0"
+RED = "#CA5010"
+# Color constants
+BG_DARK = "#F5F5F5"
+BG_CARD = "#FFFFFF"
+BLUE = "#0078D4"
+PURPLE = "#7B2FF2"
+GOLD = "#FFB900"
+TEXT_PRIMARY = "#1B1B1B"
+TEXT_MUTED = "#616161"
+BLUE_LITE = "#EFF6FF"
+BORDER = "#E1DFDD"
+GREEN = "#107C41"
+# Color constants
+BG_DARK = "#F5F5F5"
+BG_CARD = "#FFFFFF"
+BLUE = "#0078D4"
+PURPLE = "#7B2FF2"
+TEXT_PRIMARY = "#1B1B1B"
+TEXT_MUTED = "#616161"
+BLUE_LITE = "#EFF6FF"
+BORDER = "#E1DFDD"
+GREEN = "#107C41"
+BORDER = "#E1DFDD"
+GREEN = "#107C41"
 """
 streamlit_app.py – Microsoft Certification Prep  •  Block 1 Interactive UI
 
@@ -9,12 +54,21 @@ Modes:
   • Live mode  – calls Azure OpenAI; requires .env with API credentials
 """
 
-from __future__ import annotations
+
 
 import json
 import sys
 from pathlib import Path
 import os
+
+# Color constants
+BG_DARK = "#F5F5F5"
+BG_CARD = "#FFFFFF"
+BLUE = "#0078D4"
+TEXT_PRIMARY = "#1B1B1B"
+TEXT_MUTED = "#616161"
+BLUE_LITE = "#EFF6FF"
+BORDER = "#E1DFDD"
 
 # make src/ importable without installing the package
 sys.path.insert(0, str(Path(__file__).parent / "src"))
