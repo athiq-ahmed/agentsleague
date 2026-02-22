@@ -1360,14 +1360,31 @@ with st.sidebar:
     # Navigation section (slim)
     if not is_returning:
         st.markdown('<p style="color:rgba(255,255,255,0.5);font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;padding-left:4px;">DEMO SCENARIOS</p>', unsafe_allow_html=True)
-        if st.button("🌱 AI Beginner · AI-102", key="sb_sc_alex", use_container_width=True):
-          if st.session_state.get("sidebar_prefill") != "alex":
-            st.session_state["sidebar_prefill"] = "alex"
-            st.rerun()
-        if st.button("📊 Data Professional · DP-100", key="sb_sc_jordan", use_container_width=True):
-          if st.session_state.get("sidebar_prefill") != "priyanka":
-            st.session_state["sidebar_prefill"] = "priyanka"
-            st.rerun()
+        _active_prefill = st.session_state.get("sidebar_prefill")
+        _alex_active    = _active_prefill == "alex"
+        _jordan_active  = _active_prefill == "priyanka"
+        if st.button(
+            "🌱 AI Beginner · AI-102",
+            key="sb_sc_alex",
+            use_container_width=True,
+            disabled=_jordan_active,
+            type="primary" if _alex_active else "secondary",
+        ):
+            if not _alex_active:
+                st.session_state["sidebar_prefill"] = "alex"
+                st.rerun()
+        if st.button(
+            "📊 Data Professional · DP-100",
+            key="sb_sc_jordan",
+            use_container_width=True,
+            disabled=_alex_active,
+            type="primary" if _jordan_active else "secondary",
+        ):
+            if not _jordan_active:
+                st.session_state["sidebar_prefill"] = "priyanka"
+                st.rerun()
+        if _active_prefill:
+            st.caption("↩ Hit **Reset** to switch scenario.")
     else:
         # Stage completion tracker
         _stages = [
@@ -2243,7 +2260,14 @@ if "profile" in st.session_state:
 
             # Status banner (one line)
             if plan.prereq_gap:
-                st.warning(f"⚠️ Prerequisite gap — {plan.prereq_message}", icon="⚠️")
+                _missing_codes = [p.cert_code for p in plan.prerequisites
+                                   if not p.already_held and p.relationship == "strongly_recommended"]
+                _gap_short = (
+                    f"Missing strongly-recommended prerequisite{'s' if len(_missing_codes) > 1 else ''}: "
+                    f"**{', '.join(_missing_codes)}**. "
+                    f"Complete {'these' if len(_missing_codes) > 1 else 'this'} before sitting {profile.exam_target}."
+                )
+                st.warning(_gap_short, icon="⚠️")
             else:
                 st.success(f"✅ All required prerequisites for **{profile.exam_target}** are already held.", icon="✅")
 
@@ -2453,10 +2477,15 @@ if "profile" in st.session_state:
             _avg_conf_sum = sum(dp.confidence_score for dp in profile.domain_profiles) / len(profile.domain_profiles)
 
             _s1, _s2, _s3, _s4 = st.columns(4)
-            with _s1: st.metric("Total Study Hours", f"{_total_h_sum:.0f} h")
+            with _s1: st.metric("Study Budget", f"{_total_h_sum:.0f} h")
             with _s2: st.metric("Duration", f"{plan.total_weeks} weeks")
             with _s3: st.metric("Hours / Week", f"{profile.hours_per_week:.0f} h")
             with _s4: st.metric("Avg Confidence", f"{_avg_conf_sum*100:.0f}%")
+            st.caption(
+                f"{profile.hours_per_week:.0f} h/week × {plan.total_weeks} weeks = **{_total_h_sum:.0f} h total budget** "
+                f"(covers MS Learn modules + labs + practice exams + review). "
+                f"MS Learn curated content alone is shorter — see the Learning Path tab for module-level time."
+            )
 
             _bullets = []
             if _critical_dom:
@@ -2563,13 +2592,23 @@ if "profile" in st.session_state:
             # Total hours vs budget
             _ratio = _lp.total_hours_est / max(profile.total_budget_hours, 1)
             st.markdown("---")
-            _ce1, _ce2, _ce3 = st.columns(3)
+            _ce1, _ce2, _ce3, _ce4 = st.columns(4)
             with _ce1:
                 st.metric("Modules Curated", len(_lp.all_modules))
             with _ce2:
-                st.metric("Estimated Hours", f"{_lp.total_hours_est:.1f} h")
+                st.metric("MS Learn Content", f"{_lp.total_hours_est:.1f} h",
+                          help="Official Microsoft Learn estimated reading/video time for selected modules only.")
             with _ce3:
-                st.metric("Budget Utilisation", f"{_ratio:.0%}")
+                st.metric("Full Study Budget", f"{profile.total_budget_hours:.0f} h",
+                          help=f"{profile.hours_per_week:.0f} h/week × {profile.weeks_available} weeks. Includes labs, practice exams, and review time beyond MS Learn modules.")
+            with _ce4:
+                st.metric("Content vs Budget", f"{_ratio:.0%}",
+                          help="MS Learn module time as a share of your total study budget. Remaining time is for labs, practice exams, and self-review.")
+            st.caption(
+                f"📌 **MS Learn content ({_lp.total_hours_est:.1f} h)** is the official module reading/video time. "
+                f"Your **{profile.total_budget_hours:.0f} h total budget** ({profile.hours_per_week:.0f} h/week × {profile.weeks_available} weeks) "
+                f"covers modules + hands-on labs + practice exams + review — consistent with your Study Setup plan."
+            )
 
     # ── Tab 4: Recommendations ────────────────────────────────────────────────
     with tab_recs:
