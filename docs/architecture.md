@@ -1,209 +1,394 @@
-# CertPrep AI — Multi-Agent Architecture
+# System Architecture — Certification Prep Multi-Agent System
 
-> Microsoft Agents League 2026 · Battle #2: Reasoning Agents
+> Technical deep-dive for engineers, architects, and technical reviewers.
+> Covers data flow, algorithms, database schema, observability, and design decisions.
+
+---
+
+## High-Level Flow
 
 ```mermaid
 flowchart TD
-    S(["🎓 Student\n(Browser Form)"])
+    UI([Student Web UI\nStreamlit]) --> |RawStudentInput| GI[GuardrailsPipeline\nInput G-01..G-05]
+    GI -->|BLOCK| STOP1([st.stop])
+    GI -->|PASS| B0[B0 LearnerProfilingAgent\nRule-based OR GPT-4o]
+    B0 --> |LearnerProfile\nPydantic validated| GP[GuardrailsPipeline\nProfile G-06..G-08]
+    GP -->|BLOCK| STOP2([st.stop])
+    GP -->|PASS| B11A[B1.1a StudyPlanAgent\nLargest Remainder alloc]
+    GP -->|PASS| B11B[B1.1b LearningPathCurator\nMS Learn module map]
+    B11A -->|StudyPlan| DB[(cert_prep_data.db\nSQLite)]
+    B11B -->|LearningPath| DB
 
-    subgraph INPUT["📥 Block 0 — Input Layer"]
-        S -->|"raw form data"| IA["LearnerIntakeAgent\n(intake_agent.py)"]
-    end
+    DB --> HITL1{HITL Gate 1\nProgress Check-In form\nst.form submit}
+    HITL1 -->|ProgressSnapshot| GX[GuardrailsPipeline\nProgress G-11..G-13]
+    GX -->|BLOCK| STOP3([st.stop])
+    GX -->|PASS| B12[B1.2 ProgressAgent\n0.55×conf + 0.25×hours\n+ 0.20×practice]
+    B12 -->|ReadinessAssessment| ROUTE{Conditional Router\nreadiness_pct}
+    ROUTE -->|>= 70%| GO[GO path\nbook exam]
+    ROUTE -->|50..70%| COND[CONDITIONAL GO\ntargeted review]
+    ROUTE -->|< 50%| NOTYET[NOT YET\nremediation loop]
+    NOTYET --> |rebuild plan| B11A
 
-    subgraph BLOCK1["🧠 Block 1 — Intake & Profiling"]
-        IA -->|"RawStudentInput"| G_IN{{"🛡️ Guardrails\nG-01 to G-05"}}
-        G_IN -->|"✅ pass"| PA["LearnerProfilingAgent\n(Mock / Azure OpenAI)"]
-        G_IN -->|"🚫 BLOCK"| ERR1[/"Error Banner\nUI stops"/]
-        PA -->|"LearnerProfile"| G_PF{{"🛡️ Guardrails\nG-06 to G-08"}}
-    end
+    GO --> HITL2{HITL Gate 2\nQuiz submission}
+    COND --> HITL2
+    HITL2 -->|dict answers| GQ[GuardrailsPipeline\nQuiz G-14..G-15]
+    GQ -->|PASS| B2[B2 AssessmentAgent\nLargest Remainder sampling\n30-Q bank]
+    B2 -->|AssessmentResult| B3[B3 CertRecommendationAgent\nnext-cert path + checklist]
+    B3 -->|CertRecommendation| UI
+    B3 --> DB
 
-    subgraph BLOCK11["📚 Block 1.1 — Learning Path & Study Plan"]
-        G_PF -->|"✅"| LPC["LearningPathCuratorAgent\n30+ MS Learn modules"]
-        G_PF -->|"✅"| SPA["StudyPlanAgent\nLargest Remainder Method"]
-        LPC -->|"LearningPath"| G_LP{{"🛡️ G-17\nURL trust check"}}
-        SPA -->|"StudyPlan + Gantt"| G_SP{{"🛡️ G-09, G-10\nweek bounds, hours"}}
-    end
-
-    subgraph BLOCK12["📈 Block 1.2 — Progress Tracking"]
-        G_SP --> PRA["ProgressAgent\nReadiness Formula:\n0.55×domain + 0.25×hours + 0.20×practice"]
-        G_SP --> G_SN{{"🛡️ G-11 to G-13\nhours≥0, rating[1-5], score[0-100]"}}
-        G_SN -->|"ProgressSnapshot"| PRA
-        PRA -->|"ReadinessAssessment"| ENG["📧 Engagement Agent\nHTML email + nudges"]
-    end
-
-    subgraph BLOCK2["🧪 Block 2 — Knowledge Assessment (HITL)"]
-        PRA -->|"readiness data"| HITL{"👤 Human Gate:\nLearner clicks\n'Generate Quiz'"}
-        HITL -->|"Yes"| ASA["AssessmentAgent\n30-Q bank, domain-weighted\nLargest Remainder sampling"]
-        ASA -->|"AssessmentResult"| G_AS{{"🛡️ G-14, G-15\n≥5 Qs, no duplicates"}}
-    end
-
-    subgraph BLOCK3["🏅 Block 3 — Certification Decision"]
-        G_AS -->|"✅"| PASS{"Quiz Score ≥ 70%?"}
-        PASS -->|"✅ YES"| CRA["CertificationRecommendationAgent\nGO + exam logistics\n+ next-cert path"]
-        PASS -->|"❌ NO"| LOOP["Remediation Plan\n← loops back to Block 1.1"]
-        LOOP --> LPC
-    end
-
-    subgraph OUTPUT["📤 Output Layer"]
-        CRA --> UI["🖥️ Streamlit UI\n7 Tabs — GO/NO-GO card\nexam booking checklist"]
-        ENG --> EMAIL["📨 SMTP Email\nWeekly summary report"]
-        G_LP --> UI
-        G_SP --> UI
-    end
-
-    %% Styles
-    classDef agent    fill:#5C2D91,color:#fff,stroke:#3b1e6e,rx:6
-    classDef guard    fill:#DC2626,color:#fff,stroke:#991b1b,rx:4
-    classDef decision fill:#D97706,color:#fff,stroke:#92400e
-    classDef output   fill:#059669,color:#fff,stroke:#047857,rx:4
-    classDef error    fill:#FEE2E2,color:#991b1b,stroke:#DC2626
-    classDef hitl     fill:#0F6CBD,color:#fff,stroke:#0a4a8a
-
-    class IA,PA,LPC,SPA,PRA,ENG,ASA,CRA agent
-    class G_IN,G_PF,G_LP,G_SP,G_SN,G_AS guard
-    class PASS,LOOP decision
-    class UI,EMAIL output
-    class ERR1 error
-    class HITL hitl
-    class S hitl
+    DB --> ADMIN[Admin Dashboard\nGantt + Violations\n+ Student Roster]
 ```
 
 ---
 
 ## Agent Summary
 
-| Block | Agent | Input | Output |
-|-------|-------|-------|--------|
-| 0 | **LearnerIntakeAgent** | UI form | `RawStudentInput` |
-| 1 | **LearnerProfilingAgent** | `RawStudentInput` | `LearnerProfile` |
-| 1.1 | **LearningPathCuratorAgent** | `LearnerProfile` | `LearningPath` |
-| 1.1 | **StudyPlanAgent** | `LearnerProfile` | `StudyPlan` + Gantt |
-| 1.2 | **ProgressAgent** | `ProgressSnapshot` | `ReadinessAssessment` |
-| 1.2 | **Engagement Agent** | `ReadinessAssessment` | HTML email |
-| 2 | **AssessmentAgent** | `LearnerProfile` | `Assessment` + `AssessmentResult` |
-| 3 | **CertificationRecommendationAgent** | `AssessmentResult` | `CertRecommendation` |
-
-## Guardrails Overview
-
-| Rules | Category | Level | Description |
-|-------|----------|-------|-------------|
-| G-01 to G-05 | **Input Validation** | BLOCK / WARN / INFO | Non-empty required fields, hours/week [1–80], weeks [1–52], recognised exam codes, PII redaction notice |
-| G-06 to G-08 | **Profile Integrity** | BLOCK / WARN | All 6 domains present, confidence scores in [0.0–1.0], risk domain IDs are valid |
-| G-09 to G-10 | **Study Plan Bounds** | BLOCK / WARN | No `start_week > end_week`, total allocated hours ≤ 110% of budget |
-| G-11 to G-13 | **Progress Data Validity** | BLOCK | Hours ≥ 0, self-ratings [1–5], practice scores [0–100] |
-| G-14 to G-15 | **Quiz Integrity** | WARN / BLOCK | Minimum 5 questions, no duplicate question IDs |
-| G-16 to G-17 | **Content Safety & URL Trust** | BLOCK / WARN | Heuristic harmful content detection, URLs must match `learn.microsoft.com` / `pearsonvue.com` / `aka.ms` |
-
-### Guardrail Enforcement Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│              GuardrailsPipeline (Façade)                 │
-│                                                         │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │
-│  │ InputGuard   │  │ ProfileGuard │  │ PlanGuard    │   │
-│  │ G-01 to G-05 │  │ G-06 to G-08 │  │ G-09 to G-10 │   │
-│  └──────────────┘  └──────────────┘  └──────────────┘   │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │
-│  │ SnapGuard    │  │ AssessGuard  │  │ ContentGuard │   │
-│  │ G-11 to G-13 │  │ G-14 to G-15 │  │ G-16 to G-17 │   │
-│  └──────────────┘  └──────────────┘  └──────────────┘   │
-└─────────────────────────────────────────────────────────┘
-```
-
-Each guardrail returns a `GuardrailResult` with:
-- **`passed`** — `True` if no BLOCK-level violations
-- **`violations`** — List of `GuardrailViolation(code, level, message, field)`
-- **`blocked`** — Property: `True` if any BLOCK violation exists
-- **`summary()`** — Human-readable summary with emoji indicators (🚫/⚠️/ℹ️)
-
-### Guardrail Levels
-
-| Level | Behaviour | UI Indicator |
-|-------|-----------|-------------|
-| **BLOCK** | Hard-stop — pipeline does not proceed | 🚫 Red error banner |
-| **WARN** | Soft-stop — pipeline proceeds with visible warning | ⚠️ Yellow warning |
-| **INFO** | Advisory — logged in agent trace only | ℹ️ Blue note |
+| Agent | Module | Pattern | Input | Output |
+|-------|--------|---------|-------|--------|
+| GuardrailsPipeline | `guardrails.py` | Façade middleware | Any typed object | `GuardrailResult` |
+| LearnerProfilingAgent | `b1_mock_profiler.py` | Sequential | `RawStudentInput` | `LearnerProfile` |
+| StudyPlanAgent | `b1_1_study_plan_agent.py` | Sequential | `LearnerProfile` | `StudyPlan` |
+| LearningPathCurator | `b1_1_learning_path_curator.py` | Sequential (→ parallel) | `LearnerProfile` | `LearningPath` |
+| ProgressAgent | `b1_2_progress_agent.py` | Sequential + HITL | `ProgressSnapshot` | `ReadinessAssessment` |
+| AssessmentAgent | `b2_assessment_agent.py` | Sequential + HITL | `LearnerProfile` | `Assessment` + `AssessmentResult` |
+| CertRecommendationAgent | `b3_cert_recommendation_agent.py` | Sequential | `AssessmentResult` | `CertRecommendation` |
+| RunTrace/AgentStep | `agent_trace.py` | Cross-cutting | All agents | Persisted trace records |
 
 ---
 
-## Agent Orchestration Patterns
+## Guardrail Architecture
 
-### Why Orchestration Matters
+The `GuardrailsPipeline` implements the **Façade pattern** — it wraps every agent boundary without any agent knowing about it. Each check method corresponds to a pipeline transition:
 
-As multi-agent systems grow beyond 2-3 agents, the coordination pattern determines system reliability, debuggability, and scalability. This project implements a principled approach to orchestration rather than ad-hoc agent coupling.
-
-### Pattern 1: Sequential Pipeline (Primary)
-
-**What:** Agents execute in a strict linear order where each agent's typed output becomes the next agent's input.
-
-**How it works in our system:**
-
-```
-📥 RawStudentInput
-  ↓  [G-01..G-05 validation]
-🧠 LearnerProfile
-  ↓  [G-06..G-08 validation]
-🗺️ LearningPath + 📅 StudyPlan
-  ↓  [G-09..G-10 + G-17 validation]
-📈 ReadinessAssessment
-  ↓  [G-11..G-13 validation]
-🧪 AssessmentResult
-  ↓  [G-14..G-15 validation]
-🏅 CertRecommendation
+```python
+class GuardrailsPipeline:
+    def check_input(self, raw: RawStudentInput) -> GuardrailResult:       # G-01..G-05
+    def check_profile(self, profile: LearnerProfile) -> GuardrailResult:  # G-06..G-08
+    def check_plan(self, plan: StudyPlan) -> GuardrailResult:             # G-09..G-10
+    def check_progress(self, snap: ProgressSnapshot) -> GuardrailResult:  # G-11..G-13
+    def check_assessment(self, asmt: Assessment) -> GuardrailResult:      # G-14..G-15
+    def check_content(self, text: str) -> GuardrailResult:               # G-16
+    def check_urls(self, urls: list[str]) -> GuardrailResult:            # G-17
 ```
 
-**Why it fits:** Certification prep is inherently sequential — you can't build a study plan without a learner profile, and you can't assess readiness without a study plan.
+### Violation Data Model
 
-**Implementation:** Each agent is a plain Python class with a `.run()` / `.curate()` / `.assess()` / `.evaluate()` / `.recommend()` method. The orchestrator is `streamlit_app.py` which invokes agents in order and stores results in `st.session_state`.
+```python
+@dataclass
+class GuardrailViolation:
+    code: str        # "G-04"
+    level: str       # "BLOCK" / "WARN" / "INFO"
+    message: str
+    field: str       # which input field triggered it
 
-### Pattern 2: Typed Handoff
-
-**What:** Agents pass structured, validated data objects (not raw text) to downstream agents.
-
-**How it works in our system:**
-
-| Source Agent | Handoff Type | Target Agent |
-|-------------|-------------|-------------|
-| LearnerIntakeAgent | `RawStudentInput` (dataclass) | GuardrailsPipeline → LearnerProfilingAgent |
-| LearnerProfilingAgent | `LearnerProfile` (Pydantic BaseModel) | LearningPathCuratorAgent, StudyPlanAgent |
-| StudyPlanAgent | `StudyPlan` (dataclass) | ProgressAgent |
-| ProgressAgent | `ReadinessAssessment` (dataclass) | CertificationRecommendationAgent |
-| AssessmentAgent | `AssessmentResult` (dataclass) | CertificationRecommendationAgent |
-
-**Why it fits:** Typed handoffs provide compile-time-like safety, enable guardrail validation between stages, and make the data contract explicit.
-
-### Pattern 3: Human-in-the-Loop (HITL) Gates
-
-**What:** The pipeline pauses at specific points to require human input before proceeding.
-
-**How it works in our system:**
-
-1. **Progress Check-In Gate:** After the study plan is generated, the learner must manually submit a progress form (hours spent, self-ratings per domain, practice exam scores) before `ProgressAgent` can assess readiness.
-
-2. **Quiz Gate:** The learner clicks "Generate New Quiz" to trigger `AssessmentAgent`, then answers questions and clicks "Submit Answers" before evaluation runs.
-
-**Why it fits:** Certification prep requires genuine learner effort — automated pipelines without human gates would produce meaningless readiness scores.
-
-### Pattern 4: Conditional Routing (Readiness Gate)
-
-**What:** Pipeline branches based on assessment results rather than always following the same path.
-
-**How it works in our system:**
-
-```
-Quiz Score ≥ 70%?
-  ├── YES → CertificationRecommendationAgent → GO verdict + exam booking checklist
-  └── NO  → Remediation Plan → loops back to Study Plan (Block 1.1)
+@dataclass
+class GuardrailResult:
+    passed: bool
+    blocked: bool    # True if any violation has level == BLOCK
+    violations: list[GuardrailViolation]
 ```
 
-The `CertificationRecommendationAgent` generates a `remediation_plan` with specific domain-level actions when scores are below threshold.
+### Full Guardrail Catalogue
 
-### Patterns for Future Implementation
+| Code | Category | Level | Rule |
+|------|----------|-------|------|
+| G-01 | Input Validation | BLOCK | `student_name` and `exam_target` must be non-empty |
+| G-02 | Input Validation | BLOCK | `hours_per_week` ∈ [1, 80] |
+| G-03 | Input Validation | BLOCK | `weeks_available` ∈ [1, 52] |
+| G-04 | Input Validation | WARN | `exam_target` must be in recognised exam registry |
+| G-05 | Input Validation | INFO | No background text provided |
+| G-06 | Profile Integrity | BLOCK | `domain_profiles` must have exactly 6 entries |
+| G-07 | Profile Integrity | BLOCK | Each `confidence` ∈ [0.0, 1.0] |
+| G-08 | Profile Integrity | WARN | `risk_domains` IDs must be valid domain IDs |
+| G-09 | Study Plan | BLOCK | No task with `start_week > end_week` |
+| G-10 | Study Plan | WARN | Total allocated hours ≤ 110% of `total_budget_hours` |
+| G-11 | Progress | BLOCK | `hours_spent` ≥ 0 |
+| G-12 | Progress | BLOCK | All domain self-ratings ∈ [1, 5] |
+| G-13 | Progress | BLOCK | `practice_exam_score` ∈ [0, 100] |
+| G-14 | Quiz Integrity | WARN | Assessment must have ≥ 5 questions |
+| G-15 | Quiz Integrity | BLOCK | No duplicate question IDs |
+| G-16 | Content Safety | BLOCK | Heuristic harmful content scan on free-text fields |
+| G-17 | URL Trust | WARN | All URLs must match `learn.microsoft.com`, `pearsonvue.com`, or `aka.ms` |
 
-| Pattern | Description | Planned Application |
-|---------|------------|-------------------|
-| **Concurrent (Fan-out/Fan-in)** | Multiple agents process the same input simultaneously | `LearningPathCuratorAgent` + `StudyPlanAgent` already consume `LearnerProfile` independently — ready for `asyncio.gather()` parallelisation |
-| **Group Chat** | Multiple agents engage in multi-round deliberation | Profiler + domain expert agents debating a learner's skill level to refine confidence scores |
-| **Magnetic** | Agents dynamically attract/route to each other based on content type signals | Content from MS Learn MCP server auto-routes to the most relevant specialist agent |
-| **Copilot Studio** | Visual orchestration with built-in monitoring and human review | Enterprise deployment with admin approval gates and compliance monitoring |
+---
+
+## Orchestration Patterns
+
+### 1. Sequential Pipeline
+
+```python
+# Execution order: hard-coded, data-dependency-driven
+raw     →[G-01..G-05]→ B0_Profiler  →[G-06..G-08]→
+B1_Plan →  B1_Path   →[HITL-1]     → B1_Progress →
+[HITL-2] → B2_Assess  → B3_CertRec
+```
+
+### 2. Typed Handoff
+
+Every handoff is a Python type — no raw text, no unvalidated dicts:
+
+```python
+# Type chain
+RawStudentInput → LearnerProfile → StudyPlan → ReadinessAssessment → AssessmentResult → CertRecommendation
+```
+
+### 3. Human-in-the-Loop Gates
+
+```python
+# Gate 1 — Progress Check-In
+if not st.session_state.get("progress_submitted"):
+    with st.form("progress_form"):
+        ...
+        if st.form_submit_button("Submit Progress"):
+            st.session_state.progress_submitted = True
+    st.stop()   # hard stop — downstream agents do NOT run
+
+# Gate 2 — Quiz Submission
+if not st.session_state.get("quiz_submitted"):
+    render_quiz_ui()
+    if st.button("Submit Quiz"):
+        st.session_state.quiz_submitted = True
+    st.stop()
+```
+
+### 4. Conditional Routing
+
+```python
+readiness = ProgressAgent().run(snapshot, profile)
+
+if readiness.exam_go_nogo == "GO":              # >= 70%
+    render_booking_section()
+    rec = CertRecommendationAgent().run(assessment_result, profile)
+elif readiness.exam_go_nogo == "CONDITIONAL GO":  # 50–70%
+    render_gap_analysis()
+    offer_targeted_study_resources()
+else:                                           # < 50%
+    render_remediation_plan()
+    rebuild_study_plan(weak_domains=readiness.weak_domains)
+```
+
+---
+
+## Database Schema
+
+**File:** `cert_prep_data.db` (SQLite, managed by `database.py`)
+
+```sql
+CREATE TABLE students (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT NOT NULL,
+    pin_hash    TEXT NOT NULL,     -- SHA-256 of PIN
+    exam_target TEXT,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE profiles (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id      INTEGER REFERENCES students(id),
+    exam_target     TEXT,
+    profile_json    TEXT,          -- JSON-serialised LearnerProfile
+    experience_level TEXT,
+    learning_style  TEXT,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE plans (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id      INTEGER REFERENCES students(id),
+    plan_json       TEXT,          -- JSON-serialised StudyPlan
+    learning_path_json TEXT,       -- JSON-serialised LearningPath
+    total_weeks     INTEGER,
+    prereq_gap      BOOLEAN,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE traces (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id      INTEGER REFERENCES students(id),
+    run_id          TEXT UNIQUE,
+    trace_json      TEXT,          -- JSON-serialised RunTrace
+    total_latency_ms REAL,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE progress (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id      INTEGER REFERENCES students(id),
+    hours_spent     REAL,
+    domain_ratings  TEXT,          -- JSON dict {domain_id: rating}
+    practice_score  REAL,
+    readiness_pct   REAL,
+    verdict         TEXT,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+---
+
+## Session State Lifecycle
+
+Streamlit's `st.session_state` is the in-memory state store for a user session. Key state keys:
+
+| Key | Type | Set When |
+|-----|------|----------|
+| `student_id` | int | After login / registration |
+| `raw_input` | `RawStudentInput` | After intake form submission |
+| `learner_profile` | `LearnerProfile` | After profiling agent runs |
+| `study_plan` | `StudyPlan` | After study plan agent runs |
+| `learning_path` | `LearningPath` | After learning path agent runs |
+| `progress_submitted` | bool | After progress check-in form submit |
+| `readiness` | `ReadinessAssessment` | After progress agent runs |
+| `assessment` | `Assessment` | After quiz is generated |
+| `quiz_submitted` | bool | After quiz answers submitted |
+| `assessment_result` | `AssessmentResult` | After assessment agent scores |
+| `cert_recommendation` | `CertRecommendation` | After cert rec agent runs |
+| `run_trace` | `RunTrace` | Accumulated throughout session |
+
+On page refresh, Streamlit clears `session_state`. SQLite persistence allows session recovery:
+
+```python
+# Recovery on login
+student = db.get_student_by_name_pin(name, pin)
+if student:
+    profile_row = db.get_latest_profile(student.id)
+    plan_row = db.get_latest_plan(student.id)
+    st.session_state.learner_profile = LearnerProfile.model_validate_json(profile_row.profile_json)
+    st.session_state.study_plan = StudyPlan.from_json(plan_row.plan_json)
+```
+
+---
+
+## Concurrent Execution Design (Production Upgrade Path)
+
+`StudyPlanAgent` and `LearningPathCuratorAgent` are fully independent — both only need `LearnerProfile`. Current code runs them sequentially. Production upgrade:
+
+```python
+import asyncio
+
+async def run_planning_phase(
+    profile: LearnerProfile,
+    existing_certs: list[str]
+) -> tuple[StudyPlan, LearningPath]:
+    plan_coro = StudyPlanAgent().run_async(profile, existing_certs)
+    path_coro = LearningPathCuratorAgent().run_async(profile)
+    plan, path = await asyncio.gather(plan_coro, path_coro)
+    return plan, path
+```
+
+**Latency improvement:**
+| Execution | B0 Profiler | B1.1 Plan | B1.1 Path | Total |
+|-----------|-------------|-----------|-----------|-------|
+| Sequential (current) | 3.5s | 3.5s | 2.5s | ~9.5s |
+| asyncio parallel | 3.5s | max(3.5, 2.5)=3.5s | (parallel) | ~7s |
+
+---
+
+## Data Models — Complete Reference
+
+### Enumerations
+
+```python
+class DomainKnowledge(str, Enum):
+    UNKNOWN  = "unknown"
+    WEAK     = "weak"
+    MODERATE = "moderate"
+    STRONG   = "strong"
+
+class LearningStyle(str, Enum):
+    LINEAR    = "linear"
+    LAB_FIRST = "lab_first"
+    REFERENCE = "reference"
+    ADAPTIVE  = "adaptive"
+
+class ExperienceLevel(str, Enum):
+    BEGINNER       = "beginner"
+    INTERMEDIATE   = "intermediate"
+    ADVANCED_AZURE = "advanced_azure"
+    EXPERT_ML      = "expert_ml"
+```
+
+### EXAM_DOMAINS Registry (AI-102 default)
+
+```python
+AI102_DOMAINS = [
+    {"id": "plan_manage",           "weight": 0.175, "name": "Plan & Manage Azure AI Solutions"},
+    {"id": "computer_vision",       "weight": 0.225, "name": "Implement Computer Vision Solutions"},
+    {"id": "nlp",                   "weight": 0.225, "name": "Implement NLP Solutions"},
+    {"id": "document_intelligence", "weight": 0.175, "name": "Implement Document Intelligence..."},
+    {"id": "conversational_ai",     "weight": 0.100, "name": "Implement Conversational AI Solutions"},
+    {"id": "generative_ai",         "weight": 0.100, "name": "Implement Generative AI Solutions"},
+]
+```
+
+Weights sum to exactly 1.0. These are the official Microsoft AI-102 exam domain weights.
+
+---
+
+## Tech Stack Decisions — With Rationale
+
+| Component | Technology | Why This Choice |
+|-----------|-----------|-----------------|
+| UI | Streamlit | Rapid prototyping + built-in state management + Python-native; ideal for AI demos |
+| Data models | Pydantic v2 + dataclasses | Pydantic for validation at boundaries; dataclass for simple internal containers |
+| LLM | Azure OpenAI gpt-4o | Production Azure AI; structured output support; 128K context for full profile |
+| Safety | Custom `GuardrailsPipeline` | Deterministic, unit-testable, no LLM call; 17 rules fully enumerable |
+| Visualisation | Plotly | Interactive Gantt (timeline), bar charts, domain radar; Streamlit native integration |
+| Persistence | SQLite (sqlite3 stdlib) | Zero-dependency local DB; schema portable to PostgreSQL/Cosmos DB |
+| Observability | `AgentStep`/`RunTrace` custom | Per-agent latency, token count, and I/O summary in a lightweight typed struct |
+| Email | SMTP | Standard; swappable to Azure Communication Services for production |
+| Profiler (mock) | Rule-based Python | Fully deterministic, no LLM API cost, testable with fixed inputs, identical output contract |
+
+---
+
+## Deployment
+
+### Local (Development)
+
+```bash
+pip install -r requirements.txt
+streamlit run streamlit_app.py
+# http://localhost:8501
+```
+
+### Streamlit Community Cloud
+
+1. Push to GitHub (`master` branch)
+2. Go to share.streamlit.io → New app → select repo + `streamlit_app.py`
+3. Add secrets in Streamlit Cloud settings (Azure OpenAI keys)
+4. Deploys automatically on every push to master
+
+`.streamlit/config.toml` — Cloud-compatible settings only:
+```toml
+[theme]
+base = "dark"
+primaryColor = "#0078d4"
+backgroundColor = "#1a1a2e"
+secondaryBackgroundColor = "#16213e"
+textColor = "#e8eaf6"
+font = "sans serif"
+```
+
+### Azure Container Apps (Production)
+
+```dockerfile
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+EXPOSE 8501
+CMD ["streamlit", "run", "streamlit_app.py", \
+     "--server.headless=true", \
+     "--server.enableCORS=false"]
+```
+
+```bash
+az containerapp create \
+  --name certprep-app \
+  --resource-group rg-agentsleague \
+  --image <acr>.azurecr.io/certprep:latest \
+  --min-replicas 1 --max-replicas 10 \
+  --secrets AZURE_OPENAI_KEY=<keyvault-ref> \
+  --env-vars AZURE_OPENAI_ENDPOINT=<endpoint>
+```
