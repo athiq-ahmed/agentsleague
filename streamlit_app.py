@@ -1317,22 +1317,14 @@ if is_returning:
 else:
     _welcome_msg = f"Welcome, {_login_name}"
 
-if not is_returning:
-    # Hero header for new users (replaces old stats cards)
+if is_returning:
     st.markdown(f"""
-    <div class="hero-header">
-      <h1>{_welcome_msg} 👋</h1>
-      <p class="hero-title">Build your personalized AI certification plan</p>
-      <p class="hero-sub">Answer a few questions — your AI coach does the rest</p>
+    <div style="margin-bottom:4px;">
+      <h1 style="margin:0;font-size:1.1rem;font-weight:700;color:{TEXT_PRIMARY} !important;">{_welcome_msg} 👋</h1>
+      <p style="color:{TEXT_MUTED};font-size:0.78rem;margin:1px 0 0;">Your AI-powered certification preparation dashboard</p>
     </div>
     """, unsafe_allow_html=True)
-else:
-    st.markdown(f"""
-    <div style="margin-bottom:16px;">
-      <h1 style="margin:0;font-size:1.6rem;font-weight:700;color:{TEXT_PRIMARY} !important;">{_welcome_msg} 👋</h1>
-      <p style="color:{TEXT_MUTED};font-size:0.88rem;margin:4px 0 0;">Your AI-powered certification preparation dashboard</p>
-    </div>
-    """, unsafe_allow_html=True)
+# new-user header is rendered inline below with the Reset button
 
 # ─── Scenario picker (driven from sidebar) ──────────────────────────────────
 if not is_returning:
@@ -1437,21 +1429,25 @@ else:
         for i, s in enumerate(_style_labels):
             st.session_state[f"style_{i}"] = s in prefill["style_tags"]
 
-        _eb_spacer, _eb_btn = st.columns([8, 2])
-        with _eb_btn:
-            if st.button("\u2715 Cancel Edit", key="cancel_edit_btn", use_container_width=True):
+        _hdr_l, _hdr_r = st.columns([8, 1])
+        with _hdr_l:
+            st.markdown(f'<p style="margin:0 0 4px;font-size:0.72rem;color:{TEXT_MUTED};">Update your details — your study plan will be regenerated on save.</p>', unsafe_allow_html=True)
+        with _hdr_r:
+            if st.button("✕ Cancel", key="cancel_edit_btn", use_container_width=True):
                 st.session_state.pop("editing_profile", None)
                 st.rerun()
-        st.markdown(
-            f'<p style="color:{TEXT_MUTED};font-size:0.82rem;margin-bottom:8px;">'
-            f'Update your details below \u2014 your study plan will be regenerated on save.</p>',
-            unsafe_allow_html=True,
-        )
     else:
-        # Reset button (right-aligned) for new users
-        _rb_spacer, _rb_btn = st.columns([8, 2])
-        with _rb_btn:
-            if st.button("\U0001f504 Reset", key="clear_form", use_container_width=True):
+        # Inline header + Reset button for new users
+        _hdr_l, _hdr_r = st.columns([8, 1])
+        with _hdr_l:
+            st.markdown(f"""
+            <div style="padding:2px 0 4px;">
+              <span style="font-size:1.05rem;font-weight:700;color:{TEXT_PRIMARY};">{_welcome_msg} 👋</span>
+              <span style="color:{TEXT_MUTED};font-size:0.78rem;margin-left:10px;">Build your personalized AI certification plan — your AI coach does the rest</span>
+            </div>
+            """, unsafe_allow_html=True)
+        with _hdr_r:
+            if st.button("🔄 Reset", key="clear_form", use_container_width=True):
                 for k in list(st.session_state.keys()):
                     if k.startswith(("motiv_", "style_", "sidebar_prefill")):
                         del st.session_state[k]
