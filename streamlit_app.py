@@ -219,22 +219,29 @@ if not st.session_state["authenticated"]:
         gap: 16px;
       }
       .hero-box {
-        border-radius: 12px;
+        border-radius: 16px;
         overflow: hidden;
         position: relative;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 2.2rem;
+        font-size: 2.8rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
       }
-      .hero-box.tall { height: 180px; }
-      .hero-box.short { height: 100px; }
-      .hero-box.grad1 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-      .hero-box.grad2 { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
-      .hero-box.grad3 { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
-      .hero-box.grad4 { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
-      .hero-box.grad5 { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
-      .hero-box.grad6 { background: linear-gradient(135deg, #30cfd0 0%, #330867 100%); }
+      .hero-box:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 28px rgba(0,0,0,0.35);
+      }
+      .hero-box.tall  { height: 176px; }
+      .hero-box.short { height: 96px;  }
+      /* Vivid gradients matching bento-grid design */
+      .hero-box.grad1 { background: linear-gradient(145deg, #5B3DE8 0%, #7B2FF2 100%); }
+      .hero-box.grad2 { background: linear-gradient(145deg, #F472B6 0%, #DB2777 100%); }
+      .hero-box.grad3 { background: linear-gradient(145deg, #22D3EE 0%, #06B6D4 100%); }
+      .hero-box.grad4 { background: linear-gradient(145deg, #34D399 0%, #10B981 100%); }
+      .hero-box.grad5 { background: linear-gradient(145deg, #FBBF24 0%, #F97316 100%); }
+      .hero-box.grad6 { background: linear-gradient(145deg, #3B82F6 0%, #1D4ED8 100%); }
       /* ── Benefit cards (vertical, MS Learn style) ─── */
       .ben-grid {
         display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
@@ -267,10 +274,21 @@ if not st.session_state["authenticated"]:
         color: #505050; font-size: 0.85rem;
         margin: 0; line-height: 1.6;
       }
-      .banner-blue   { background: linear-gradient(135deg, #EFF6FF 0%, #DCEAFE 100%); }
-      .banner-teal   { background: linear-gradient(135deg, #E6FAFA 0%, #CCF5F5 100%); }
-      .banner-green  { background: linear-gradient(135deg, #F0FFF4 0%, #D1FAE5 100%); }
-      .banner-purple { background: linear-gradient(135deg, #F3E8FF 0%, #E9D5FF 100%); }
+      .ben-card .card-body .svc-tag {
+        display: inline-block; margin-top: 10px;
+        font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em;
+        text-transform: uppercase; border-radius: 20px;
+        padding: 3px 10px;
+      }
+      /* Azure service banner colours */
+      .banner-openai   { background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); }
+      .banner-cosmos   { background: linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%); }
+      .banner-aisearch { background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%); }
+      .banner-foundry  { background: linear-gradient(135deg, #FFF7ED 0%, #FED7AA 100%); }
+      .tag-openai   { background: #DBEAFE; color: #1D4ED8; }
+      .tag-cosmos   { background: #EDE9FE; color: #6D28D9; }
+      .tag-aisearch { background: #D1FAE5; color: #065F46; }
+      .tag-foundry  { background: #FED7AA; color: #92400E; }
       /* Tech stack strip */
       .tech-strip {
         margin-top: 8px; padding: 8px 0 0;
@@ -446,8 +464,11 @@ if not st.session_state["authenticated"]:
     st.markdown("""
     <div class="ms-top-bar">
       <div class="ms-top-left">
-        <h1>Agents League for Organizations</h1>
-        <p>Drive more success by boosting your team's technical skills with curated AI-powered certification pathways. Jump-start team training and close skills gaps with personalized study plans and Microsoft-verified credentials your workforce needs to keep pace with fast-evolving technology and new roles.</p>
+        <h1>Agents League — AI-Powered Cert Prep</h1>
+        <p>A production-grade multi-agent system built entirely on <strong style="color:#fff">Azure AI Foundry</strong>.
+        Six specialised agents — orchestrated via <strong style="color:#fff">Azure OpenAI GPT-4o</strong>, grounded in
+        <strong style="color:#fff">Azure AI Search</strong>, and persisted in <strong style="color:#fff">Azure Cosmos DB</strong>
+        — deliver personalised study plans, adaptive quizzes, and exam-readiness verdicts for every Microsoft certification.</p>
       </div>
       <div class="ms-top-right">
         <div class="hero-visual-col">
@@ -469,36 +490,40 @@ if not st.session_state["authenticated"]:
     # ── Two-panel layout ─────────────────────────────────────────────────────
     _left, _spacer, _right = st.columns([1.2, 0.08, 0.72])
 
-    # ── LEFT: 4 Benefit cards (2x2 grid) ───────────────────────────────────
+    # ── LEFT: 4 Azure AI Service cards (2x2 grid) ─────────────────────────
     with _left:
         st.markdown("""
         <div class="ben-grid">
           <div class="ben-card">
-            <div class="card-banner banner-blue">🎯</div>
+            <div class="card-banner banner-openai">🤖</div>
             <div class="card-body">
-              <h4>Personalised Skill Profiling</h4>
-              <p>AI analyses your background and domain knowledge to pinpoint exactly where you stand — data-driven insights across every exam domain.</p>
+              <h4>Azure OpenAI · GPT-4o</h4>
+              <p>Six specialised agents — Intake, Profiler, Study Planner, Progress Monitor, Learning Curator, and Assessment — are each powered by GPT-4o via Azure OpenAI with function-calling and structured outputs.</p>
+              <span class="svc-tag tag-openai">Azure OpenAI Service</span>
             </div>
           </div>
           <div class="ben-card">
-            <div class="card-banner banner-teal">📅</div>
+            <div class="card-banner banner-cosmos">🌌</div>
             <div class="card-body">
-              <h4>Smart Study Plans</h4>
-              <p>Priority-weighted, week-by-week schedules built around your available hours. Focus on high-impact domains first.</p>
+              <h4>Azure Cosmos DB</h4>
+              <p>Every learner profile, study plan, quiz result, and agent trace is durably stored in Cosmos DB NoSQL — enabling personalised returning-user experiences and full session continuity across visits.</p>
+              <span class="svc-tag tag-cosmos">Azure Cosmos DB NoSQL</span>
             </div>
           </div>
           <div class="ben-card">
-            <div class="card-banner banner-green">✅</div>
+            <div class="card-banner banner-aisearch">🔍</div>
             <div class="card-body">
-              <h4>Exam-Ready Confidence</h4>
-              <p>Track progress with mid-journey check-ins, practice quizzes, and a clear GO / NO-GO readiness verdict.</p>
+              <h4>Azure AI Search · RAG</h4>
+              <p>Microsoft Learn content is indexed and retrieved via Azure AI Search, grounding agent responses in authoritative study material — delivering accurate, citation-backed recommendations per exam domain.</p>
+              <span class="svc-tag tag-aisearch">Azure AI Search</span>
             </div>
           </div>
           <div class="ben-card">
-            <div class="card-banner banner-purple">🧠</div>
+            <div class="card-banner banner-foundry">🏭</div>
             <div class="card-body">
-              <h4>Adaptive Learning Paths</h4>
-              <p>Curated Microsoft Learn modules matched to your gaps with smart sequencing — learn what matters, skip what you know.</p>
+              <h4>Azure AI Foundry</h4>
+              <p>All agents are deployed and orchestrated through Azure AI Foundry — with full tracing, evaluation, and prompt-flow observability. Agent interactions are visible in the Admin Dashboard in real-time.</p>
+              <span class="svc-tag tag-foundry">Azure AI Foundry</span>
             </div>
           </div>
         </div>
@@ -574,27 +599,21 @@ if not st.session_state["authenticated"]:
 
         st.markdown("""
         <div class="tech-strip">
-          <div class="tech-strip-label">Built with Microsoft</div>
+          <div class="tech-strip-label">Azure AI Services powering this app</div>
           <div class="tech-pills">
             <div class="tech-pill">
               <svg viewBox="0 0 23 23"><rect width="11" height="11" fill="#f25022"/><rect x="12" width="11" height="11" fill="#7fba00"/><rect y="12" width="11" height="11" fill="#00a4ef"/><rect x="12" y="12" width="11" height="11" fill="#ffb900"/></svg>
-              Azure AI Foundry
+              AI Foundry
             </div>
-            <div class="tech-pill">
-              <span class="tp-icon">🤖</span> Azure OpenAI · GPT-4o
-            </div>
-            <div class="tech-pill">
-              <span class="tp-icon">📚</span> Microsoft Learn API
-            </div>
-            <div class="tech-pill">
-              <span class="tp-icon">🧠</span> Semantic Kernel
-            </div>
-            <div class="tech-pill">
-              <span class="tp-icon">⚡</span> Streamlit
-            </div>
-            <div class="tech-pill">
-              <span class="tp-icon">🐙</span> GitHub Copilot
-            </div>
+            <div class="tech-pill"><span class="tp-icon">🤖</span> OpenAI GPT-4o</div>
+            <div class="tech-pill"><span class="tp-icon">🌌</span> Cosmos DB NoSQL</div>
+            <div class="tech-pill"><span class="tp-icon">🔍</span> AI Search</div>
+            <div class="tech-pill"><span class="tp-icon">📄</span> Document Intelligence</div>
+            <div class="tech-pill"><span class="tp-icon">👁️</span> Computer Vision</div>
+            <div class="tech-pill"><span class="tp-icon">💬</span> Azure AI Language</div>
+            <div class="tech-pill"><span class="tp-icon">🎙️</span> Speech Service</div>
+            <div class="tech-pill"><span class="tp-icon">🐙</span> GitHub Copilot</div>
+            <div class="tech-pill"><span class="tp-icon">⚡</span> Streamlit</div>
           </div>
         </div>
         """, unsafe_allow_html=True)
