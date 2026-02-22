@@ -22,10 +22,54 @@ from cert_prep.models import (
     LearnerProfile,
     LearningStyle,
     RawStudentInput,
+    get_exam_domains,
 )
 
 # ── Keyword sets ──────────────────────────────────────────────────────────────
 
+# Maps held certification → domain IDs that get a confidence boost,
+# keyed by target exam so each cert's domain IDs are respected.
+_CERT_DOMAIN_BOOST_BY_TARGET: dict[str, dict[str, list[str]]] = {
+    "AI-102": {
+        "AZ-104": ["plan_manage"],
+        "AZ-305": ["plan_manage"],
+        "AZ-900": ["plan_manage"],
+        "DP-100": ["generative_ai", "document_intelligence"],
+        "AI-900": ["plan_manage", "computer_vision", "nlp"],
+        "AZ-400": ["plan_manage"],
+    },
+    "AI-900": {
+        "AZ-900": ["ai_workloads", "ml_fundamentals"],
+        "AZ-104": ["ai_workloads"],
+        "AI-102": ["cv_fundamentals", "nlp_fundamentals", "genai_fundamentals", "ai_workloads"],
+        "DP-100": ["ml_fundamentals", "genai_fundamentals"],
+        "AZ-204": ["ai_workloads"],
+    },
+    "AZ-204": {
+        "AZ-104": ["azure_security", "monitoring_optimize"],
+        "AZ-900": ["compute_solutions"],
+        "AZ-305": ["compute_solutions", "azure_security", "monitoring_optimize"],
+        "AZ-400": ["compute_solutions", "monitoring_optimize"],
+        "AI-102": ["azure_services_integration"],
+    },
+    "DP-100": {
+        "AZ-900": ["ml_solution_design"],
+        "AZ-104": ["ml_solution_design"],
+        "AI-900": ["explore_train_models"],
+        "AI-102": ["explore_train_models", "ml_solution_design"],
+        "AZ-204": ["ml_solution_design", "deploy_retrain"],
+    },
+    "AZ-305": {
+        "AZ-104": ["identity_governance", "infrastructure_solutions"],
+        "AZ-204": ["infrastructure_solutions", "data_storage_solutions"],
+        "AZ-900": ["identity_governance"],
+        "AZ-400": ["infrastructure_solutions", "identity_governance"],
+        "AZ-500": ["identity_governance", "business_continuity"],
+        "AI-102": ["data_storage_solutions", "identity_governance"],
+    },
+}
+
+# Legacy flat map (fallback for unknown target exams)
 _CERT_DOMAIN_BOOST: dict[str, list[str]] = {
     "AZ-104": ["plan_manage"],
     "AZ-305": ["plan_manage"],
@@ -45,12 +89,35 @@ _BG_DEV_KEYWORDS      = {"developer", "software engineer", "python", "c#", ".net
                          "java", "rest api", "api", "backend", "full stack"}
 
 _CONCERN_DOMAIN_MAP: list[tuple[re.Pattern, str]] = [
-    (re.compile(r"openai|generative|gen ai|dall.?e|gpt|rag", re.I), "generative_ai"),
-    (re.compile(r"bot|copilot|power virtual|conversation|dialog", re.I), "conversational_ai"),
-    (re.compile(r"vision|image|face|ocr|video|custom vision", re.I), "computer_vision"),
-    (re.compile(r"nlp|language|sentiment|ner|text|translator|clu", re.I), "nlp"),
-    (re.compile(r"document|form|invoice|cognitive search|knowledge", re.I), "document_intelligence"),
+    # AI-102 domains
+    (re.compile(r"openai|generative|gen ai|dall.?e|gpt|rag",        re.I), "generative_ai"),
+    (re.compile(r"bot|copilot|power virtual|conversation|dialog",   re.I), "conversational_ai"),
+    (re.compile(r"vision|image|face|ocr|video|custom vision",       re.I), "computer_vision"),
+    (re.compile(r"nlp|language|sentiment|ner|text|translator|clu",  re.I), "nlp"),
+    (re.compile(r"document|form|invoice|cognitive search|knowledge",re.I), "document_intelligence"),
     (re.compile(r"security|monitor|responsible|compliance|governance|cost", re.I), "plan_manage"),
+    # AI-900 domains
+    (re.compile(r"responsible|ethics|fairness|bias|transparency",   re.I), "ai_workloads"),
+    (re.compile(r"machine learning|regression|classification|cluster|automl", re.I), "ml_fundamentals"),
+    (re.compile(r"image|photo|object detect|ocr|face recogn",       re.I), "cv_fundamentals"),
+    (re.compile(r"language|text analys|key phrase|sentiment|qa",    re.I), "nlp_fundamentals"),
+    (re.compile(r"llm|copilot|prompt|openai|generative",            re.I), "genai_fundamentals"),
+    # AZ-204 domains
+    (re.compile(r"app service|function|container|kubernetes|docker|aks", re.I), "compute_solutions"),
+    (re.compile(r"blob|storage|cosmos|queue|table|cache",            re.I), "azure_storage"),
+    (re.compile(r"key vault|identity|msal|oauth|rbac|sas token",    re.I), "azure_security"),
+    (re.compile(r"monitor|app insights|logging|trace|performance",  re.I), "monitoring_optimize"),
+    (re.compile(r"api management|event grid|service bus|event hub", re.I), "azure_services_integration"),
+    # DP-100 domains
+    (re.compile(r"workspace|compute|datastore|environment|mlops",    re.I), "ml_solution_design"),
+    (re.compile(r"feature engineer|hyperparam|training|automl|pandas|spark", re.I), "explore_train_models"),
+    (re.compile(r"mlflow|model register|scoring|inference package",  re.I), "prepare_deployment"),
+    (re.compile(r"endpoint|batch|drift|retrain|pipeline",           re.I), "deploy_retrain"),
+    # AZ-305 domains
+    (re.compile(r"entra|active directory|policy|governance|rbac|cost optim", re.I), "identity_governance"),
+    (re.compile(r"database|cosmos db|sql|blob|file|migration|data integration", re.I), "data_storage_solutions"),
+    (re.compile(r"backup|disaster recovery|site recovery|ha|sla",   re.I), "business_continuity"),
+    (re.compile(r"network|vnet|load balanc|microservice|api gateway|migration", re.I), "infrastructure_solutions"),
 ]
 
 _STYLE_MAP: list[tuple[re.Pattern, LearningStyle]] = [
@@ -98,10 +165,14 @@ def _infer_style(raw: RawStudentInput) -> LearningStyle:
     return LearningStyle.ADAPTIVE
 
 
-def _boosted_domains(certs: list[str]) -> set[str]:
+def _boosted_domains(certs: list[str], target_exam: str = "AI-102") -> set[str]:
+    """Return domain IDs that get a confidence boost based on held certs and target exam."""
+    exam_boost_map = _CERT_DOMAIN_BOOST_BY_TARGET.get(
+        target_exam.upper(), _CERT_DOMAIN_BOOST
+    )
     boosted: set[str] = set()
     for cert in certs:
-        for key, domains in _CERT_DOMAIN_BOOST.items():
+        for key, domains in exam_boost_map.items():
             if key.upper() in cert.upper():
                 boosted.update(domains)
     return boosted
@@ -198,17 +269,20 @@ def run_mock_profiling_with_trace(raw: RawStudentInput):   # -> tuple[LearnerPro
 def run_mock_profiling(raw: RawStudentInput) -> LearnerProfile:
     """
     Generate a realistic LearnerProfile using rule-based inference.
+    Domains are derived from the target exam (raw.exam_target) so the
+    Knowledge Coverage radar reflects the correct certification.
     No LLM call required — safe to use before Azure credentials are configured.
     """
     experience = _infer_experience(raw)
     style      = _infer_style(raw)
-    boosted    = _boosted_domains(raw.existing_certs)
+    exam_domains = get_exam_domains(raw.exam_target)
+    boosted    = _boosted_domains(raw.existing_certs, raw.exam_target)
     risk       = _risk_domains_from_concerns(raw.concern_topics)
     is_ml      = experience == ExperienceLevel.EXPERT_ML
 
     domain_profiles = [
         _domain_profile(d, boosted, risk, experience, is_ml)
-        for d in EXAM_DOMAINS
+        for d in exam_domains
     ]
 
     modules_to_skip = [

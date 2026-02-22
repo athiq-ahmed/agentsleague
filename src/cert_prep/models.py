@@ -105,18 +105,200 @@ EXAM_DOMAINS: list[dict] = [
 DOMAIN_IDS = [d["id"] for d in EXAM_DOMAINS]
 
 
-# ─── Multi-exam registry (extensible) ─────────────────────────────────────────
+# ─── Additional exam domain blueprints ───────────────────────────────────────
+
+# AI-900 – Azure AI Fundamentals (official exam objectives, 5 skill areas)
+AI900_DOMAINS: list[dict] = [
+    {
+        "id":     "ai_workloads",
+        "name":   "AI Workloads & Considerations",
+        "weight": 0.175,
+        "description": (
+            "Common AI workload types, responsible AI principles, "
+            "fairness, reliability, privacy, transparency and accountability."
+        ),
+    },
+    {
+        "id":     "ml_fundamentals",
+        "name":   "Machine Learning Fundamentals on Azure",
+        "weight": 0.225,
+        "description": (
+            "Core ML concepts, supervised/unsupervised learning, "
+            "regression, classification, clustering, Azure Machine Learning studio."
+        ),
+    },
+    {
+        "id":     "cv_fundamentals",
+        "name":   "Computer Vision Workloads",
+        "weight": 0.175,
+        "description": (
+            "Image classification, object detection, OCR, facial analysis, "
+            "Azure AI Vision service, Custom Vision."
+        ),
+    },
+    {
+        "id":     "nlp_fundamentals",
+        "name":   "Natural Language Processing Workloads",
+        "weight": 0.175,
+        "description": (
+            "Text analysis, key phrase extraction, sentiment, named entity recognition, "
+            "question answering, Azure AI Language service."
+        ),
+    },
+    {
+        "id":     "genai_fundamentals",
+        "name":   "Generative AI Workloads",
+        "weight": 0.25,
+        "description": (
+            "Large language models, Azure OpenAI, prompt engineering basics, "
+            "Copilot experiences, responsible generative AI."
+        ),
+    },
+]
+
+# AZ-204 – Azure Developer Associate (5 skill areas)
+AZ204_DOMAINS: list[dict] = [
+    {
+        "id":     "compute_solutions",
+        "name":   "Develop Azure Compute Solutions",
+        "weight": 0.275,
+        "description": (
+            "Azure App Service, Azure Functions, containers, "
+            "Docker, Azure Kubernetes Service, deployment strategies."
+        ),
+    },
+    {
+        "id":     "azure_storage",
+        "name":   "Develop for Azure Storage",
+        "weight": 0.175,
+        "description": (
+            "Blob storage, Cosmos DB, Azure Table storage, "
+            "Azure Queue storage, caching strategies."
+        ),
+    },
+    {
+        "id":     "azure_security",
+        "name":   "Implement Azure Security",
+        "weight": 0.225,
+        "description": (
+            "Azure Key Vault, Managed Identity, Microsoft Entra ID, "
+            "OAuth2, MSAL, RBAC, SAS tokens."
+        ),
+    },
+    {
+        "id":     "monitoring_optimize",
+        "name":   "Monitor, Troubleshoot & Optimize",
+        "weight": 0.175,
+        "description": (
+            "Application Insights, Azure Monitor, logging, distributed tracing, "
+            "caching with Redis, CDN, performance optimisation."
+        ),
+    },
+    {
+        "id":     "azure_services_integration",
+        "name":   "Connect & Consume Azure Services",
+        "weight": 0.175,
+        "description": (
+            "API Management, Event Grid, Event Hubs, Service Bus, "
+            "Azure Logic Apps, Azure Relay, webhooks."
+        ),
+    },
+]
+
+# DP-100 – Azure Data Scientist Associate (4 skill areas)
+DP100_DOMAINS: list[dict] = [
+    {
+        "id":     "ml_solution_design",
+        "name":   "Design & Prepare an ML Solution",
+        "weight": 0.225,
+        "description": (
+            "Azure Machine Learning workspace, compute resources, "
+            "datastores, data assets, environments, MLOps fundamentals."
+        ),
+    },
+    {
+        "id":     "explore_train_models",
+        "name":   "Explore Data & Train Models",
+        "weight": 0.375,
+        "description": (
+            "Data exploration with pandas/Spark, feature engineering, "
+            "AutoML, training scripts, hyperparameter tuning, responsible AI dashboards."
+        ),
+    },
+    {
+        "id":     "prepare_deployment",
+        "name":   "Prepare a Model for Deployment",
+        "weight": 0.225,
+        "description": (
+            "MLflow tracking, model registration, batch/real-time inference, "
+            "scoring scripts, deployment packages."
+        ),
+    },
+    {
+        "id":     "deploy_retrain",
+        "name":   "Deploy & Retrain a Model",
+        "weight": 0.175,
+        "description": (
+            "Managed online endpoints, batch endpoints, model monitoring, "
+            "data drift detection, retraining pipelines."
+        ),
+    },
+]
+
+# AZ-305 – Azure Solutions Architect Expert (4 skill areas)
+AZ305_DOMAINS: list[dict] = [
+    {
+        "id":     "identity_governance",
+        "name":   "Design Identity, Governance & Monitoring",
+        "weight": 0.275,
+        "description": (
+            "Microsoft Entra ID, RBAC, Azure Policy, Management Groups, "
+            "Azure Monitor, Log Analytics, cost optimisation strategies."
+        ),
+    },
+    {
+        "id":     "data_storage_solutions",
+        "name":   "Design Data Storage Solutions",
+        "weight": 0.275,
+        "description": (
+            "Relational and non-relational databases, Azure SQL, Cosmos DB, "
+            "Blob storage, Azure Files, data integration and migration patterns."
+        ),
+    },
+    {
+        "id":     "business_continuity",
+        "name":   "Design Business Continuity Solutions",
+        "weight": 0.125,
+        "description": (
+            "High availability, disaster recovery, Azure Site Recovery, "
+            "backup strategies, SLA planning."
+        ),
+    },
+    {
+        "id":     "infrastructure_solutions",
+        "name":   "Design Infrastructure Solutions",
+        "weight": 0.325,
+        "description": (
+            "Compute, networking, application architecture, microservices, "
+            "API Management, containerised workloads, migration strategies."
+        ),
+    },
+]
+
+
+# ─── Multi-exam registry ──────────────────────────────────────────────────────
 
 EXAM_DOMAIN_REGISTRY: dict[str, list[dict]] = {
     "AI-102": EXAM_DOMAINS,
-    # Add more exams here, e.g.:
-    # "DP-100": [ ... ],
-    # "AZ-204": [ ... ],
+    "AI-900": AI900_DOMAINS,
+    "AZ-204": AZ204_DOMAINS,
+    "DP-100": DP100_DOMAINS,
+    "AZ-305": AZ305_DOMAINS,
 }
 
 
 def get_exam_domains(exam_code: str) -> list[dict]:
-    """Return domain list for *exam_code*, falling back to the default blueprint."""
+    """Return domain list for *exam_code*, falling back to the AI-102 blueprint."""
     return EXAM_DOMAIN_REGISTRY.get(exam_code.upper(), EXAM_DOMAINS)
 
 

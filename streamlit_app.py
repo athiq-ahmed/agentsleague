@@ -70,6 +70,7 @@ import plotly.graph_objects as go
 
 from cert_prep.models import (
     EXAM_DOMAINS,
+    EXAM_DOMAIN_REGISTRY,
     DomainKnowledge,
     RawStudentInput,
     LearnerProfile,
@@ -536,7 +537,7 @@ if not st.session_state["authenticated"]:
           <div class="demo-card">
             <div class="dm-ic">📊</div>
             <div class="dm-nm">Data Professional</div>
-            <div class="dm-rl">Returning · DP-203</div>
+            <div class="dm-rl">Returning · DP-100</div>
           </div>
           <div class="demo-card">
             <div class="dm-ic">🔧</div>
@@ -659,41 +660,20 @@ LEVEL_ICON = {
     "strong":   "✓",
 }
 
-EXAM_DOMAIN_NAMES = {d["id"]: d["name"] for d in EXAM_DOMAINS}
+# ─── Domain name lookup — built from all supported exam registries ────────────
+EXAM_DOMAIN_NAMES = {
+    d["id"]: d["name"]
+    for domains in EXAM_DOMAIN_REGISTRY.values()
+    for d in domains
+}
 
-# ─── Azure / Microsoft certification catalogue ────────────────────────────────
+# ─── Azure / Microsoft certification catalogue (5 supported exams) ────────────
 AZURE_CERTS = [
-    # AI & Data
     "AI-102 – Azure AI Engineer Associate",
     "AI-900 – Azure AI Fundamentals",
-    "DP-100 – Azure Data Scientist Associate",
-    "DP-203 – Azure Data Engineer Associate",
-    "DP-300 – Azure Database Administrator Associate",
-    "DP-420 – Azure Cosmos DB Developer Specialty",
-    "DP-600 – Fabric Analytics Engineer Associate",
-    # Azure Developer / Architect
     "AZ-204 – Azure Developer Associate",
+    "DP-100 – Azure Data Scientist Associate",
     "AZ-305 – Azure Solutions Architect Expert",
-    "AZ-400 – Azure DevOps Engineer Expert",
-    # Azure Administrator / Security
-    "AZ-104 – Azure Administrator Associate",
-    "AZ-500 – Azure Security Engineer Associate",
-    "AZ-700 – Azure Network Engineer Associate",
-    "AZ-800 – Windows Server Hybrid Admin Associate",
-    "AZ-900 – Azure Fundamentals",
-    # Modern Work & Security
-    "MS-900 – Microsoft 365 Fundamentals",
-    "MS-102 – Microsoft 365 Administrator Expert",
-    "SC-900 – Security, Compliance & Identity Fundamentals",
-    "SC-100 – Cybersecurity Architect Expert",
-    "SC-200 – Security Operations Analyst Associate",
-    "SC-300 – Identity & Access Admin Associate",
-    # Power Platform
-    "PL-900 – Power Platform Fundamentals",
-    "PL-100 – Power Platform App Maker Associate",
-    "PL-200 – Power Platform Functional Consultant",
-    "PL-400 – Power Platform Developer Associate",
-    "PL-600 – Power Platform Solution Architect Expert",
 ]
 
 DEFAULT_CERT = "AI-102 – Azure AI Engineer Associate"
@@ -1248,7 +1228,7 @@ with st.sidebar:
           if st.session_state.get("sidebar_prefill") != "alex":
             st.session_state["sidebar_prefill"] = "alex"
             st.rerun()
-        if st.button("� Data Professional · DP-203", key="sb_sc_jordan", use_container_width=True):
+        if st.button("📊 Data Professional · DP-100", key="sb_sc_jordan", use_container_width=True):
           if st.session_state.get("sidebar_prefill") != "priyanka":
             st.session_state["sidebar_prefill"] = "priyanka"
             st.rerun()
@@ -1289,6 +1269,7 @@ with st.sidebar:
 _PREFILL_SCENARIOS = {
     "Blank — start from scratch": {},
     "Alex Chen — complete beginner, AI-102": {
+        "exam": "AI-102 – Azure AI Engineer Associate",
         "name": "Alex Chen", "background": "Recent computer science graduate, basic Python skills, no cloud or Azure experience at all.",
         "certs": "", "style": "Hands-on labs and step-by-step tutorials",
         "hpw": 12.0, "weeks": 10, "concerns": "Azure Cognitive Services, Azure OpenAI, Bot Service",
@@ -1297,11 +1278,12 @@ _PREFILL_SCENARIOS = {
         "motivation": ["Career growth"],
         "style_tags": ["Hands-on labs", "Practice tests"],
     },
-    "Priyanka Sharma — data scientist, DP-203": {
-      "name": "Priyanka Sharma", "background": "5 years in data analytics, strong Python and SQL, experience with Azure Synapse and Power BI, but new to Azure Data Engineering.",
-      "certs": "DP-900, AZ-900", "style": "Video tutorials and hands-on labs",
-      "hpw": 8.0, "weeks": 6, "concerns": "Data pipelines, ETL, Azure Data Lake, Synapse Analytics",
-      "goal": "Transition to Azure Data Engineer role",
+    "Priyanka Sharma — data scientist, DP-100": {
+      "exam": "DP-100 – Azure Data Scientist Associate",
+      "name": "Priyanka Sharma", "background": "5 years in data analytics with Python and SQL. Experienced with scikit-learn, Jupyter notebooks and Azure ML experiments. Looking to formalise ML skills on Azure.",
+      "certs": "AZ-900, AI-900", "style": "Video tutorials and hands-on labs",
+      "hpw": 8.0, "weeks": 6, "concerns": "Azure Machine Learning, hyperparameter tuning, model deployment, MLflow, data drift",
+      "goal": "Earn DP-100 to move into an Azure ML Engineer role",
       "role": "Data Analyst / Scientist",
       "motivation": ["Role switch", "Career growth"],
       "style_tags": ["Video tutorials", "Hands-on labs"],
@@ -1332,7 +1314,7 @@ if not is_returning:
     if _sb_choice == "alex":
       prefill.update(_PREFILL_SCENARIOS["Alex Chen — complete beginner, AI-102"])
     elif _sb_choice == "priyanka":
-      prefill.update(_PREFILL_SCENARIOS["Priyanka Sharma — data scientist, DP-203"])
+      prefill.update(_PREFILL_SCENARIOS["Priyanka Sharma — data scientist, DP-100"])
 
     # Push prefill values into session state so Streamlit widgets pick them up
     if prefill:
@@ -1411,6 +1393,7 @@ else:
         _raw_r = st.session_state["raw"]
         prefill = {
             "name":       _raw_r.student_name,
+            "exam":       next((c for c in AZURE_CERTS if c.startswith(_raw_r.exam_target)), DEFAULT_CERT),
             "background": _raw_r.background_text,
             "certs":      ", ".join(_raw_r.existing_certs),
             "hpw":        _raw_r.hours_per_week,
@@ -1465,7 +1448,8 @@ else:
             exam_cert = st.selectbox(
                 "Which certification exam are you targeting?",
                 options=AZURE_CERTS,
-                index=AZURE_CERTS.index(DEFAULT_CERT),
+                index=AZURE_CERTS.index(prefill.get("exam", DEFAULT_CERT))
+                      if prefill.get("exam") in AZURE_CERTS else AZURE_CERTS.index(DEFAULT_CERT),
             )
             exam_target = exam_cert.split(" – ")[0].strip()
 
@@ -1529,7 +1513,7 @@ else:
                 _role_default = _role_options.index(_prefill_role)
             current_role = st.selectbox("What's your current role?", options=_role_options, index=_role_default)
 
-            _common_certs = ["None yet", "AZ-900", "AZ-104", "AZ-204", "AZ-305", "AI-900", "AI-102", "DP-900", "DP-203", "SC-900"]
+            _common_certs = ["None yet", "AZ-900", "AZ-104", "AZ-204", "AZ-305", "AI-900", "AI-102", "DP-900", "DP-100", "SC-900"]
             _prefill_certs = [c.strip() for c in prefill.get("certs", "").split(",") if c.strip()]
             _cert_defaults = _prefill_certs if _prefill_certs else ["None yet"]
             _cert_defaults = [c for c in _cert_defaults if c in _common_certs]
