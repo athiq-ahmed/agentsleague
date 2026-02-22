@@ -1410,17 +1410,7 @@ with st.sidebar:
             ):
                 st.session_state.pop("sidebar_prefill", None)
                 st.rerun()
-    else:
-        # Existing user — no demo scenario buttons, just a status note
-        st.markdown(
-            '<div style="background:rgba(255,255,255,0.08);border-left:3px solid rgba(255,255,255,0.3);'
-            'border-radius:4px;padding:8px 10px;margin-bottom:8px;">'
-            '<p style="color:rgba(255,255,255,0.85);font-size:0.78rem;font-weight:600;margin:0 0 2px;">👤 Profile loaded</p>'
-            '<p style="color:rgba(255,255,255,0.5);font-size:0.68rem;margin:0;">'
-            'Demo Scenarios are for new users only. Use the Reset button to start fresh.</p>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
+    # Existing user — no demo scenario buttons, no message
 
     if _utype == "admin":
         st.markdown("---")
