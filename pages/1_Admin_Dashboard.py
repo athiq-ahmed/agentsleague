@@ -53,10 +53,12 @@ AGENT_COLORS = {
 # ─── Minimal page CSS (MS Learn light) ────────────────────────────────────────
 st.markdown("""
 <style>
+  /* ── Main content area ── */
   [data-testid="stAppViewContainer"] { background: #F5F5F5; }
-  [data-testid="stSidebar"]          { background: #FAFAFA; border-right: 1px solid #E1DFDD; }
   [data-testid="stHeader"]           { background: #fff !important; border-bottom: 1px solid #E1DFDD; }
   [data-testid="stSidebarNav"]       { display: none; }
+  [data-testid="stSidebarCollapseButton"],
+  [data-testid="collapsedControl"]   { display: none !important; }
   h1, h2, h3, h4                     { color: #1B1B1B !important; font-family: 'Segoe UI', sans-serif; }
   .stMarkdown p, .stMarkdown li      { color: #323130; }
   .stExpander details                 { background: #FFFFFF; border-radius: 4px; border: 1px solid #E1DFDD !important; }
@@ -68,6 +70,40 @@ st.markdown("""
   }
   .stButton > button:hover { background: #106EBE !important; }
   .stCaption { color: #616161 !important; }
+
+  /* ── Sidebar: dark blue gradient matching main app ── */
+  [data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #0078D4 0%, #005A9E 100%) !important;
+    border-right: none !important;
+  }
+  [data-testid="stSidebar"] [data-testid="stSidebarContent"] {
+    background: transparent !important;
+    padding-top: 0.2rem;
+  }
+  [data-testid="stSidebar"] h1,
+  [data-testid="stSidebar"] h2,
+  [data-testid="stSidebar"] h3 { color: #fff !important; }
+  [data-testid="stSidebar"] .stMarkdown p,
+  [data-testid="stSidebar"] .stMarkdown li,
+  [data-testid="stSidebar"] .stMarkdown span,
+  [data-testid="stSidebar"] .stMarkdown b,
+  [data-testid="stSidebar"] .stMarkdown strong { color: rgba(255,255,255,0.9) !important; }
+  [data-testid="stSidebar"] .stCaption { color: rgba(255,255,255,0.6) !important; }
+  [data-testid="stSidebar"] hr { border-color: rgba(255,255,255,0.2) !important; }
+  [data-testid="stSidebar"] .stButton > button {
+    background: rgba(255,255,255,0.1) !important;
+    border: none !important;
+    color: rgba(255,255,255,0.9) !important;
+    border-radius: 8px !important;
+    font-weight: 500 !important;
+  }
+  [data-testid="stSidebar"] .stButton > button:hover {
+    background: rgba(255,255,255,0.2) !important;
+    color: #fff !important;
+  }
+  [data-testid="stSidebar"] a, [data-testid="stSidebar"] a:visited {
+    color: rgba(255,255,255,0.85) !important;
+  }
 </style>
 """, unsafe_allow_html=True)
 
@@ -683,77 +719,80 @@ st.plotly_chart(gantt_fig, use_container_width=True)
 # SECTION 4 – Per-Agent I/O Cards
 # ═════════════════════════════════════════════════════════════════════════════
 _section_header("Per-Agent Interaction Log", "🗂️")
-st.caption("Expand each card to inspect inputs, outputs, decisions, and any warnings.")
+st.caption("Every agent's role, inputs, outputs, decisions and timing — always visible at a glance.")
 
 for step in trace.steps:
-    clr = AGENT_COLORS.get(step.agent_id, BLUE)
-    status_badge = _badge(step.status, GREEN if step.status == "success" else ORANGE)
-    dur_badge    = _badge(f"{step.duration_ms:.0f} ms", GREY)
+    clr          = AGENT_COLORS.get(step.agent_id, BLUE)
+    status_color = GREEN if step.status == "success" else ORANGE
 
-    expander_label = (
-        f"{step.icon}  {step.agent_name}  —  {step.duration_ms:.0f} ms"
-    )
-    with st.expander(expander_label, expanded=False):
-
-        st.markdown(
-            f"""<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
-              {status_badge} {dur_badge}
-              <span style="color:{GREY};font-size:0.78rem;">agent_id: <code>{step.agent_id}</code></span>
-            </div>""",
-            unsafe_allow_html=True,
+    # Build decisions HTML (rendered inside the card)
+    _dec_html = ""
+    if step.decisions:
+        _dec_items = "".join(
+            f'<li style="margin-bottom:3px;color:#323130;font-size:0.83rem;line-height:1.5;">{d}</li>'
+            for d in step.decisions
         )
+        _dec_html = f"""
+        <div style="padding:10px 16px 8px;border-top:1px solid #E1DFDD;">
+          <div style="color:{GREY};font-size:0.7rem;font-weight:700;text-transform:uppercase;
+                      letter-spacing:.06em;margin-bottom:6px;">⚙️ Rules / Decisions Applied</div>
+          <ul style="margin:0;padding-left:18px;">{_dec_items}</ul>
+        </div>"""
 
-        io_col, dec_col = st.columns([3, 2])
+    st.markdown(f"""
+    <div style="background:{CARD_BG};border:1px solid #E1DFDD;border-radius:8px;
+                margin-bottom:16px;overflow:hidden;
+                box-shadow:0 2px 6px rgba(0,0,0,0.06);">
 
-        with io_col:
-            st.markdown(
-                f"""
-                <div style="background:#F5F5F5;border-left:3px solid {clr};
-                            border-radius:4px;padding:12px 14px;margin-bottom:10px;">
-                  <div style="color:{GREY};font-size:0.72rem;font-weight:600;
-                              text-transform:uppercase;letter-spacing:.06em;
-                              margin-bottom:4px;">📨 Input</div>
-                  <div style="color:#323130;font-size:0.87rem;
-                              line-height:1.5;">{step.input_summary}</div>
-                </div>
-                <div style="background:#F5F5F5;border-left:3px solid {GREEN};
-                            border-radius:4px;padding:12px 14px;">
-                  <div style="color:{GREY};font-size:0.72rem;font-weight:600;
-                              text-transform:uppercase;letter-spacing:.06em;
-                              margin-bottom:4px;">📤 Output</div>
-                  <div style="color:#323130;font-size:0.87rem;
-                              line-height:1.5;">{step.output_summary}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+      <!-- Header band with agent colour -->
+      <div style="background:{clr};padding:10px 16px;
+                  display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:1.3rem;">{step.icon}</span>
+          <div>
+            <span style="color:#fff;font-size:0.95rem;font-weight:700;display:block;">
+              {step.agent_name.split("(")[0].strip()}</span>
+            <span style="color:rgba(255,255,255,0.65);font-size:0.7rem;font-family:monospace;">
+              id:&nbsp;{step.agent_id}</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span style="background:{status_color}25;color:{status_color};
+                       border:1px solid {status_color}60;border-radius:12px;
+                       padding:2px 10px;font-size:0.75rem;font-weight:700;">
+            {step.status}</span>
+          <span style="background:rgba(255,255,255,0.25);color:#fff;
+                       border-radius:12px;padding:2px 10px;font-size:0.75rem;font-weight:600;">
+            {step.duration_ms:.0f}&nbsp;ms</span>
+        </div>
+      </div>
 
-        with dec_col:
-            if step.decisions:
-                st.markdown(
-                    f'<div style="color:{GREY};font-size:0.72rem;font-weight:600;'
-                    f'text-transform:uppercase;letter-spacing:.06em;'
-                    f'margin-bottom:6px;">⚙️ Decisions / Rules Applied</div>',
-                    unsafe_allow_html=True,
-                )
-                for d in step.decisions:
-                    st.markdown(
-                        f'<div style="color:#323130;font-size:0.83rem;'
-                        f'padding:2px 0 2px 10px;border-left:2px solid {clr}40;">'
-                        f'• {d}</div>',
-                        unsafe_allow_html=True,
-                    )
+      <!-- I/O two-column grid -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
+        <div style="padding:12px 16px;border-right:1px solid #E1DFDD;">
+          <div style="color:{GREY};font-size:0.7rem;font-weight:700;text-transform:uppercase;
+                      letter-spacing:.06em;margin-bottom:6px;">📨 Input</div>
+          <div style="color:#323130;font-size:0.85rem;line-height:1.5;">{step.input_summary}</div>
+        </div>
+        <div style="padding:12px 16px;">
+          <div style="color:{GREY};font-size:0.7rem;font-weight:700;text-transform:uppercase;
+                      letter-spacing:.06em;margin-bottom:6px;">📤 Output</div>
+          <div style="color:#323130;font-size:0.85rem;line-height:1.5;">{step.output_summary}</div>
+        </div>
+      </div>
 
-            if step.warnings:
-                st.markdown("<br/>", unsafe_allow_html=True)
-                for w in step.warnings:
-                    st.warning(w, icon="⚠️")
+      {_dec_html}
 
-        # Detail JSON (collapsed sub-expander)
-        if step.detail:
-            import json as _json
-            with st.expander("🔍 Raw detail payload (JSON)", expanded=False):
-                st.code(_json.dumps(step.detail, indent=2, default=str), language="json")
+    </div>
+    """, unsafe_allow_html=True)
+
+    if step.warnings:
+        for w in step.warnings:
+            st.warning(w, icon="⚠️")
+    if step.detail:
+        import json as _json
+        with st.expander(f"🔍 {step.agent_name.split('(')[0].strip()} — raw JSON payload", expanded=False):
+            st.code(_json.dumps(step.detail, indent=2, default=str), language="json")
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -827,9 +866,10 @@ if profile is not None:
         st.plotly_chart(table_fig, use_container_width=True)
 
     with col_bar:
+        _adm_labels = [dp.domain_name.replace("Implement ", "").replace(" Solutions", "")
+                       for dp in profile.domain_profiles]
         bar_fig = go.Figure(go.Bar(
-            y    = [dp.domain_name.replace("Implement ", "").replace(" Solutions", "")
-                    for dp in profile.domain_profiles],
+            y    = _adm_labels,
             x    = [dp.confidence_score for dp in profile.domain_profiles],
             orientation = "h",
             marker_color = conf_colors,
@@ -840,7 +880,8 @@ if profile is not None:
             paper_bgcolor = CARD_BG,
             plot_bgcolor  = CARD_BG,
             font          = dict(color="#1B1B1B", size=11),
-            height        = 280,
+            height        = len(_adm_labels) * 52 + 50,  # fixed 52 px per bar
+            bargap        = 0.30,
             margin        = dict(l=0, r=50, t=10, b=20),
             xaxis = dict(
                 range      = [0, 1.05],
@@ -849,6 +890,8 @@ if profile is not None:
                 tickformat = ".0%",
             ),
             yaxis = dict(color="#1B1B1B", gridcolor="#E1DFDD"),
+            uniformtext_minsize=7,
+            uniformtext_mode="hide",
         )
         bar_fig.add_vline(x=0.50, line_dash="dash", line_color="rgba(0,0,0,0.15)",
                           annotation_text="50% threshold",

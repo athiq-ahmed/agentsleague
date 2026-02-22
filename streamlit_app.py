@@ -341,44 +341,32 @@ if not st.session_state["authenticated"]:
         text-align: center; color: #616161;
         font-size: 0.7rem; margin-bottom: 6px;
       }
-      /* Demo card overlay — HTML card is visual, invisible button captures clicks */
+      /* Demo cards — visual card + visible Select button below */
       .dcg { margin-bottom: 4px; }
-      .dcg [data-testid="column"] {
-        position: relative !important;
-        padding: 0 3px !important;
-      }
+      .dcg [data-testid="column"] { padding: 0 3px !important; }
       .demo-grid { display: flex; gap: 6px; }
       .demo-card {
         background: #EFF6FF;
         border: 1px solid #BFD4EF;
-        border-radius: 6px; padding: 8px 4px;
+        border-radius: 6px 6px 0 0; padding: 10px 6px 8px;
         text-align: center; transition: all 0.2s;
-        cursor: pointer;
       }
-      .demo-card .dm-ic { font-size: 1.3rem; margin-bottom: 2px; }
-      .demo-card .dm-nm { color: #1B1B1B; font-size: 0.7rem; font-weight: 700; margin-bottom: 1px; }
+      .demo-card:hover { background: #DCEAFE; border-color: #0078D4; }
+      .demo-card .dm-ic { margin-bottom: 4px; display: flex; justify-content: center; }
+      .demo-card .dm-nm { color: #1B1B1B; font-size: 0.7rem; font-weight: 700; margin-bottom: 2px; }
       .demo-card .dm-rl { color: #616161; font-size: 0.6rem; }
-      /* Invisible button floats over the card; hover on it highlights the card */
-      .dcg .stButton {
-        position: absolute !important;
-        inset: 0 !important;
-        z-index: 2 !important;
-        margin: 0 !important;
-      }
+      /* Select button sits flush below the card */
       .dcg .stButton > button {
-        opacity: 0 !important;
+        border-radius: 0 0 6px 6px !important;
+        margin-top: 0 !important;
+        padding: 3px 6px !important;
+        font-size: 0.65rem !important;
         width: 100% !important;
-        height: 100% !important;
-        min-height: 68px !important;
-        cursor: pointer !important;
-        padding: 0 !important;
-        border-radius: 6px !important;
+        background: #0078D4 !important;
+        border: 1px solid #BFD4EF !important;
+        border-top: none !important;
       }
-      /* :has() — when invisible button hovered, light up the visual card */
-      .dcg [data-testid="column"]:has(.stButton > button:hover) .demo-card {
-        background: #DCEAFE !important;
-        border-color: #0078D4 !important;
-      }
+      .dcg .stButton > button:hover { background: #106EBE !important; }
       /* Quick-login Streamlit buttons */
       .stButton > button {
         background: #0078D4 !important;
@@ -641,17 +629,22 @@ if not st.session_state["authenticated"]:
         st.markdown('<div class="signin-title">Sign In</div>', unsafe_allow_html=True)
         st.markdown('<div class="signin-sub">Pick a demo account or sign in manually</div>', unsafe_allow_html=True)
 
-        # Quick-login: HTML cards are visual; invisible buttons sit on top and capture clicks
+        # Quick-login: HTML card (visual) + visible "Select →" button below it
         st.markdown('<div class="dcg">', unsafe_allow_html=True)
         _d1, _d2, _d3 = st.columns(3)
         with _d1:
             st.markdown("""
             <div class="demo-card">
-              <div class="dm-ic">🌱</div>
+              <div class="dm-ic"><svg viewBox="0 0 24 24" width="26" height="26" fill="none">
+                <path d="M12 3L2 8.5L12 14L22 8.5L12 3Z" fill="#0078D4"/>
+                <path d="M6 11.3V16.5C6 16.5 8.5 19 12 19C15.5 19 18 16.5 18 16.5V11.3L12 14.3L6 11.3Z" fill="#0078D4" opacity="0.55"/>
+                <path d="M22 8.5V13.5" stroke="#0078D4" stroke-width="1.5" stroke-linecap="round"/>
+                <circle cx="22" cy="15" r="1" fill="#0078D4"/>
+              </svg></div>
               <div class="dm-nm">AI Beginner</div>
-              <div class="dm-rl">First-time · AI-102</div>
+              <div class="dm-rl">First-time &middot; AI-102</div>
             </div>""", unsafe_allow_html=True)
-            if st.button("demo_new", key="demo_new", use_container_width=True):
+            if st.button("Select \u2192", key="demo_new", use_container_width=True):
                 upsert_student("Alex Chen", "1234", "learner")
                 st.session_state["authenticated"] = True
                 st.session_state["login_name"] = "Alex Chen"
@@ -660,11 +653,16 @@ if not st.session_state["authenticated"]:
         with _d2:
             st.markdown("""
             <div class="demo-card">
-              <div class="dm-ic">📊</div>
+              <div class="dm-ic"><svg viewBox="0 0 24 24" width="26" height="26" fill="none">
+                <rect x="3" y="11" width="4" height="9" rx="1" fill="#0078D4"/>
+                <rect x="10" y="7" width="4" height="13" rx="1" fill="#0078D4" opacity="0.7"/>
+                <rect x="17" y="3" width="4" height="17" rx="1" fill="#0078D4" opacity="0.45"/>
+                <path d="M2 21H22" stroke="#0078D4" stroke-width="1.5" stroke-linecap="round"/>
+              </svg></div>
               <div class="dm-nm">Data Professional</div>
-              <div class="dm-rl">Returning · DP-100</div>
+              <div class="dm-rl">Returning &middot; DP-100</div>
             </div>""", unsafe_allow_html=True)
-            if st.button("demo_pro", key="demo_jordan", use_container_width=True):
+            if st.button("Select \u2192", key="demo_jordan", use_container_width=True):
                 upsert_student("Priyanka Sharma", "1234", "learner")
                 st.session_state["authenticated"] = True
                 st.session_state["login_name"] = "Priyanka Sharma"
@@ -683,11 +681,18 @@ if not st.session_state["authenticated"]:
         with _d3:
             st.markdown("""
             <div class="demo-card">
-              <div class="dm-ic">🔧</div>
+              <div class="dm-ic"><svg viewBox="0 0 24 24" width="26" height="26" fill="none">
+                <path d="M12 2L4 6V12C4 16.4 7.4 20.5 12 22C16.6 20.5 20 16.4 20 12V6L12 2Z"
+                  fill="#0078D4" opacity="0.2"/>
+                <path d="M12 2L4 6V12C4 16.4 7.4 20.5 12 22C16.6 20.5 20 16.4 20 12V6L12 2Z"
+                  stroke="#0078D4" stroke-width="1.5" stroke-linejoin="round"/>
+                <path d="M8.5 12L11 14.5L15.5 9.5" stroke="#0078D4" stroke-width="1.8"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+              </svg></div>
               <div class="dm-nm">Admin</div>
               <div class="dm-rl">Dashboard &amp; Traces</div>
             </div>""", unsafe_allow_html=True)
-            if st.button("demo_admin", key="demo_admin", use_container_width=True):
+            if st.button("Select \u2192", key="demo_admin", use_container_width=True):
                 st.session_state["authenticated"] = True
                 st.session_state["login_name"] = "Admin"
                 st.session_state["user_type"] = "admin"
@@ -704,13 +709,37 @@ if not st.session_state["authenticated"]:
 
         st.markdown("""
         <div class="tech-strip">
-          <div class="tech-strip-label">Azure AI Services powering this app</div>
+          <div class="tech-strip-label">Azure AI &amp; Developer Services powering this app</div>
           <div class="tech-pills">
             <div class="tech-pill">
               <svg viewBox="0 0 23 23"><rect width="11" height="11" fill="#f25022"/><rect x="12" width="11" height="11" fill="#7fba00"/><rect y="12" width="11" height="11" fill="#00a4ef"/><rect x="12" y="12" width="11" height="11" fill="#ffb900"/></svg>
               AI Foundry
             </div>
-            <div class="tech-pill"><span class="tp-icon">🤖</span> Azure OpenAI GPT-4o</div>
+            <div class="tech-pill">
+              <svg viewBox="0 0 16 16" width="16" height="16" fill="none">
+                <circle cx="8" cy="8" r="6.5" stroke="#0078D4" stroke-width="1.3"/>
+                <circle cx="8" cy="8" r="2.5" fill="#0078D4"/>
+                <path d="M8 1.5V4M8 12V14.5M1.5 8H4M12 8H14.5" stroke="#0078D4" stroke-width="1.2" stroke-linecap="round"/>
+              </svg>
+              Azure OpenAI GPT-4o
+            </div>
+            <div class="tech-pill">
+              <svg viewBox="0 0 16 16" width="16" height="16" fill="none">
+                <path d="M8 1.5C5 1.5 2.5 4 2.5 7C2.5 9.5 4 11.6 6.2 12.5L6 14.5H10L9.8 12.5C12 11.6 13.5 9.5 13.5 7C13.5 4 11 1.5 8 1.5Z" fill="#825EE4" opacity="0.2"/>
+                <path d="M8 1.5C5 1.5 2.5 4 2.5 7C2.5 9.5 4 11.6 6.2 12.5L6 14.5H10L9.8 12.5C12 11.6 13.5 9.5 13.5 7C13.5 4 11 1.5 8 1.5Z" stroke="#825EE4" stroke-width="1.2"/>
+                <path d="M5.5 6.5L8 4.5L10.5 6.5L9.5 9H6.5L5.5 6.5Z" fill="#825EE4"/>
+              </svg>
+              Microsoft Copilot
+            </div>
+            <div class="tech-pill">
+              <svg viewBox="0 0 16 16" width="16" height="16" fill="none">
+                <circle cx="8" cy="3.5" r="2" fill="#0078D4"/>
+                <circle cx="2.5" cy="12.5" r="2" fill="#0078D4"/>
+                <circle cx="13.5" cy="12.5" r="2" fill="#0078D4"/>
+                <path d="M8 5.5L2.5 10.5M8 5.5L13.5 10.5M2.5 12.5H13.5" stroke="#0078D4" stroke-width="1.1"/>
+              </svg>
+              MCP
+            </div>
             <div class="tech-pill"><span class="tp-icon">⚡</span> Streamlit</div>
           </div>
         </div>
@@ -2029,13 +2058,16 @@ if "profile" in st.session_state:
                           annotation_text="Risk threshold 50%", annotation_position="top right")
         _x_max = min(1.0, max(scores, default=0.5) + 0.20)
         bar_fig.update_layout(
-            height=max(260, len(labels) * 42),
+            height=len(labels) * 52 + 50,          # fixed 52 px per bar + 50 px margins
+            bargap=0.30,                             # uniform gap ratio
             margin=dict(l=10, r=40, t=20, b=20),
             xaxis=dict(range=[0, _x_max], tickformat=".0%", showgrid=True, gridcolor="#eeeeee"),
             yaxis=dict(autorange="reversed"),
             paper_bgcolor="white",
             plot_bgcolor="white",
             showlegend=False,
+            uniformtext_minsize=7,
+            uniformtext_mode="hide",
         )
         st.plotly_chart(bar_fig, use_container_width=True)
 
