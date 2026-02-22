@@ -2072,48 +2072,49 @@ if "profile" in st.session_state:
         # Trace 1 — Exam weight (official %)
         bar_fig.add_trace(go.Bar(
             name="Exam Weight",
-            y=_bar_labels,
-            x=_weight_pct,
-            orientation="h",
+            x=_bar_labels,
+            y=_weight_pct,
             marker=dict(color="#BFD4EF", line=dict(color="#0078D4", width=1.2)),
             text=[f"{w:.0f}%" for w in _weight_pct],
-            textposition="inside",
+            textposition="outside",
             textfont=dict(color="#0078D4", size=11, family="Segoe UI"),
-            hovertemplate="<b>%{y}</b><br>Exam weight: %{x:.1f}%<extra></extra>",
+            hovertemplate="<b>%{x}</b><br>Exam weight: %{y:.1f}%<extra></extra>",
         ))
 
         # Trace 2 — User confidence
         bar_fig.add_trace(go.Bar(
             name="Your Confidence",
-            y=_bar_labels,
-            x=_conf_pct,
-            orientation="h",
+            x=_bar_labels,
+            y=_conf_pct,
             marker=dict(color=_conf_colours, opacity=0.88, line=dict(width=0)),
             text=[f"{c:.0f}%" for c in _conf_pct],
-            textposition="inside",
-            textfont=dict(color="#fff", size=11, family="Segoe UI"),
-            hovertemplate="<b>%{y}</b><br>Confidence: %{x:.1f}%<extra></extra>",
+            textposition="outside",
+            textfont=dict(color="#555", size=11, family="Segoe UI"),
+            hovertemplate="<b>%{x}</b><br>Confidence: %{y:.1f}%<extra></extra>",
         ))
 
-        bar_fig.add_vline(x=50, line_dash="dot", line_color="#ca5010",
+        bar_fig.add_hline(y=50, line_dash="dot", line_color="#ca5010",
                           annotation_text="50% pass threshold",
                           annotation_font=dict(color="#ca5010", size=10),
                           annotation_position="top right")
 
         bar_fig.update_layout(
             barmode="group",
-            bargroupgap=0.12,
-            bargap=0.28,
-            height=len(_bar_labels) * 72 + 60,
-            margin=dict(l=10, r=50, t=30, b=20),
+            bargroupgap=0.10,
+            bargap=0.30,
+            height=420,
+            margin=dict(l=10, r=20, t=50, b=20),
             xaxis=dict(
-                range=[0, 105],
+                tickfont=dict(size=10, family="Segoe UI"),
+                showgrid=False,
+            ),
+            yaxis=dict(
+                range=[0, 115],
                 ticksuffix="%",
                 showgrid=True,
                 gridcolor="#eeeeee",
                 title=dict(text="Percentage (%)", font=dict(size=11, color="#616161")),
             ),
-            yaxis=dict(autorange="reversed"),
             paper_bgcolor="white",
             plot_bgcolor="white",
             legend=dict(
