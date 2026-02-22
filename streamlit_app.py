@@ -2477,74 +2477,7 @@ if "profile" in st.session_state:
         else:
             st.info("Run the profiler to generate the study plan.")
 
-        st.markdown("---")
 
-        # ── 4. Profile Summary (redesigned) ──────────────────────────────────
-        st.markdown("### 📋 Learner Profile at a Glance")
-        _ps_c1, _ps_c2, _ps_c3, _ps_c4 = st.columns(4)
-        with _ps_c1:
-            st.metric("🎨 Learning Style",
-                      profile.learning_style.value.replace('_', ' ').title())
-        with _ps_c2:
-            st.metric("📊 Experience Level",
-                      profile.experience_level.value.replace('_', ' ').title())
-        with _ps_c3:
-            st.metric("⏱️ Study Budget", f"{profile.total_budget_hours:.0f} h",
-                      help=f"{profile.hours_per_week:.0f} h/wk × {profile.weeks_available} weeks")
-        with _ps_c4:
-            _risk_count = len(profile.risk_domains or [])
-            st.metric("⚠️ Focus Domains", _risk_count,
-                      delta=("-Needs attention" if _risk_count else None),
-                      delta_color="inverse")
-
-        _skip_names_ps = [EXAM_DOMAIN_NAMES.get(m, m) for m in (profile.modules_to_skip or [])]
-        _risk_names_ps = [EXAM_DOMAIN_NAMES.get(did, did) for did in (profile.risk_domains or [])]
-        if _risk_names_ps or _skip_names_ps:
-            _detail_c1, _detail_c2 = st.columns(2)
-            with _detail_c1:
-                if _risk_names_ps:
-                    st.markdown(
-                        '<div style="background:#FFF0F0;border-left:4px solid #D13438;'
-                        'border-radius:8px;padding:10px 14px;font-size:0.88rem;">'
-                        '<b style="color:#D13438;">⚠️ Domains that need the most study time:</b><br/>'
-                        + "<br/>".join(f"&nbsp;&nbsp;• {n}" for n in _risk_names_ps)
-                        + "</div>",
-                        unsafe_allow_html=True,
-                    )
-            with _detail_c2:
-                if _skip_names_ps:
-                    st.markdown(
-                        f'<div style="background:#F0FFF4;border-left:4px solid {GREEN};'
-                        f'border-radius:8px;padding:10px 14px;font-size:0.88rem;">'
-                        f'<b style="color:{GREEN};">⏭️ You can fast-track these (existing knowledge):</b><br/>'
-                        + "<br/>".join(f"&nbsp;&nbsp;• {n}" for n in _skip_names_ps)
-                        + "</div>",
-                        unsafe_allow_html=True,
-                    )
-        else:
-            st.success("✅ All domains require full study — no fast-tracks, no critical gaps. Balanced preparation recommended.")
-
-        # Analogy map + Engagement notes (full width)
-        _ae_c1, _ae_c2 = st.columns(2)
-        with _ae_c1:
-            if profile.analogy_map:
-                st.markdown("#### 🔁 Skill Analogy Map")
-                st.caption("Your existing skills mapped to Azure AI equivalents.")
-                for skill, equiv in profile.analogy_map.items():
-                    st.markdown(
-                        f"""<div style="background:{BLUE_LITE};border-left:4px solid {BLUE};
-                             padding:6px 12px;border-radius:6px;margin-bottom:6px;">
-                             <b style='color:{BLUE};'>{skill}</b>
-                             <span style='color:#555;'> → {equiv}</span></div>""",
-                        unsafe_allow_html=True,
-                    )
-
-        with _ae_c2:
-            st.markdown("#### 🔔 Engagement Notes")
-            st.markdown(
-                f'<div class="card card-gold"><i>{profile.engagement_notes}</i></div>',
-                unsafe_allow_html=True,
-            )
 
     # ── Tab 3: Learning Path ──────────────────────────────────────────────────
     with tab_path:
