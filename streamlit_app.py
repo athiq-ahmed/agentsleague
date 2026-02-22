@@ -233,8 +233,8 @@ if not st.session_state["authenticated"]:
         transform: translateY(-4px) scale(1.02);
         box-shadow: 0 12px 32px rgba(0,0,0,0.38);
       }
-      .hero-box.tall  { height: 210px; }
-      .hero-box.short { height: 120px; }
+      .hero-box.tall  { height: 180px; }
+      .hero-box.short { height: 100px; }
       /* Vivid bento gradients — exact match to design */
       .hero-box.grad1 { background: linear-gradient(145deg, #6C3DD8 0%, #8B34F0 100%); }
       .hero-box.grad2 { background: linear-gradient(145deg, #F0368A 0%, #C2185B 100%); }
@@ -280,15 +280,10 @@ if not st.session_state["authenticated"]:
         text-transform: uppercase; border-radius: 20px;
         padding: 3px 10px;
       }
-      /* Azure service banner colours */
-      .banner-openai   { background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); }
-      .banner-cosmos   { background: linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%); }
-      .banner-aisearch { background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%); }
-      .banner-foundry  { background: linear-gradient(135deg, #FFF7ED 0%, #FED7AA 100%); }
-      .tag-openai   { background: #DBEAFE; color: #1D4ED8; }
-      .tag-cosmos   { background: #EDE9FE; color: #6D28D9; }
-      .tag-aisearch { background: #D1FAE5; color: #065F46; }
-      .tag-foundry  { background: #FED7AA; color: #92400E; }
+      .banner-blue   { background: linear-gradient(135deg, #EFF6FF 0%, #DCEAFE 100%); }
+      .banner-teal   { background: linear-gradient(135deg, #E6FAFA 0%, #CCF5F5 100%); }
+      .banner-green  { background: linear-gradient(135deg, #F0FFF4 0%, #D1FAE5 100%); }
+      .banner-purple { background: linear-gradient(135deg, #F3E8FF 0%, #E9D5FF 100%); }
       /* Tech stack strip */
       .tech-strip {
         margin-top: 8px; padding: 8px 0 0;
@@ -490,40 +485,36 @@ if not st.session_state["authenticated"]:
     # ── Two-panel layout ─────────────────────────────────────────────────────
     _left, _spacer, _right = st.columns([1.2, 0.08, 0.72])
 
-    # ── LEFT: 4 Azure AI Service cards (2x2 grid) ─────────────────────────
+    # ── LEFT: 4 Benefit cards (2x2 grid) ──────────────────────────────────
     with _left:
         st.markdown("""
         <div class="ben-grid">
           <div class="ben-card">
-            <div class="card-banner banner-openai">🤖</div>
+            <div class="card-banner banner-blue">🎯</div>
             <div class="card-body">
-              <h4>Azure OpenAI · GPT-4o</h4>
-              <p>Six specialised agents — Intake, Profiler, Study Planner, Progress Monitor, Learning Curator, and Assessment — are each powered by GPT-4o via Azure OpenAI with function-calling and structured outputs.</p>
-              <span class="svc-tag tag-openai">Azure OpenAI Service</span>
+              <h4>Personalised Skill Profiling</h4>
+              <p>AI analyses your background and domain knowledge to pinpoint exactly where you stand — data-driven insights across every exam domain.</p>
             </div>
           </div>
           <div class="ben-card">
-            <div class="card-banner banner-cosmos">🌌</div>
+            <div class="card-banner banner-teal">📅</div>
             <div class="card-body">
-              <h4>Azure Cosmos DB</h4>
-              <p>Every learner profile, study plan, quiz result, and agent trace is durably stored in Cosmos DB NoSQL — enabling personalised returning-user experiences and full session continuity across visits.</p>
-              <span class="svc-tag tag-cosmos">Azure Cosmos DB NoSQL</span>
+              <h4>Smart Study Plans</h4>
+              <p>Priority-weighted, week-by-week schedules built around your available hours. Focus on high-impact domains first.</p>
             </div>
           </div>
           <div class="ben-card">
-            <div class="card-banner banner-aisearch">🔍</div>
+            <div class="card-banner banner-green">✅</div>
             <div class="card-body">
-              <h4>Azure AI Search · RAG</h4>
-              <p>Microsoft Learn content is indexed and retrieved via Azure AI Search, grounding agent responses in authoritative study material — delivering accurate, citation-backed recommendations per exam domain.</p>
-              <span class="svc-tag tag-aisearch">Azure AI Search</span>
+              <h4>Exam-Ready Confidence</h4>
+              <p>Track progress with mid-journey check-ins, practice quizzes, and a clear GO / NO-GO readiness verdict.</p>
             </div>
           </div>
           <div class="ben-card">
-            <div class="card-banner banner-foundry">🏭</div>
+            <div class="card-banner banner-purple">🧠</div>
             <div class="card-body">
-              <h4>Azure AI Foundry</h4>
-              <p>All agents are deployed and orchestrated through Azure AI Foundry — with full tracing, evaluation, and prompt-flow observability. Agent interactions are visible in the Admin Dashboard in real-time.</p>
-              <span class="svc-tag tag-foundry">Azure AI Foundry</span>
+              <h4>Adaptive Learning Paths</h4>
+              <p>Curated Microsoft Learn modules matched to your gaps with smart sequencing — learn what matters, skip what you know.</p>
             </div>
           </div>
         </div>
@@ -736,7 +727,7 @@ st.markdown(f"""
     padding-top: 1rem !important;
   }}
   .block-container {{
-    padding-top: 1rem !important;
+    padding-top: 0.3rem !important;
   }}
 
   /* ── Blue sidebar (post-login) ── */
@@ -788,22 +779,22 @@ st.markdown(f"""
   .intake-card {{
     background: #fff;
     border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 14px 18px;
-    margin-bottom: 10px;
+    border-radius: 10px;
+    padding: 8px 12px;
+    margin-bottom: 6px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   }}
   .intake-card h3 {{
-    margin: 0 0 8px 0;
-    font-size: 0.95rem;
+    margin: 0 0 4px 0;
+    font-size: 0.8rem;
     font-weight: 700;
     color: {TEXT_PRIMARY};
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
   }}
   .intake-card h3 .card-icon {{
-    font-size: 1.1rem;
+    font-size: 0.9rem;
   }}
   /* AI Preview panel */
   .ai-preview {{
@@ -865,35 +856,35 @@ st.markdown(f"""
   }}
   /* Hero header */
   .hero-header {{
-    margin-bottom: 12px;
+    margin-bottom: 6px;
   }}
   .hero-header h1 {{
     margin: 0;
-    font-size: 1.35rem;
+    font-size: 1.1rem;
     font-weight: 700;
     color: {TEXT_PRIMARY};
   }}
   .hero-header .hero-title {{
-    margin: 2px 0 0;
-    font-size: 1.1rem;
+    margin: 1px 0 0;
+    font-size: 0.88rem;
     font-weight: 400;
     color: {TEXT_PRIMARY};
     line-height: 1.3;
   }}
   .hero-header .hero-sub {{
     color: {TEXT_MUTED};
-    font-size: 0.82rem;
-    margin-top: 4px;
+    font-size: 0.75rem;
+    margin-top: 2px;
   }}
   /* CTA submit button */
   .stFormSubmitButton button {{
     background: linear-gradient(135deg, {BLUE} 0%, #005A9E 100%) !important;
     border: none !important;
     color: #fff !important;
-    border-radius: 10px !important;
+    border-radius: 8px !important;
     font-weight: 700 !important;
-    font-size: 0.95rem !important;
-    padding: 10px 28px !important;
+    font-size: 0.88rem !important;
+    padding: 7px 20px !important;
     letter-spacing: 0.01em;
     box-shadow: 0 4px 14px rgba(0,120,212,0.3) !important;
     transition: all 0.2s !important;
@@ -903,21 +894,32 @@ st.markdown(f"""
     box-shadow: 0 6px 20px rgba(0,120,212,0.4) !important;
     transform: translateY(-1px);
   }}
+  /* Tighten widget gaps inside the intake form */
+  .stForm .stElementContainer, .stForm [data-testid="stVerticalBlock"] > * {{
+    gap: 0 !important;
+  }}
+  .stForm .stSelectbox, .stForm .stMultiSelect,
+  .stForm .stSlider, .stForm .stCheckbox {{
+    margin-bottom: 2px !important;
+  }}
+  div[data-testid="stForm"] .stCaption {{
+    margin-top: 2px !important;
+  }}
   /* Time commitment info box */
   .time-info {{
     background: #f0f7ff;
     border: 1px solid #c3d9f7;
-    border-radius: 10px;
-    padding: 12px 14px;
+    border-radius: 8px;
+    padding: 5px 10px;
     display: flex;
     align-items: flex-start;
-    gap: 8px;
-    font-size: 0.8rem;
+    gap: 6px;
+    font-size: 0.75rem;
     color: {TEXT_PRIMARY};
-    line-height: 1.5;
+    line-height: 1.4;
   }}
   .time-info .ti-icon {{
-    font-size: 1rem;
+    font-size: 0.85rem;
     flex-shrink: 0;
     margin-top: 1px;
   }}
@@ -1458,7 +1460,7 @@ else:
 
     with st.form("intake_form", clear_on_submit=False):
 
-        _left, _right = st.columns(2, gap="large")
+        _left, _right = st.columns(2, gap="small")
 
         # ════════════ LEFT COLUMN ════════════
         with _left:
@@ -1513,7 +1515,7 @@ else:
                 "Tell us about your experience",
                 value=prefill.get("background", ""),
                 placeholder="e.g. 3 years Python developer, familiar with REST APIs, no Azure experience",
-                height=100,
+                height=68,
                 label_visibility="collapsed",
             )
             st.markdown('</div>', unsafe_allow_html=True)
