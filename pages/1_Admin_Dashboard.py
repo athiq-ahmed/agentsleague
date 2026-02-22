@@ -18,6 +18,7 @@ import streamlit as st
 import plotly.graph_objects as go
 import plotly.express as px
 import json
+import html as _html
 
 from cert_prep.database import get_all_students, get_student
 from cert_prep.models import LearnerProfile
@@ -200,18 +201,6 @@ if not st.session_state["admin_logged_in"]:
 
 # ─── Authenticated: sidebar logout ────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("""
-    <div style="display:flex;align-items:center;gap:10px;padding:4px 0 12px;">
-      <svg width="20" height="20" viewBox="0 0 23 23">
-        <rect width="11" height="11" fill="#f25022"/>
-        <rect x="12" width="11" height="11" fill="#7fba00"/>
-        <rect y="12" width="11" height="11" fill="#00a4ef"/>
-        <rect x="12" y="12" width="11" height="11" fill="#ffb900"/>
-      </svg>
-      <span style="color:#1B1B1B;font-size:0.95rem;font-weight:600;
-                   font-family:'Segoe UI',sans-serif;">Microsoft Learn</span>
-    </div>
-    """, unsafe_allow_html=True)
     st.markdown("### 🔐 Admin Panel")
     st.markdown(f"Signed in as **{MOCK_USER}**")
     if st.button("Sign Out", use_container_width=True):
@@ -220,7 +209,11 @@ with st.sidebar:
             del st.session_state[k]
         st.rerun()
     st.markdown("---")
-    st.page_link("streamlit_app.py", label="← Back to Main App", icon="🏠")
+    st.markdown(
+        "<a href='/' target='_self' style='color:#0078D4;font-weight:600;"
+        "text-decoration:none;'>🏠 ← Back to Main App</a>",
+        unsafe_allow_html=True,
+    )
     st.caption("Only admins can see this page.\nStudents see the main Profiler UI.")
 
 
@@ -461,19 +454,6 @@ profile                = st.session_state.get("profile", None)
 raw                    = st.session_state.get("raw", None)
 
 if trace is None:
-    st.info(
-        "🔍 **No profiling run detected yet.**\n\n"
-        "Go to the main **Cert Prep** page, fill in the intake form, "
-        "and click **Generate Profile**. Then return here to inspect the "
-        "full agent interaction log.",
-        icon="ℹ️",
-    )
-
-    # Show a preview with synthetic demo data
-    st.markdown("---")
-    st.markdown("### 👇 Preview – Demo Run (synthetic data)")
-    st.caption("This is what the dashboard looks like after a real profiling run.")
-
     # Build a small demo raw + profile for preview
     from cert_prep.models import RawStudentInput
     _demo_raw = RawStudentInput(
@@ -725,11 +705,15 @@ for step in trace.steps:
     clr          = AGENT_COLORS.get(step.agent_id, BLUE)
     status_color = GREEN if step.status == "success" else ORANGE
 
+    # Escape I/O text so angle-brackets / ampersands never break the HTML card
+    _in_html  = _html.escape(str(step.input_summary)).replace("\n", "<br>")
+    _out_html = _html.escape(str(step.output_summary)).replace("\n", "<br>")
+
     # Build decisions HTML (rendered inside the card)
     _dec_html = ""
     if step.decisions:
         _dec_items = "".join(
-            f'<li style="margin-bottom:3px;color:#323130;font-size:0.83rem;line-height:1.5;">{d}</li>'
+            f'<li style="margin-bottom:3px;color:#323130;font-size:0.83rem;line-height:1.5;">{_html.escape(str(d))}</li>'
             for d in step.decisions
         )
         _dec_html = f"""
@@ -772,12 +756,12 @@ for step in trace.steps:
         <div style="padding:12px 16px;border-right:1px solid #E1DFDD;">
           <div style="color:{GREY};font-size:0.7rem;font-weight:700;text-transform:uppercase;
                       letter-spacing:.06em;margin-bottom:6px;">📨 Input</div>
-          <div style="color:#323130;font-size:0.85rem;line-height:1.5;">{step.input_summary}</div>
+          <div style="color:#323130;font-size:0.85rem;line-height:1.5;">{_in_html}</div>
         </div>
         <div style="padding:12px 16px;">
           <div style="color:{GREY};font-size:0.7rem;font-weight:700;text-transform:uppercase;
                       letter-spacing:.06em;margin-bottom:6px;">📤 Output</div>
-          <div style="color:#323130;font-size:0.85rem;line-height:1.5;">{step.output_summary}</div>
+          <div style="color:#323130;font-size:0.85rem;line-height:1.5;">{_out_html}</div>
         </div>
       </div>
 
