@@ -223,12 +223,14 @@ if not st.session_state["authenticated"]:
         overflow: hidden;
         position: relative;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        font-size: 3.4rem;
+        gap: 7px;
         box-shadow: 0 6px 24px rgba(0,0,0,0.28);
         transition: transform 0.2s ease, box-shadow 0.2s ease;
         flex-shrink: 0;
+        padding: 12px 6px;
       }
       .hero-box:hover {
         transform: translateY(-4px) scale(1.02);
@@ -236,6 +238,21 @@ if not st.session_state["authenticated"]:
       }
       .hero-box.tall  { height: 180px; }
       .hero-box.short { height: 100px; }
+      .hero-box svg {
+        width: 58px; height: 58px;
+        filter: drop-shadow(0 2px 8px rgba(0,0,0,0.22));
+      }
+      .hero-box.short svg { width: 42px; height: 42px; }
+      .hb-label {
+        color: rgba(255,255,255,0.92);
+        font-size: 0.56rem;
+        font-weight: 700;
+        text-align: center;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        line-height: 1.3;
+        padding: 0 4px;
+      }
       /* Vivid bento gradients — exact match to design */
       .hero-box.grad1 { background: linear-gradient(145deg, #6C3DD8 0%, #8B34F0 100%); }
       .hero-box.grad2 { background: linear-gradient(145deg, #F0368A 0%, #C2185B 100%); }
@@ -324,33 +341,43 @@ if not st.session_state["authenticated"]:
         text-align: center; color: #616161;
         font-size: 0.7rem; margin-bottom: 6px;
       }
-      /* Quick-login demo card-buttons */
-      .demo-grid { display: flex; gap: 6px; margin-bottom: 4px; }
+      /* Demo card overlay — HTML card is visual, invisible button captures clicks */
+      .dcg { margin-bottom: 4px; }
+      .dcg [data-testid="column"] {
+        position: relative !important;
+        padding: 0 3px !important;
+      }
+      .demo-grid { display: flex; gap: 6px; }
       .demo-card {
-        flex: 1; background: #EFF6FF;
+        background: #EFF6FF;
         border: 1px solid #BFD4EF;
-        border-radius: 4px; padding: 6px 4px;
+        border-radius: 6px; padding: 8px 4px;
         text-align: center; transition: all 0.2s;
+        cursor: pointer;
       }
-      .demo-card:hover { background: #DCEAFE; border-color: #0078D4; }
-      .demo-card .dm-ic { font-size: 1rem; margin-bottom: 1px; }
-      .demo-card .dm-nm { color: #1B1B1B; font-size: 0.68rem; font-weight: 600; }
+      .demo-card .dm-ic { font-size: 1.3rem; margin-bottom: 2px; }
+      .demo-card .dm-nm { color: #1B1B1B; font-size: 0.7rem; font-weight: 700; margin-bottom: 1px; }
       .demo-card .dm-rl { color: #616161; font-size: 0.6rem; }
-      /* Demo card-button group — overrides global .stButton for the 3 demo columns */
-      .dcg .stButton > button {
-        height: 76px !important;
-        background: #EFF6FF !important;
-        border: 1px solid #BFD4EF !important;
-        color: #1B1B1B !important;
-        font-size: 0.72rem !important;
-        font-weight: 600 !important;
-        line-height: 1.55 !important;
-        border-radius: 8px !important;
+      /* Invisible button floats over the card; hover on it highlights the card */
+      .dcg .stButton {
+        position: absolute !important;
+        inset: 0 !important;
+        z-index: 2 !important;
+        margin: 0 !important;
       }
-      .dcg .stButton > button:hover {
+      .dcg .stButton > button {
+        opacity: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 68px !important;
+        cursor: pointer !important;
+        padding: 0 !important;
+        border-radius: 6px !important;
+      }
+      /* :has() — when invisible button hovered, light up the visual card */
+      .dcg [data-testid="column"]:has(.stButton > button:hover) .demo-card {
         background: #DCEAFE !important;
         border-color: #0078D4 !important;
-        color: #0078D4 !important;
       }
       /* Quick-login Streamlit buttons */
       .stButton > button {
@@ -484,16 +511,88 @@ if not st.session_state["authenticated"]:
       </div>
       <div class="ms-top-right">
         <div class="hero-visual-col">
-          <div class="hero-box tall grad1">🎯</div>
-          <div class="hero-box short grad2">📊</div>
+          <div class="hero-box tall grad1">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <polygon points="32,5 53,17 53,41 32,53 11,41 11,17" stroke="white" stroke-width="2.5" fill="rgba(255,255,255,0.15)"/>
+              <circle cx="32" cy="22" r="4.5" fill="white"/>
+              <circle cx="19" cy="34" r="4.5" fill="white"/>
+              <circle cx="45" cy="34" r="4.5" fill="white"/>
+              <circle cx="32" cy="44" r="3.5" fill="rgba(255,255,255,0.6)"/>
+              <line x1="32" y1="26" x2="21" y2="30" stroke="white" stroke-width="1.5"/>
+              <line x1="32" y1="26" x2="43" y2="30" stroke="white" stroke-width="1.5"/>
+              <line x1="21" y1="38" x2="30" y2="41" stroke="white" stroke-width="1.5"/>
+              <line x1="43" y1="38" x2="34" y2="41" stroke="white" stroke-width="1.5"/>
+            </svg>
+            <div class="hb-label">AI Foundry</div>
+          </div>
+          <div class="hero-box short grad2">
+            <svg viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="26" cy="26" r="9" fill="white"/>
+              <ellipse cx="26" cy="26" rx="21" ry="7.5" stroke="white" stroke-width="2.5" fill="none"/>
+              <ellipse cx="26" cy="26" rx="21" ry="7.5" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" fill="none" transform="rotate(60 26 26)"/>
+            </svg>
+            <div class="hb-label">Cosmos DB</div>
+          </div>
         </div>
         <div class="hero-visual-col">
-          <div class="hero-box short grad3">🧠</div>
-          <div class="hero-box tall grad4">✨</div>
+          <div class="hero-box short grad3">
+            <svg viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="26" cy="26" r="18" stroke="white" stroke-width="2" fill="rgba(255,255,255,0.1)"/>
+              <circle cx="26" cy="26" r="11" stroke="white" stroke-width="1.5" fill="rgba(255,255,255,0.1)"/>
+              <circle cx="26" cy="26" r="5" fill="white"/>
+              <circle cx="26" cy="8" r="3" fill="white"/>
+              <circle cx="40" cy="17" r="3" fill="white"/>
+              <circle cx="40" cy="35" r="3" fill="white"/>
+              <circle cx="26" cy="44" r="3" fill="white"/>
+              <circle cx="12" cy="35" r="3" fill="white"/>
+              <circle cx="12" cy="17" r="3" fill="white"/>
+            </svg>
+            <div class="hb-label">Azure OpenAI</div>
+          </div>
+          <div class="hero-box tall grad4">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="27" cy="27" r="17" stroke="white" stroke-width="3" fill="rgba(255,255,255,0.15)"/>
+              <circle cx="27" cy="27" r="8" fill="rgba(255,255,255,0.2)"/>
+              <circle cx="27" cy="27" r="3.5" fill="white"/>
+              <line x1="40" y1="40" x2="56" y2="57" stroke="white" stroke-width="4" stroke-linecap="round"/>
+              <line x1="20" y1="21" x2="34" y2="21" stroke="white" stroke-width="2" stroke-linecap="round"/>
+              <line x1="20" y1="27" x2="32" y2="27" stroke="white" stroke-width="2" stroke-linecap="round"/>
+              <line x1="20" y1="33" x2="27" y2="33" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <div class="hb-label">AI Search</div>
+          </div>
         </div>
         <div class="hero-visual-col">
-          <div class="hero-box tall grad5">🚀</div>
-          <div class="hero-box short grad6">💡</div>
+          <div class="hero-box tall grad5">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="10" cy="20" r="5" fill="white"/>
+              <circle cx="10" cy="44" r="5" fill="white"/>
+              <circle cx="32" cy="10" r="5" fill="rgba(255,255,255,0.85)"/>
+              <circle cx="32" cy="32" r="7" fill="white"/>
+              <circle cx="32" cy="54" r="5" fill="rgba(255,255,255,0.85)"/>
+              <circle cx="54" cy="20" r="5" fill="white"/>
+              <circle cx="54" cy="44" r="5" fill="white"/>
+              <line x1="15" y1="21" x2="25" y2="14" stroke="rgba(255,255,255,0.65)" stroke-width="1.5"/>
+              <line x1="15" y1="21" x2="25" y2="29" stroke="rgba(255,255,255,0.65)" stroke-width="1.5"/>
+              <line x1="15" y1="43" x2="25" y2="35" stroke="rgba(255,255,255,0.65)" stroke-width="1.5"/>
+              <line x1="15" y1="43" x2="25" y2="49" stroke="rgba(255,255,255,0.65)" stroke-width="1.5"/>
+              <line x1="49" y1="21" x2="39" y2="14" stroke="rgba(255,255,255,0.65)" stroke-width="1.5"/>
+              <line x1="49" y1="21" x2="39" y2="29" stroke="rgba(255,255,255,0.65)" stroke-width="1.5"/>
+              <line x1="49" y1="43" x2="39" y2="35" stroke="rgba(255,255,255,0.65)" stroke-width="1.5"/>
+              <line x1="49" y1="43" x2="39" y2="49" stroke="rgba(255,255,255,0.65)" stroke-width="1.5"/>
+            </svg>
+            <div class="hb-label">Machine Learning</div>
+          </div>
+          <div class="hero-box short grad6">
+            <svg viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="7" y="13" width="38" height="24" rx="7" fill="rgba(255,255,255,0.18)" stroke="white" stroke-width="2.5"/>
+              <circle cx="19" cy="25" r="4" fill="white"/>
+              <circle cx="33" cy="25" r="4" fill="white"/>
+              <path d="M19 37 L26 46 L33 37" fill="rgba(255,255,255,0.7)" stroke="rgba(255,255,255,0.8)" stroke-width="1.5" stroke-linejoin="round"/>
+              <rect x="23" y="6" width="6" height="7" rx="3" fill="white"/>
+            </svg>
+            <div class="hb-label">Bot Service</div>
+          </div>
         </div>
       </div>
     </div>
@@ -542,18 +641,30 @@ if not st.session_state["authenticated"]:
         st.markdown('<div class="signin-title">Sign In</div>', unsafe_allow_html=True)
         st.markdown('<div class="signin-sub">Pick a demo account or sign in manually</div>', unsafe_allow_html=True)
 
-        # Quick-login card-buttons (card visual + button combined)
+        # Quick-login: HTML cards are visual; invisible buttons sit on top and capture clicks
         st.markdown('<div class="dcg">', unsafe_allow_html=True)
         _d1, _d2, _d3 = st.columns(3)
         with _d1:
-            if st.button("🌱 AI Beginner\nFirst-time · AI-102", key="demo_new", use_container_width=True):
+            st.markdown("""
+            <div class="demo-card">
+              <div class="dm-ic">🌱</div>
+              <div class="dm-nm">AI Beginner</div>
+              <div class="dm-rl">First-time · AI-102</div>
+            </div>""", unsafe_allow_html=True)
+            if st.button("demo_new", key="demo_new", use_container_width=True):
                 upsert_student("Alex Chen", "1234", "learner")
                 st.session_state["authenticated"] = True
                 st.session_state["login_name"] = "Alex Chen"
                 st.session_state["user_type"] = "learner"
                 st.rerun()
         with _d2:
-            if st.button("📊 Data Pro\nReturning · DP-100", key="demo_jordan", use_container_width=True):
+            st.markdown("""
+            <div class="demo-card">
+              <div class="dm-ic">📊</div>
+              <div class="dm-nm">Data Professional</div>
+              <div class="dm-rl">Returning · DP-100</div>
+            </div>""", unsafe_allow_html=True)
+            if st.button("demo_pro", key="demo_jordan", use_container_width=True):
                 upsert_student("Priyanka Sharma", "1234", "learner")
                 st.session_state["authenticated"] = True
                 st.session_state["login_name"] = "Priyanka Sharma"
@@ -570,7 +681,13 @@ if not st.session_state["authenticated"]:
                         st.session_state["learning_path"] = _learning_path_from_dict(_json_ql.loads(_db_p["learning_path_json"]))
                 st.rerun()
         with _d3:
-            if st.button("🔧 Admin\nDashboard & Traces", key="demo_admin", use_container_width=True):
+            st.markdown("""
+            <div class="demo-card">
+              <div class="dm-ic">🔧</div>
+              <div class="dm-nm">Admin</div>
+              <div class="dm-rl">Dashboard &amp; Traces</div>
+            </div>""", unsafe_allow_html=True)
+            if st.button("demo_admin", key="demo_admin", use_container_width=True):
                 st.session_state["authenticated"] = True
                 st.session_state["login_name"] = "Admin"
                 st.session_state["user_type"] = "admin"
