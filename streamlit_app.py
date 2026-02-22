@@ -518,9 +518,9 @@ if not st.session_state["authenticated"]:
             <div class="dm-rl">New Learner</div>
           </div>
           <div class="demo-card">
-            <div class="dm-ic">🧑‍🔬</div>
-            <div class="dm-nm">Jordan Lee</div>
-            <div class="dm-rl">Data Scientist</div>
+            <div class="dm-ic">👩‍💻</div>
+            <div class="dm-nm">Priyanka Sharma</div>
+            <div class="dm-rl">Existing User</div>
           </div>
           <div class="demo-card">
             <div class="dm-ic">🔧</div>
@@ -540,11 +540,21 @@ if not st.session_state["authenticated"]:
                 st.session_state["user_type"] = "learner"
                 st.rerun()
         with _d2:
-            if st.button("▶ Jordan", key="demo_jordan", use_container_width=True):
-                upsert_student("Jordan Lee", "1234", "learner")
+            if st.button("▶ Priyanka", key="demo_jordan", use_container_width=True):
+                upsert_student("Priyanka Sharma", "1234", "learner")
                 st.session_state["authenticated"] = True
-                st.session_state["login_name"] = "Jordan Lee"
+                st.session_state["login_name"] = "Priyanka Sharma"
                 st.session_state["user_type"] = "learner"
+                # Load existing data from DB so returning-user mode activates
+                _db_p = get_student("Priyanka Sharma")
+                if _db_p and _db_p.get("profile_json"):
+                    import json as _json_ql
+                    st.session_state["profile"] = LearnerProfile.model_validate_json(_db_p["profile_json"])
+                    st.session_state["raw"]     = RawStudentInput(**_json_ql.loads(_db_p["raw_input_json"]))
+                    if _db_p.get("plan_json"):
+                        st.session_state["plan"] = _study_plan_from_dict(_json_ql.loads(_db_p["plan_json"]))
+                    if _db_p.get("learning_path_json"):
+                        st.session_state["learning_path"] = _learning_path_from_dict(_json_ql.loads(_db_p["learning_path_json"]))
                 st.rerun()
         with _d3:
             if st.button("▶ Admin", key="demo_admin", use_container_width=True):
@@ -552,7 +562,7 @@ if not st.session_state["authenticated"]:
                 st.session_state["login_name"] = "Admin"
                 st.session_state["user_type"] = "admin"
                 st.session_state["admin_logged_in"] = True
-                st.rerun()
+                st.switch_page("pages/1_Admin_Dashboard.py")
 
         st.markdown('<div class="or-sep">or sign in manually</div>', unsafe_allow_html=True)
 
@@ -627,6 +637,10 @@ if not st.session_state["authenticated"]:
                         st.session_state["progress_assessment"] = _readiness_assessment_from_dict(_json_mod.loads(_db_student["progress_assessment_json"]))
                     st.rerun()
     st.stop()
+
+# Auto-redirect admin users straight to the Admin Dashboard
+if st.session_state.get("user_type") == "admin":
+    st.switch_page("pages/1_Admin_Dashboard.py")
 
 LEVEL_ICON = {
     "unknown":  "✗",
@@ -1213,9 +1227,9 @@ with st.sidebar:
           if st.session_state.get("sidebar_prefill") != "alex":
             st.session_state["sidebar_prefill"] = "alex"
             st.rerun()
-        if st.button("🧑‍🔬 Jordan Lee", key="sb_sc_jordan", use_container_width=True):
-          if st.session_state.get("sidebar_prefill") != "jordan":
-            st.session_state["sidebar_prefill"] = "jordan"
+        if st.button("👩‍💻 Priyanka Sharma", key="sb_sc_jordan", use_container_width=True):
+          if st.session_state.get("sidebar_prefill") != "priyanka":
+            st.session_state["sidebar_prefill"] = "priyanka"
             st.rerun()
     else:
         # Stage completion tracker
@@ -1262,8 +1276,8 @@ _PREFILL_SCENARIOS = {
         "motivation": ["Career growth"],
         "style_tags": ["Hands-on labs", "Practice tests"],
     },
-    "Jordan Lee — data scientist, DP-203": {
-      "name": "Jordan Lee", "background": "5 years in data analytics, strong Python and SQL, experience with Azure Synapse and Power BI, but new to Azure Data Engineering.",
+    "Priyanka Sharma — data scientist, DP-203": {
+      "name": "Priyanka Sharma", "background": "5 years in data analytics, strong Python and SQL, experience with Azure Synapse and Power BI, but new to Azure Data Engineering.",
       "certs": "DP-900, AZ-900", "style": "Video tutorials and hands-on labs",
       "hpw": 8.0, "weeks": 6, "concerns": "Data pipelines, ETL, Azure Data Lake, Synapse Analytics",
       "goal": "Transition to Azure Data Engineer role",
@@ -1304,8 +1318,8 @@ if not is_returning:
     _sb_choice = st.session_state.get("sidebar_prefill", "")
     if _sb_choice == "alex":
       prefill.update(_PREFILL_SCENARIOS["Alex Chen — complete beginner, AI-102"])
-    elif _sb_choice == "jordan":
-      prefill.update(_PREFILL_SCENARIOS["Jordan Lee — data scientist, DP-203"])
+    elif _sb_choice == "priyanka":
+      prefill.update(_PREFILL_SCENARIOS["Priyanka Sharma — data scientist, DP-203"])
 
     # Push prefill values into session state so Streamlit widgets pick them up
     if prefill:
@@ -1321,117 +1335,212 @@ if not is_returning:
 
 # ─── Intake form (compact two-column, no scroll) ────────────────────────────
 
-# Clear / Reset button (outside form)
-if st.button("🗑️  Clear all & start fresh", key="clear_form"):
-    for k in list(st.session_state.keys()):
-        if k.startswith(("motiv_", "style_", "sidebar_prefill")):
-            del st.session_state[k]
-    st.session_state.pop("sidebar_prefill", None)
-    st.rerun()
+# ── Existing user: frozen read-only view (toggle to edit) ────────────────────
+if is_returning and not st.session_state.get("editing_profile", False):
+    _raw_r: RawStudentInput = st.session_state["raw"]
 
-with st.form("intake_form", clear_on_submit=False):
-
-    _left, _right = st.columns(2, gap="large")
-
-    # ════════════ LEFT COLUMN ════════════
-    with _left:
-        # ── Your Goal ──
-        st.markdown('<div class="intake-card"><h3><span class="card-icon">🎯</span> Your Goal</h3>', unsafe_allow_html=True)
-        exam_cert = st.selectbox(
-            "Which certification exam are you targeting?",
-            options=AZURE_CERTS,
-            index=AZURE_CERTS.index(DEFAULT_CERT),
+    _fv_hdr_l, _fv_hdr_r = st.columns([8, 2])
+    with _fv_hdr_l:
+        st.markdown(
+            f'<h3 style="margin:0 0 12px;font-size:1.05rem;font-weight:700;'
+            f'color:{TEXT_PRIMARY};">📋 Your Profile on File</h3>',
+            unsafe_allow_html=True,
         )
-        exam_target = exam_cert.split(" – ")[0].strip()
+    with _fv_hdr_r:
+        if st.button("✏️ Edit Profile", key="edit_profile_btn", use_container_width=True):
+            st.session_state["editing_profile"] = True
+            st.rerun()
 
-        _motiv_cols = st.columns(2)
-        _motivations = [("🚀", "Career growth"), ("🤝", "Client need"), ("🔄", "Role switch"), ("💡", "Learning")]
-        _selected_motiv = []
-        for i, (icon, m) in enumerate(_motivations):
-            with _motiv_cols[i % 2]:
-                if st.checkbox(f"{icon} {m}", key=f"motiv_{i}"):
-                    _selected_motiv.append(m)
-        st.markdown('</div>', unsafe_allow_html=True)
+    _fv1, _fv2, _fv3 = st.columns(3)
+    with _fv1:
+        st.markdown(f"""
+        <div class="intake-card">
+          <div style="color:{TEXT_MUTED};font-size:0.68rem;font-weight:700;text-transform:uppercase;
+                      letter-spacing:.06em;margin-bottom:6px;">🎯 Exam Target</div>
+          <div style="font-size:0.95rem;font-weight:700;color:{TEXT_PRIMARY};margin-bottom:10px;">{_raw_r.exam_target}</div>
+          <div style="color:{TEXT_MUTED};font-size:0.68rem;font-weight:700;text-transform:uppercase;
+                      letter-spacing:.06em;margin-bottom:4px;">🕐 Study Budget</div>
+          <div style="font-size:0.87rem;font-weight:600;color:{TEXT_PRIMARY};">
+            {_raw_r.hours_per_week} hr/wk &middot; {_raw_r.weeks_available} weeks
+          </div>
+        </div>""", unsafe_allow_html=True)
+    with _fv2:
+        _certs_disp   = ", ".join(_raw_r.existing_certs) if _raw_r.existing_certs else "None yet"
+        _concern_disp = ", ".join(_raw_r.concern_topics[:3]) if _raw_r.concern_topics else "None specified"
+        st.markdown(f"""
+        <div class="intake-card">
+          <div style="color:{TEXT_MUTED};font-size:0.68rem;font-weight:700;text-transform:uppercase;
+                      letter-spacing:.06em;margin-bottom:4px;">🏅 Existing Certs</div>
+          <div style="font-size:0.87rem;font-weight:600;color:{TEXT_PRIMARY};margin-bottom:10px;">{_certs_disp}</div>
+          <div style="color:{TEXT_MUTED};font-size:0.68rem;font-weight:700;text-transform:uppercase;
+                      letter-spacing:.06em;margin-bottom:4px;">🔍 Focus Areas</div>
+          <div style="font-size:0.82rem;color:{TEXT_PRIMARY};">{_concern_disp}</div>
+        </div>""", unsafe_allow_html=True)
+    with _fv3:
+        _bg_short   = (_raw_r.background_text[:120] + "\u2026") if len(_raw_r.background_text) > 120 else _raw_r.background_text
+        _style_disp = _raw_r.preferred_style if _raw_r.preferred_style else "Not specified"
+        st.markdown(f"""
+        <div class="intake-card">
+          <div style="color:{TEXT_MUTED};font-size:0.68rem;font-weight:700;text-transform:uppercase;
+                      letter-spacing:.06em;margin-bottom:4px;">👤 Background</div>
+          <div style="font-size:0.82rem;color:{TEXT_PRIMARY};line-height:1.45;margin-bottom:10px;">{_bg_short}</div>
+          <div style="color:{TEXT_MUTED};font-size:0.68rem;font-weight:700;text-transform:uppercase;
+                      letter-spacing:.06em;margin-bottom:4px;">📖 Learning Style</div>
+          <div style="font-size:0.82rem;color:{TEXT_PRIMARY};">{_style_disp}</div>
+        </div>""", unsafe_allow_html=True)
 
-        # ── Time Commitment ──
-        st.markdown('<div class="intake-card"><h3><span class="card-icon">⏱️</span> Time Commitment</h3>', unsafe_allow_html=True)
-        _tc1, _tc2 = st.columns(2)
-        with _tc1:
-            hours_per_week = st.slider("Hours / week", min_value=1, max_value=40, value=int(prefill.get("hpw", 10)))
-        with _tc2:
-            weeks_available = st.slider("Weeks available", min_value=1, max_value=52, value=int(prefill.get("weeks", 8)))
-        total_hours = hours_per_week * weeks_available
-        st.markdown(f'<div class="time-info"><span class="ti-icon">📅</span><span>Study plan: <b>{weeks_available} weeks</b> × <b>{hours_per_week} hr/wk</b> = <b>{total_hours} hours</b></span></div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+    submitted = False  # no form submission in read-only mode
 
-        # ── How do you learn best? ──
-        st.markdown('<div class="intake-card"><h3><span class="card-icon">📖</span> How do you learn best?</h3>', unsafe_allow_html=True)
-        _style_cols_r1 = st.columns(3)
-        _style_cols_r2 = st.columns(3)
-        _style_options = [("🔬", "Hands-on labs"), ("📹", "Videos"), ("📄", "Reading"), ("🏗️", "Projects"), ("📝", "Practice tests")]
-        _selected_styles = []
-        for i, (icon, label) in enumerate(_style_options):
-            _col = _style_cols_r1[i] if i < 3 else _style_cols_r2[i - 3]
-            with _col:
-                if st.checkbox(f"{icon} {label}", key=f"style_{i}"):
-                    _selected_styles.append(label)
-        preferred_style = ", ".join(_selected_styles) if _selected_styles else ""
-        st.markdown('</div>', unsafe_allow_html=True)
+else:
+    # ── Editable form (new user, or returning user clicked Edit) ─────────────
+    if is_returning:
+        # Pre-populate form fields from the saved raw input
+        _raw_r = st.session_state["raw"]
+        prefill = {
+            "name":       _raw_r.student_name,
+            "background": _raw_r.background_text,
+            "certs":      ", ".join(_raw_r.existing_certs),
+            "hpw":        _raw_r.hours_per_week,
+            "weeks":      _raw_r.weeks_available,
+            "concerns":   ", ".join(_raw_r.concern_topics),
+            "goal":       _raw_r.goal_text,
+            "style":      _raw_r.preferred_style,
+            "motivation": [m.strip() for m in _raw_r.goal_text.split(",") if m.strip()],
+            "style_tags": [s.strip() for s in _raw_r.preferred_style.split(",") if s.strip()],
+            "role":       "",
+        }
+        _motivations_list = ["Career growth", "Client requirement", "Role switch", "Just learning"]
+        for i, m in enumerate(_motivations_list):
+            st.session_state[f"motiv_{i}"] = m in prefill["motivation"]
+        _style_labels = ["Hands-on labs", "Video tutorials", "Reading docs", "Real projects", "Practice tests"]
+        for i, s in enumerate(_style_labels):
+            st.session_state[f"style_{i}"] = s in prefill["style_tags"]
 
-    # ════════════ RIGHT COLUMN ════════════
-    with _right:
-        # ── Your Background ──
-        st.markdown('<div class="intake-card"><h3><span class="card-icon">👤</span> Your Background</h3>', unsafe_allow_html=True)
-        background_text = st.text_area(
-            "Tell us about your experience",
-            value=prefill.get("background", ""),
-            placeholder="e.g. 3 years Python developer, familiar with REST APIs, no Azure experience",
-            height=100,
-            label_visibility="collapsed",
+        _eb_spacer, _eb_btn = st.columns([8, 2])
+        with _eb_btn:
+            if st.button("\u2715 Cancel Edit", key="cancel_edit_btn", use_container_width=True):
+                st.session_state.pop("editing_profile", None)
+                st.rerun()
+        st.markdown(
+            f'<p style="color:{TEXT_MUTED};font-size:0.82rem;margin-bottom:8px;">'
+            f'Update your details below \u2014 your study plan will be regenerated on save.</p>',
+            unsafe_allow_html=True,
         )
-        st.markdown('</div>', unsafe_allow_html=True)
+    else:
+        # Reset button (right-aligned) for new users
+        _rb_spacer, _rb_btn = st.columns([8, 2])
+        with _rb_btn:
+            if st.button("\U0001f504 Reset", key="clear_form", use_container_width=True):
+                for k in list(st.session_state.keys()):
+                    if k.startswith(("motiv_", "style_", "sidebar_prefill")):
+                        del st.session_state[k]
+                st.session_state.pop("sidebar_prefill", None)
+                st.rerun()
 
-        # ── About You ──
-        st.markdown('<div class="intake-card"><h3><span class="card-icon">🧑‍💼</span> About You</h3>', unsafe_allow_html=True)
-        _role_options = [
-            "Student / Fresh Graduate", "Software Developer", "Cloud Engineer",
-            "Data Analyst / Scientist", "IT Administrator", "Solutions Architect",
-            "Manager / Team Lead", "Other",
-        ]
-        _role_default = 0
-        _prefill_role = prefill.get("role", "")
-        if _prefill_role in _role_options:
-            _role_default = _role_options.index(_prefill_role)
-        current_role = st.selectbox("What's your current role?", options=_role_options, index=_role_default)
+    with st.form("intake_form", clear_on_submit=False):
 
-        _common_certs = ["None yet", "AZ-900", "AZ-104", "AZ-204", "AZ-305", "AI-900", "AI-102", "DP-900", "DP-203", "SC-900"]
-        _prefill_certs = [c.strip() for c in prefill.get("certs", "").split(",") if c.strip()]
-        _cert_defaults = _prefill_certs if _prefill_certs else ["None yet"]
-        _cert_defaults = [c for c in _cert_defaults if c in _common_certs]
-        existing_certs_list = st.multiselect("Certifications you already have", options=_common_certs, default=_cert_defaults)
-        existing_certs_raw = ", ".join([c for c in existing_certs_list if c != "None yet"])
-        st.markdown('</div>', unsafe_allow_html=True)
+        _left, _right = st.columns(2, gap="large")
 
-        # ── Areas of concern ──
-        st.markdown('<div class="intake-card"><h3><span class="card-icon">🔍</span> Any specific topics you find challenging?</h3>', unsafe_allow_html=True)
-        _concern_options = ["Azure OpenAI", "Bot Framework", "Cognitive Services", "Computer Vision", "NLP / Language", "Search (AI Search)", "Document Intelligence", "Responsible AI"]
-        _prefill_concerns = [c.strip() for c in prefill.get("concerns", "").split(",") if c.strip()]
-        _concern_defaults = [c for c in _prefill_concerns if c in _concern_options]
-        concern_topics_list = st.multiselect("Select topics you want to focus on", options=_concern_options, default=_concern_defaults, label_visibility="collapsed")
-        concern_topics_raw_ui = ", ".join(concern_topics_list)
-        st.markdown('</div>', unsafe_allow_html=True)
+        # ════════════ LEFT COLUMN ════════════
+        with _left:
+            # ── Your Goal ──
+            st.markdown('<div class="intake-card"><h3><span class="card-icon">🎯</span> Your Goal</h3>', unsafe_allow_html=True)
+            exam_cert = st.selectbox(
+                "Which certification exam are you targeting?",
+                options=AZURE_CERTS,
+                index=AZURE_CERTS.index(DEFAULT_CERT),
+            )
+            exam_target = exam_cert.split(" – ")[0].strip()
 
-    # ── Derived fields (auto-computed) ──
-    student_name = prefill.get("name", _login_name)
-    concern_topics_raw = concern_topics_raw_ui if concern_topics_list else prefill.get("concerns", "")
-    goal_text = ", ".join(_selected_motiv) if _selected_motiv else prefill.get("goal", "")
+            _motiv_cols = st.columns(2)
+            _motivations = [("🚀", "Career growth"), ("🤝", "Client need"), ("🔄", "Role switch"), ("💡", "Learning")]
+            _selected_motiv = []
+            for i, (icon, m) in enumerate(_motivations):
+                with _motiv_cols[i % 2]:
+                    if st.checkbox(f"{icon} {m}", key=f"motiv_{i}"):
+                        _selected_motiv.append(m)
+            st.markdown('</div>', unsafe_allow_html=True)
 
-    submitted = st.form_submit_button(
-        "🎯 Create My AI Study Plan",
-        type="primary",
-        use_container_width=True,
-    )
-    st.caption("You can adjust your preferences anytime.")
+            # ── Time Commitment ──
+            st.markdown('<div class="intake-card"><h3><span class="card-icon">⏱️</span> Time Commitment</h3>', unsafe_allow_html=True)
+            _tc1, _tc2 = st.columns(2)
+            with _tc1:
+                hours_per_week = st.slider("Hours / week", min_value=1, max_value=40, value=int(prefill.get("hpw", 10)))
+            with _tc2:
+                weeks_available = st.slider("Weeks available", min_value=1, max_value=52, value=int(prefill.get("weeks", 8)))
+            total_hours = hours_per_week * weeks_available
+            st.markdown(f'<div class="time-info"><span class="ti-icon">📅</span><span>Study plan: <b>{weeks_available} weeks</b> × <b>{hours_per_week} hr/wk</b> = <b>{total_hours} hours</b></span></div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # ── How do you learn best? ──
+            st.markdown('<div class="intake-card"><h3><span class="card-icon">📖</span> How do you learn best?</h3>', unsafe_allow_html=True)
+            _style_cols_r1 = st.columns(3)
+            _style_cols_r2 = st.columns(3)
+            _style_options = [("🔬", "Hands-on labs"), ("📹", "Videos"), ("📄", "Reading"), ("🏗️", "Projects"), ("📝", "Practice tests")]
+            _selected_styles = []
+            for i, (icon, label) in enumerate(_style_options):
+                _col = _style_cols_r1[i] if i < 3 else _style_cols_r2[i - 3]
+                with _col:
+                    if st.checkbox(f"{icon} {label}", key=f"style_{i}"):
+                        _selected_styles.append(label)
+            preferred_style = ", ".join(_selected_styles) if _selected_styles else ""
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        # ════════════ RIGHT COLUMN ════════════
+        with _right:
+            # ── Your Background ──
+            st.markdown('<div class="intake-card"><h3><span class="card-icon">👤</span> Your Background</h3>', unsafe_allow_html=True)
+            background_text = st.text_area(
+                "Tell us about your experience",
+                value=prefill.get("background", ""),
+                placeholder="e.g. 3 years Python developer, familiar with REST APIs, no Azure experience",
+                height=100,
+                label_visibility="collapsed",
+            )
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # ── About You ──
+            st.markdown('<div class="intake-card"><h3><span class="card-icon">🧑‍💼</span> About You</h3>', unsafe_allow_html=True)
+            _role_options = [
+                "Student / Fresh Graduate", "Software Developer", "Cloud Engineer",
+                "Data Analyst / Scientist", "IT Administrator", "Solutions Architect",
+                "Manager / Team Lead", "Other",
+            ]
+            _role_default = 0
+            _prefill_role = prefill.get("role", "")
+            if _prefill_role in _role_options:
+                _role_default = _role_options.index(_prefill_role)
+            current_role = st.selectbox("What's your current role?", options=_role_options, index=_role_default)
+
+            _common_certs = ["None yet", "AZ-900", "AZ-104", "AZ-204", "AZ-305", "AI-900", "AI-102", "DP-900", "DP-203", "SC-900"]
+            _prefill_certs = [c.strip() for c in prefill.get("certs", "").split(",") if c.strip()]
+            _cert_defaults = _prefill_certs if _prefill_certs else ["None yet"]
+            _cert_defaults = [c for c in _cert_defaults if c in _common_certs]
+            existing_certs_list = st.multiselect("Certifications you already have", options=_common_certs, default=_cert_defaults)
+            existing_certs_raw = ", ".join([c for c in existing_certs_list if c != "None yet"])
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # ── Areas of concern ──
+            st.markdown('<div class="intake-card"><h3><span class="card-icon">🔍</span> Any specific topics you find challenging?</h3>', unsafe_allow_html=True)
+            _concern_options = ["Azure OpenAI", "Bot Framework", "Cognitive Services", "Computer Vision", "NLP / Language", "Search (AI Search)", "Document Intelligence", "Responsible AI"]
+            _prefill_concerns = [c.strip() for c in prefill.get("concerns", "").split(",") if c.strip()]
+            _concern_defaults = [c for c in _prefill_concerns if c in _concern_options]
+            concern_topics_list = st.multiselect("Select topics you want to focus on", options=_concern_options, default=_concern_defaults, label_visibility="collapsed")
+            concern_topics_raw_ui = ", ".join(concern_topics_list)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        # ── Derived fields (auto-computed) ──
+        student_name = prefill.get("name", _login_name)
+        concern_topics_raw = concern_topics_raw_ui if concern_topics_list else prefill.get("concerns", "")
+        goal_text = ", ".join(_selected_motiv) if _selected_motiv else prefill.get("goal", "")
+
+        _submit_label = "💾 Save & Regenerate Plan" if is_returning else "🎯 Create My AI Study Plan"
+        submitted = st.form_submit_button(
+            _submit_label,
+            type="primary",
+            use_container_width=True,
+        )
+        st.caption("You can adjust your preferences anytime.")
 
 
 # ─── Handle submit ────────────────────────────────────────────────────────────
@@ -1498,6 +1607,7 @@ if submitted:
     st.session_state["profile"]           = profile
     st.session_state["raw"]               = raw
     st.session_state["badge"]             = mode_badge
+    st.session_state.pop("editing_profile", None)  # exit edit mode after save
     st.session_state["guardrail_input"]   = _input_result
     st.session_state["guardrail_profile"] = _profile_result
 
