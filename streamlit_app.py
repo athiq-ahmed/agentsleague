@@ -463,10 +463,19 @@ if not st.session_state["authenticated"]:
       .stTextInput [data-testid="stTextInputRootElement"] {
         height: 44px !important;
       }
-      /* Hide password toggle so both fields are equal width */
+      /* Hide password toggle icon + the separator border it sits behind */
       .stTextInput button[kind="icon"],
-      .stTextInput [data-testid="stTextInputRootElement"] button {
+      .stTextInput [data-testid="stTextInputRootElement"] button,
+      .stTextInput [data-testid="stTextInputRootElement"] button ~ div,
+      .stTextInput [data-testid="stTextInputRootElement"] > div > div:last-child:has(button),
+      [data-testid="InputInstructions"] {
         display: none !important;
+        border: none !important;
+      }
+      /* Remove the right-side border on the input itself */
+      .stTextInput input[type="password"] {
+        border-right: none !important;
+        padding-right: 12px !important;
       }
       /* Submit button — Microsoft blue */
       .stFormSubmitButton button {
