@@ -1366,43 +1366,44 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    # Navigation section (slim)
-    if not is_returning:
-        st.markdown('<p style="color:rgba(255,255,255,0.5);font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;padding-left:4px;">DEMO SCENARIOS</p>', unsafe_allow_html=True)
-        _active_prefill = st.session_state.get("sidebar_prefill")
-        _alex_active    = _active_prefill == "alex"
-        _jordan_active  = _active_prefill == "priyanka"
+    # Navigation section — DEMO SCENARIOS always visible, LEARNING STAGES below when profile exists
+    st.markdown('<p style="color:rgba(255,255,255,0.5);font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;padding-left:4px;">DEMO SCENARIOS</p>', unsafe_allow_html=True)
+    _active_prefill = st.session_state.get("sidebar_prefill")
+    _alex_active    = _active_prefill == "alex"
+    _jordan_active  = _active_prefill == "priyanka"
+    if st.button(
+        "🌱 AI Beginner · AI-102",
+        key="sb_sc_alex",
+        use_container_width=True,
+        disabled=_jordan_active,
+        type="primary" if _alex_active else "secondary",
+    ):
+        if not _alex_active:
+            st.session_state["sidebar_prefill"] = "alex"
+            st.rerun()
+    if st.button(
+        "📊 Data Professional · DP-100",
+        key="sb_sc_jordan",
+        use_container_width=True,
+        disabled=_alex_active,
+        type="primary" if _jordan_active else "secondary",
+    ):
+        if not _jordan_active:
+            st.session_state["sidebar_prefill"] = "priyanka"
+            st.rerun()
+    if _active_prefill:
         if st.button(
-            "🌱 AI Beginner · AI-102",
-            key="sb_sc_alex",
+            "↩ Reset scenario",
+            key="sb_reset_link",
             use_container_width=True,
-            disabled=_jordan_active,
-            type="primary" if _alex_active else "secondary",
+            help="Clear the current demo scenario and pick a different one",
         ):
-            if not _alex_active:
-                st.session_state["sidebar_prefill"] = "alex"
-                st.rerun()
-        if st.button(
-            "📊 Data Professional · DP-100",
-            key="sb_sc_jordan",
-            use_container_width=True,
-            disabled=_alex_active,
-            type="primary" if _jordan_active else "secondary",
-        ):
-            if not _jordan_active:
-                st.session_state["sidebar_prefill"] = "priyanka"
-                st.rerun()
-        if _active_prefill:
-            if st.button(
-                "↩ Reset scenario",
-                key="sb_reset_link",
-                use_container_width=True,
-                help="Clear the current demo scenario and pick a different one",
-            ):
-                st.session_state.pop("sidebar_prefill", None)
-                st.rerun()
-    else:
-        # Stage completion tracker
+            st.session_state.pop("sidebar_prefill", None)
+            st.rerun()
+
+    # Stage completion tracker — shown additionally when a profile exists
+    if is_returning:
+        st.markdown('<p style="color:rgba(255,255,255,0.5);font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-top:12px;margin-bottom:6px;padding-left:4px;">LEARNING STAGES</p>', unsafe_allow_html=True)
         _stages = [
             ("🗺️ Domain Map",       True),
             ("📅 Study Plan",        "plan" in st.session_state),
@@ -1411,7 +1412,6 @@ with st.sidebar:
             ("🧪 Knowledge Check",   "assessment_result" in st.session_state),
             ("🏅 Certification",     st.session_state.get("cert_recommendation") is not None),
         ]
-        st.markdown('<p style="color:rgba(255,255,255,0.5);font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;padding-left:4px;">LEARNING STAGES</p>', unsafe_allow_html=True)
         for _slabel, _sdone in _stages:
             _si = "✅" if _sdone else "◻️"
             _sc = "rgba(255,255,255,0.9)" if _sdone else "rgba(255,255,255,0.4)"
