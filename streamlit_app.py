@@ -46,6 +46,7 @@ GREEN = "#107C41"
 # streamlit_app.py – Microsoft Certification Prep
 # Multi-agent certification prep powered by Azure OpenAI & Microsoft Foundry
 PINK = "#D63384"
+PURPLE_LITE = "#F3E8FF"
 
 import json
 import sys
@@ -149,7 +150,7 @@ import datetime
 
 # ─── Page config ─────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Microsoft Cert Prep - Student Learning App",
+    page_title="CertPrep AI – Microsoft Exam Prep",
     page_icon="🎓",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -1217,13 +1218,24 @@ with st.sidebar:
             st.session_state["sidebar_prefill"] = "jordan"
             st.rerun()
     else:
-        st.markdown('<p style="color:rgba(255,255,255,0.5);font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;padding-left:4px;">MAIN</p>', unsafe_allow_html=True)
-        st.button("📊  Dashboard", key="nav_dashboard", use_container_width=True)
-        st.button("🗺️  Domain Map", key="nav_domains", use_container_width=True)
-        st.button("📅  Study Plan", key="nav_plan", use_container_width=True)
-        st.button("📚  Learning Path", key="nav_path", use_container_width=True)
-        st.button("📈  Progress", key="nav_progress", use_container_width=True)
-        st.button("🧪  Knowledge Check", key="nav_quiz", use_container_width=True)
+        # Stage completion tracker
+        _stages = [
+            ("🗺️ Domain Map",       True),
+            ("📅 Study Plan",        "plan" in st.session_state),
+            ("📚 Learning Path",     "learning_path" in st.session_state),
+            ("📈 Progress Check",    "progress_assessment" in st.session_state),
+            ("🧪 Knowledge Check",   "assessment_result" in st.session_state),
+            ("🏅 Certification",     st.session_state.get("cert_recommendation") is not None),
+        ]
+        st.markdown('<p style="color:rgba(255,255,255,0.5);font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;padding-left:4px;">LEARNING STAGES</p>', unsafe_allow_html=True)
+        for _slabel, _sdone in _stages:
+            _si = "✅" if _sdone else "◻️"
+            _sc = "rgba(255,255,255,0.9)" if _sdone else "rgba(255,255,255,0.4)"
+            st.markdown(
+                f'<div style="padding:5px 8px;font-size:0.82rem;color:{_sc};">'
+                f'{_si}&nbsp;&nbsp;{_slabel}</div>',
+                unsafe_allow_html=True,
+            )
 
     if _utype == "admin":
         st.markdown("---")
@@ -1744,27 +1756,35 @@ if "profile" in st.session_state:
             )
 
         with col_detail:
-            st.markdown("**Per-domain breakdown**")
+            st.markdown("**Initial Knowledge Baseline**")
+            st.caption("AI-estimated starting point from your background — shows where to focus, not your final level.")
+            _BASELINE_LABEL = {
+                "unknown":  "Not Assessed",
+                "weak":     "Needs Focus",
+                "moderate": "Building Up",
+                "strong":   "Strong Start",
+            }
             for dp in profile.domain_profiles:
                 level  = dp.knowledge_level.value
                 colour = LEVEL_COLOUR[level]
                 icon   = LEVEL_ICON[level]
                 pct    = int(dp.confidence_score * 100)
-                skip   = "⏭ Skip candidate" if dp.skip_recommended else ""
-                risk   = "⚠ Risk" if dp.domain_id in profile.risk_domains else ""
+                skip   = "⏭ Fast-track" if dp.skip_recommended else ""
+                risk   = "⚠️ Priority" if dp.domain_id in profile.risk_domains else ""
                 flags  = f"&nbsp;{skip}&nbsp;{risk}" if (skip or risk) else ""
+                blabel = _BASELINE_LABEL.get(level, level.title())
 
                 st.markdown(
                     f"""<div style="margin-bottom:10px;">
                         <span><b>{dp.domain_name}</b></span>
-                        <span class="badge-{level}" style="background:{colour};color:white;
+                        <span style="background:{colour};color:white;
                               padding:1px 8px;border-radius:10px;font-size:0.75rem;
-                              font-weight:600;margin-left:8px;">{icon} {level.upper()}</span>
+                              font-weight:600;margin-left:8px;">{icon} {blabel}</span>
                         <span style="font-size:0.75rem;color:grey;margin-left:8px;">{flags}</span>
                         <div style="background:#e0e0e0;border-radius:4px;height:8px;margin-top:4px;">
                           <div style="background:{colour};width:{pct}%;height:8px;border-radius:4px;"></div>
                         </div>
-                        <span style="font-size:0.75rem;color:#555;">{pct}% confidence — {dp.notes}</span>
+                        <span style="font-size:0.75rem;color:#555;">{pct}% initial estimate — {dp.notes}</span>
                     </div>""",
                     unsafe_allow_html=True,
                 )
@@ -1786,14 +1806,15 @@ if "profile" in st.session_state:
                 line=dict(width=0),
             ),
             text=[f"{s:.0%}" for s in scores],
-            textposition="outside",
+            textposition="auto",
         ))
         bar_fig.add_vline(x=0.50, line_dash="dot", line_color="#ca5010",
                           annotation_text="Risk threshold 50%", annotation_position="top right")
+        _x_max = min(1.0, max(scores, default=0.5) + 0.20)
         bar_fig.update_layout(
-            height=280,
-            margin=dict(l=10, r=60, t=20, b=20),
-            xaxis=dict(range=[0, 1.1], tickformat=".0%", showgrid=True, gridcolor="#eeeeee"),
+            height=max(260, len(labels) * 42),
+            margin=dict(l=10, r=40, t=20, b=20),
+            xaxis=dict(range=[0, _x_max], tickformat=".0%", showgrid=True, gridcolor="#eeeeee"),
             yaxis=dict(autorange="reversed"),
             paper_bgcolor="white",
             plot_bgcolor="white",
@@ -2092,27 +2113,36 @@ if "profile" in st.session_state:
             st.plotly_chart(gantt_fig, use_container_width=True)
 
             # Hour breakdown table
-            st.markdown("#### ⏱ Hours Breakdown by Domain")
+            st.markdown("#### ⏱ Study Hours by Domain")
+            _PRIORITY_SORT = {"critical": 0, "high": 1, "medium": 2, "low": 3, "skip": 4, "review": 5}
+            _BASELINE_LBL = {"unknown": "Not Assessed", "weak": "Needs Focus", "moderate": "Building Up", "strong": "Strong Start"}
             task_table_rows = [
                 {
-                    "Domain":       (t.domain_name.replace("Implement ", "")
-                                    .replace(" Solutions", "")
-                                    .replace(" & Knowledge Mining", " & KM")),
-                    "Weeks":        f"{t.start_week}–{t.end_week}" if t.start_week != t.end_week else str(t.start_week),
-                    "Study Hours":  f"{t.total_hours:.0f} h",
-                    "Priority":     t.priority.title(),
-                    "Confidence":   f"{t.confidence_pct}%",
-                    "Knowledge":    t.knowledge_level.title(),
+                    "Domain":         (t.domain_name.replace("Implement ", "")
+                                      .replace(" Solutions", "")
+                                      .replace(" & Knowledge Mining", " & KM")),
+                    "Weeks":          f"{t.start_week}–{t.end_week}" if t.start_week != t.end_week else str(t.start_week),
+                    "Hours":          f"{t.total_hours:.1f} h",
+                    "Priority":       t.priority.title(),
+                    "Starting Point": _BASELINE_LBL.get(t.knowledge_level, t.knowledge_level.title()),
                 }
                 for t in plan.tasks
             ]
+            _review_h = profile.hours_per_week
             task_table_rows.append({
-                "Domain":      "🏁 Review & Practice Exam",
-                "Weeks":       str(plan.review_start_week),
-                "Study Hours": f"{profile.hours_per_week:.0f} h",
-                "Priority":    "Review",
-                "Confidence":  "—",
-                "Knowledge":   "—",
+                "Domain":         "🏁 Review & Practice Exam",
+                "Weeks":          str(plan.review_start_week),
+                "Hours":          f"{_review_h:.1f} h",
+                "Priority":       "Review",
+                "Starting Point": "—",
+            })
+            _total_h = sum(t.total_hours for t in plan.tasks) + _review_h
+            task_table_rows.append({
+                "Domain":         "📊 TOTAL",
+                "Weeks":          f"1–{plan.total_weeks}",
+                "Hours":          f"{_total_h:.1f} h",
+                "Priority":       "—",
+                "Starting Point": "—",
             })
             st.dataframe(
                 pd.DataFrame(task_table_rows),
@@ -2124,35 +2154,50 @@ if "profile" in st.session_state:
 
         st.markdown("---")
 
-        # ── 4. Existing profile cards (condensed) ─────────────────────────────
-        st.markdown("### 📋 Profile Summary")
-        _ps_c1, _ps_c2, _ps_c3 = st.columns(3)
+        # ── 4. Profile Summary (redesigned) ──────────────────────────────────
+        st.markdown("### 📋 Learner Profile at a Glance")
+        _ps_c1, _ps_c2, _ps_c3, _ps_c4 = st.columns(4)
         with _ps_c1:
-            st.markdown(f"""
-            <div class="card card-purple">
-              <b>Learning Style:</b> {profile.learning_style.value.replace('_', ' ').title()}<br/>
-              <b>Experience Level:</b> {profile.experience_level.value.replace('_', ' ').title()}<br/>
-              <b>Total Study Hours:</b> {profile.total_budget_hours:.0f} h
-              ({profile.hours_per_week:.0f} h/wk × {profile.weeks_available} wks)
-            </div>
-            """, unsafe_allow_html=True)
-
+            st.metric("🎨 Learning Style",
+                      profile.learning_style.value.replace('_', ' ').title())
         with _ps_c2:
-            if profile.modules_to_skip:
-                st.markdown("**⏭ Skip / Fast-track**")
-                for m in profile.modules_to_skip:
-                    st.success(f"✓ {m}")
-            else:
-                st.info("No domains skipped — full study path required.")
-
+            st.metric("📊 Experience Level",
+                      profile.experience_level.value.replace('_', ' ').title())
         with _ps_c3:
-            if profile.risk_domains:
-                st.markdown("**⚠️ Priority Risk Domains**")
-                for did in profile.risk_domains:
-                    name = EXAM_DOMAIN_NAMES.get(did, did)
-                    st.error(f"⚠ {name}")
-            else:
-                st.success("✅ No risk domains — all above threshold.")
+            st.metric("⏱️ Study Budget", f"{profile.total_budget_hours:.0f} h",
+                      help=f"{profile.hours_per_week:.0f} h/wk × {profile.weeks_available} weeks")
+        with _ps_c4:
+            _risk_count = len(profile.risk_domains or [])
+            st.metric("⚠️ Focus Domains", _risk_count,
+                      delta=("-Needs attention" if _risk_count else None),
+                      delta_color="inverse")
+
+        _skip_names_ps = [EXAM_DOMAIN_NAMES.get(m, m) for m in (profile.modules_to_skip or [])]
+        _risk_names_ps = [EXAM_DOMAIN_NAMES.get(did, did) for did in (profile.risk_domains or [])]
+        if _risk_names_ps or _skip_names_ps:
+            _detail_c1, _detail_c2 = st.columns(2)
+            with _detail_c1:
+                if _risk_names_ps:
+                    st.markdown(
+                        '<div style="background:#FFF0F0;border-left:4px solid #D13438;'
+                        'border-radius:8px;padding:10px 14px;font-size:0.88rem;">'
+                        '<b style="color:#D13438;">⚠️ Domains that need the most study time:</b><br/>'
+                        + "<br/>".join(f"&nbsp;&nbsp;• {n}" for n in _risk_names_ps)
+                        + "</div>",
+                        unsafe_allow_html=True,
+                    )
+            with _detail_c2:
+                if _skip_names_ps:
+                    st.markdown(
+                        f'<div style="background:#F0FFF4;border-left:4px solid {GREEN};'
+                        f'border-radius:8px;padding:10px 14px;font-size:0.88rem;">'
+                        f'<b style="color:{GREEN};">⏭️ You can fast-track these (existing knowledge):</b><br/>'
+                        + "<br/>".join(f"&nbsp;&nbsp;• {n}" for n in _skip_names_ps)
+                        + "</div>",
+                        unsafe_allow_html=True,
+                    )
+        else:
+            st.success("✅ All domains require full study — no fast-tracks, no critical gaps. Balanced preparation recommended.")
 
         # Analogy map + Engagement notes (full width)
         _ae_c1, _ae_c2 = st.columns(2)
@@ -2302,7 +2347,7 @@ if "profile" in st.session_state:
                 )
 
         # ── Certification Recommendation Agent ────────────────────────────────
-        st.markdown("### 🏅 Certification Recommendation Agent")
+        st.markdown("### 🏅 Exam Booking Guidance")
         _asmt_res = st.session_state.get("assessment_result")
         _prog_asmt = st.session_state.get("progress_assessment")
         _cert_agent = CertificationRecommendationAgent()
@@ -2385,33 +2430,6 @@ if "profile" in st.session_state:
                 "Complete the **Knowledge Check** quiz or the **My Progress** check-in "
                 "to unlock personalised certification booking recommendations.",
                 icon="💡",
-            )
-
-        st.markdown("### 🔄 Agent Pipeline Status")
-        _pipe_stages = [
-            ("🎤 Learner Intake Agent",       "Intake",     "Collects raw student input",           True),
-            ("🧠 Learner Profiling Agent",     "Profiling",  "Infers experience & domain knowledge", True),
-            ("📚 Learning Path Curator",       "Curation",   "Maps MS Learn modules to domains",     "learning_path" in st.session_state),
-            ("📅 Study Plan Agent",            "Planning",   "Gantt schedule + prerequisites",       "plan" in st.session_state),
-            ("📈 Progress Agent",              "Progress",   "Mid-journey readiness scoring",        "progress_assessment" in st.session_state),
-            ("🧪 Assessment Agent",            "Assessment", "Domain knowledge quiz",                "assessment_result" in st.session_state),
-            ("🏅 Cert Recommendation Agent",   "Decision",   "Go/No-Go exam decision",               _cert_rec is not None),
-        ]
-        for _label, _block, _desc, _done in _pipe_stages:
-            _bg  = "#f0fdf4" if _done else "#f9fafb"
-            _bc  = "#16a34a" if _done else "#d1d5db"
-            _ico = "✅" if _done else "⏳"
-            st.markdown(
-                f"""<div style="background:{_bg};border:1px solid {_bc};border-radius:8px;
-                     padding:8px 14px;margin-bottom:6px;display:flex;align-items:center;gap:10px;">
-                  <span style="font-size:1.1rem;">{_ico}</span>
-                  <div>
-                    <b style="color:#111;">{_label}</b>
-                    <span style="color:#888;font-size:0.78rem;margin-left:6px;">[{_block}]</span><br/>
-                    <span style="color:#555;font-size:0.82rem;">{_desc}</span>
-                  </div>
-                </div>""",
-                unsafe_allow_html=True,
             )
 
     # ── Tab 4: My Progress ────────────────────────────────────────────────────
