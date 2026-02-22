@@ -179,7 +179,7 @@ if not st.session_state["authenticated"]:
       /* Hide sidebar & header, collapse top padding */
       [data-testid="stSidebar"] { display: none; }
       [data-testid="stHeader"] { display: none; }
-      .block-container { padding-top: 0 !important; padding-bottom: 0.5rem !important; }
+      .block-container { padding-top: 0 !important; padding-bottom: 0.5rem !important; margin-top: 0 !important; }
       /* MS Learn light background */
       [data-testid="stAppViewContainer"] {
         background: #f5f5f5;
@@ -188,8 +188,8 @@ if not st.session_state["authenticated"]:
       /* ── Blue top banner (half text, half image) ─── */
       .ms-top-bar {
         background: linear-gradient(135deg, #0078D4 0%, #005A9E 100%);
-        padding: 2.8rem 3rem 2.8rem 3rem;
-        margin: 0 -3rem 0 -3rem;
+        padding: 1.6rem 3rem 1.8rem 3rem;
+        margin: -1rem -3rem 0 -3rem;
         display: grid;
         grid-template-columns: 1fr 1.1fr;
         gap: 2.5rem;
@@ -529,19 +529,19 @@ if not st.session_state["authenticated"]:
         st.markdown("""
         <div class="demo-grid">
           <div class="demo-card">
-            <div class="dm-ic">👩‍🎓</div>
-            <div class="dm-nm">Alex Chen</div>
-            <div class="dm-rl">New Learner</div>
+            <div class="dm-ic">🌱</div>
+            <div class="dm-nm">AI Beginner</div>
+            <div class="dm-rl">First-time · AI-102</div>
           </div>
           <div class="demo-card">
-            <div class="dm-ic">👩‍💻</div>
-            <div class="dm-nm">Priyanka Sharma</div>
-            <div class="dm-rl">Existing User</div>
+            <div class="dm-ic">📊</div>
+            <div class="dm-nm">Data Professional</div>
+            <div class="dm-rl">Returning · DP-203</div>
           </div>
           <div class="demo-card">
             <div class="dm-ic">🔧</div>
-            <div class="dm-nm">Athiq</div>
-            <div class="dm-rl">Admin</div>
+            <div class="dm-nm">Admin</div>
+            <div class="dm-rl">Dashboard &amp; Traces</div>
           </div>
         </div>
         """, unsafe_allow_html=True)
@@ -549,14 +549,14 @@ if not st.session_state["authenticated"]:
         # Functional quick-login buttons
         _d1, _d2, _d3 = st.columns(3)
         with _d1:
-            if st.button("▶ Alex", key="demo_new", use_container_width=True):
+            if st.button("▶ Beginner", key="demo_new", use_container_width=True):
                 upsert_student("Alex Chen", "1234", "learner")
                 st.session_state["authenticated"] = True
                 st.session_state["login_name"] = "Alex Chen"
                 st.session_state["user_type"] = "learner"
                 st.rerun()
         with _d2:
-            if st.button("▶ Priyanka", key="demo_jordan", use_container_width=True):
+            if st.button("▶ Pro", key="demo_jordan", use_container_width=True):
                 upsert_student("Priyanka Sharma", "1234", "learner")
                 st.session_state["authenticated"] = True
                 st.session_state["login_name"] = "Priyanka Sharma"
@@ -1244,11 +1244,11 @@ with st.sidebar:
     # Navigation section (slim)
     if not is_returning:
         st.markdown('<p style="color:rgba(255,255,255,0.5);font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;padding-left:4px;">DEMO SCENARIOS</p>', unsafe_allow_html=True)
-        if st.button("👩‍🎓 Alex Chen", key="sb_sc_alex", use_container_width=True):
+        if st.button("🌱 AI Beginner · AI-102", key="sb_sc_alex", use_container_width=True):
           if st.session_state.get("sidebar_prefill") != "alex":
             st.session_state["sidebar_prefill"] = "alex"
             st.rerun()
-        if st.button("👩‍💻 Priyanka Sharma", key="sb_sc_jordan", use_container_width=True):
+        if st.button("� Data Professional · DP-203", key="sb_sc_jordan", use_container_width=True):
           if st.session_state.get("sidebar_prefill") != "priyanka":
             st.session_state["sidebar_prefill"] = "priyanka"
             st.rerun()
