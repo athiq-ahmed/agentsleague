@@ -13,3 +13,6 @@ __pycache__/
 .azure/
 **/.secrets/
 config/secrets.*
+
+# Local database
+cert_prep_data.db

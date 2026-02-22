@@ -25,7 +25,7 @@ from rich.columns import Columns
 from rich.text import Text
 from rich import box
 
-from cert_prep.intake_agent import run_intake_and_profiling
+from cert_prep.b0_intake_agent import run_intake_and_profiling
 from cert_prep.models import DomainKnowledge, LearnerProfile, RawStudentInput
 
 console = Console()

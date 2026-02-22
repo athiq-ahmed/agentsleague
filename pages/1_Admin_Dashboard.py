@@ -17,6 +17,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 import streamlit as st
 import plotly.graph_objects as go
 import plotly.express as px
+import json
+
+from cert_prep.database import get_all_students, get_student
+from cert_prep.models import LearnerProfile
 
 # ─── Page config ─────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -176,8 +180,11 @@ with st.sidebar:
     st.markdown(f"Signed in as **{MOCK_USER}**")
     if st.button("Sign Out", use_container_width=True):
         st.session_state["admin_logged_in"] = False
+        for k in list(st.session_state.keys()):
+            del st.session_state[k]
         st.rerun()
     st.markdown("---")
+    st.page_link("streamlit_app.py", label="← Back to Main App", icon="🏠")
     st.caption("Only admins can see this page.\nStudents see the main Profiler UI.")
 
 
@@ -193,6 +200,220 @@ st.markdown("""
   </div>
 </div>
 """, unsafe_allow_html=True)
+st.markdown("---")
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# SECTION 0 – All Students Overview (from SQLite)
+# ═════════════════════════════════════════════════════════════════════════════
+_section_header("All Students", "👥")
+st.caption("All registered students and their current progress — data persisted in SQLite.")
+
+import pandas as pd
+
+_all_students = get_all_students()
+if _all_students:
+    _student_rows = []
+    for _s in _all_students:
+        _has_profile   = bool(_s.get("profile_json"))
+        _has_plan      = bool(_s.get("plan_json"))
+        _has_progress  = bool(_s.get("progress_assessment_json"))
+        _has_quiz      = bool(_s.get("assessment_result_json"))
+
+        # Parse profile for avg confidence
+        _avg_conf = "—"
+        _risk_cnt = "—"
+        _level    = "—"
+        if _has_profile:
+            try:
+                _prof = LearnerProfile.model_validate_json(_s["profile_json"])
+                _avg_conf = f"{sum(dp.confidence_score for dp in _prof.domain_profiles) / len(_prof.domain_profiles):.0%}"
+                _risk_cnt = len(_prof.risk_domains)
+                _level = _prof.experience_level.value.replace("_", " ").title()
+            except Exception:
+                pass
+
+        # Parse progress for readiness
+        _readiness = "—"
+        _go_nogo   = "—"
+        if _has_progress:
+            try:
+                _pr = json.loads(_s["progress_assessment_json"])
+                _readiness = f"{_pr.get('readiness_pct', 0):.0f}%"
+                _go_nogo   = _pr.get("exam_go_nogo", "—")
+            except Exception:
+                pass
+
+        # Parse quiz score
+        _quiz_score = "—"
+        if _has_quiz:
+            try:
+                _qr = json.loads(_s["assessment_result_json"])
+                _quiz_score = f"{_qr.get('score_pct', 0):.0f}%"
+            except Exception:
+                pass
+
+        _student_rows.append({
+            "Name":       _s["name"],
+            "Exam":       _s.get("exam_target", "—") or "—",
+            "Level":      _level,
+            "Avg Conf":   _avg_conf,
+            "Risk":       _risk_cnt,
+            "Plan":       "✅" if _has_plan else "—",
+            "Progress":   _readiness,
+            "Quiz":       _quiz_score,
+            "GO/NO-GO":   _go_nogo,
+            "Updated":    (_s.get("updated_at", "—") or "—")[:16],
+        })
+
+    _students_df = pd.DataFrame(_student_rows)
+
+    # Summary KPIs
+    _kc1, _kc2, _kc3, _kc4 = st.columns(4)
+    with _kc1:
+        st.markdown(_card("Total Students", str(len(_student_rows)), BLUE, wide=True), unsafe_allow_html=True)
+    with _kc2:
+        _with_profile = sum(1 for r in _student_rows if r["Level"] != "—")
+        st.markdown(_card("Profiles Generated", str(_with_profile), PURPLE, wide=True), unsafe_allow_html=True)
+    with _kc3:
+        _with_progress = sum(1 for r in _student_rows if r["Progress"] != "—")
+        st.markdown(_card("Progress Check-ins", str(_with_progress), GREEN, wide=True), unsafe_allow_html=True)
+    with _kc4:
+        _with_quiz = sum(1 for r in _student_rows if r["Quiz"] != "—")
+        st.markdown(_card("Quizzes Completed", str(_with_quiz), ORANGE, wide=True), unsafe_allow_html=True)
+
+    st.dataframe(
+        _students_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Name":     st.column_config.TextColumn("Student",   width="medium"),
+            "Exam":     st.column_config.TextColumn("Exam",      width="small"),
+            "Level":    st.column_config.TextColumn("Level",     width="small"),
+            "Avg Conf": st.column_config.TextColumn("Avg Conf",  width="small"),
+            "Risk":     st.column_config.TextColumn("Risk",      width="small"),
+            "Plan":     st.column_config.TextColumn("Plan",      width="small"),
+            "Progress": st.column_config.TextColumn("Readiness", width="small"),
+            "Quiz":     st.column_config.TextColumn("Quiz",      width="small"),
+            "GO/NO-GO": st.column_config.TextColumn("GO/NO-GO",  width="small"),
+            "Updated":  st.column_config.TextColumn("Updated",   width="medium"),
+        },
+    )
+
+    # ── Auto-generated Insights ──────────────────────────────────────────────
+    _section_header("Key Insights", "💡")
+    st.caption("Auto-generated observations from student data — so you don’t have to dig through charts.")
+
+    _insights: list[tuple[str, str, str]] = []  # (icon, text, color)
+
+    # Insight: students needing attention (no plan or no progress)
+    _no_plan = [r["Name"] for r in _student_rows if r["Plan"] == "—"  and r["Level"] != "—"]
+    if _no_plan:
+        _insights.append(("⚠️", f"**{len(_no_plan)} student(s)** profiled but no study plan yet: {', '.join(_no_plan[:3])}{'...' if len(_no_plan) > 3 else ''}", ORANGE))
+
+    _no_progress = [r["Name"] for r in _student_rows if r["Progress"] == "—" and r["Plan"] == "✅"]
+    if _no_progress:
+        _insights.append(("📌", f"**{len(_no_progress)} student(s)** have a plan but haven’t checked in: {', '.join(_no_progress[:3])}", BLUE))
+
+    # Insight: risk domains
+    _high_risk = [r for r in _student_rows if r["Risk"] != "—" and isinstance(r["Risk"], int) and r["Risk"] >= 3]
+    if _high_risk:
+        _names = ', '.join(r["Name"] for r in _high_risk[:3])
+        _insights.append(("🚨", f"**{len(_high_risk)} student(s)** have 3+ risk domains and likely need intervention: {_names}", RED))
+
+    # Insight: average confidence
+    _conf_vals = []
+    for r in _student_rows:
+        if r["Avg Conf"] != "—":
+            try:
+                _conf_vals.append(float(r["Avg Conf"].replace("%", "")) / 100)
+            except Exception:
+                pass
+    if _conf_vals:
+        _mean_conf = sum(_conf_vals) / len(_conf_vals)
+        _conf_clr = GREEN if _mean_conf >= 0.65 else (ORANGE if _mean_conf >= 0.4 else RED)
+        _conf_word = "strong" if _mean_conf >= 0.65 else ("moderate" if _mean_conf >= 0.4 else "low")
+        _insights.append(("🎯", f"Cohort average confidence is **{_mean_conf:.0%}** ({_conf_word}). "
+                          + ("Most students are on track." if _mean_conf >= 0.55 else "Consider group review sessions for weak domains."), _conf_clr))
+
+    # Insight: exam popularity
+    _exam_counts: dict[str, int] = {}
+    for r in _student_rows:
+        if r["Exam"] != "—":
+            _exam_counts[r["Exam"]] = _exam_counts.get(r["Exam"], 0) + 1
+    if _exam_counts:
+        _top_exam = max(_exam_counts, key=_exam_counts.get)
+        _insights.append(("📚", f"Most popular exam: **{_top_exam}** ({_exam_counts[_top_exam]} student{'s' if _exam_counts[_top_exam]>1 else ''})", PURPLE))
+
+    # Insight: GO / NO-GO summary
+    _go_count  = sum(1 for r in _student_rows if "GO" in str(r["GO/NO-GO"]).upper() and "NO" not in str(r["GO/NO-GO"]).upper())
+    _nogo_count = sum(1 for r in _student_rows if "NO-GO" in str(r["GO/NO-GO"]).upper() or "NO_GO" in str(r["GO/NO-GO"]).upper())
+    if _go_count or _nogo_count:
+        _insights.append(("✅" if _go_count > _nogo_count else "❌",
+                          f"Exam readiness: **{_go_count} GO** vs **{_nogo_count} NO-GO** across assessed students.",
+                          GREEN if _go_count > _nogo_count else RED))
+
+    # Insight: quiz performance
+    _quiz_vals = []
+    for r in _student_rows:
+        if r["Quiz"] != "—":
+            try:
+                _quiz_vals.append(float(r["Quiz"].replace("%", "")))
+            except Exception:
+                pass
+    if _quiz_vals:
+        _avg_quiz = sum(_quiz_vals) / len(_quiz_vals)
+        _insights.append(("🧪", f"Average quiz score: **{_avg_quiz:.0f}%** across {len(_quiz_vals)} student{'s' if len(_quiz_vals)>1 else ''}. "
+                          + ("Above 70% pass threshold — good cohort performance." if _avg_quiz >= 70 else "Below 70% pass threshold — more practice needed."),
+                          GREEN if _avg_quiz >= 70 else ORANGE))
+
+    if not _insights:
+        _insights.append(("ℹ️", "Not enough data to generate insights yet. Students need to complete profiling, study plans, and quizzes.", GREY))
+
+    # Render insight cards
+    for _ic, _txt, _clr in _insights:
+        st.markdown(
+            f'<div style="background:#fff;border-left:4px solid {_clr};border:1px solid #E1DFDD;'
+            f'border-radius:4px;padding:10px 16px;margin-bottom:8px;font-size:0.88rem;'
+            f'color:#323130;line-height:1.5;box-shadow:0 1px 2px rgba(0,0,0,0.03);">' 
+            f'{_ic} {_txt}</div>',
+            unsafe_allow_html=True,
+        )
+
+    # Expandable per-student detail
+    st.markdown("#### 🔍 Student Detail")
+    _selected_student = st.selectbox(
+        "Select a student to inspect",
+        options=[s["name"] for s in _all_students if s.get("profile_json")],
+        key="admin_student_select",
+    )
+    if _selected_student:
+        _sel = get_student(_selected_student)
+        if _sel and _sel.get("profile_json"):
+            _sel_prof = LearnerProfile.model_validate_json(_sel["profile_json"])
+            _d_c1, _d_c2 = st.columns(2)
+            with _d_c1:
+                st.markdown(f"**Student:** {_sel_prof.student_name}")
+                st.markdown(f"**Exam:** {_sel_prof.exam_target}")
+                st.markdown(f"**Experience:** {_sel_prof.experience_level.value.replace('_',' ').title()}")
+                st.markdown(f"**Study Budget:** {_sel_prof.total_budget_hours:.0f} h "
+                            f"({_sel_prof.hours_per_week}h/wk × {_sel_prof.weeks_available} wks)")
+            with _d_c2:
+                st.markdown("**Domain Confidence:**")
+                for dp in _sel_prof.domain_profiles:
+                    _pct = int(dp.confidence_score * 100)
+                    _clr = GREEN if _pct >= 65 else (ORANGE if _pct >= 40 else RED)
+                    _short = dp.domain_name.replace("Implement ","").replace(" Solutions","")
+                    st.markdown(
+                        f'<div style="margin-bottom:4px;font-size:0.85rem;">'
+                        f'<b>{_short}</b> '
+                        f'<span style="color:{_clr};font-weight:700;">{_pct}%</span></div>',
+                        unsafe_allow_html=True,
+                    )
+
+else:
+    st.info("No students registered yet. Students will appear here after they sign in and generate a profile.")
+
 st.markdown("---")
 
 
@@ -230,7 +451,7 @@ if trace is None:
         preferred_style = "hands-on labs",
         goal_text       = "Pass AI-102 exam",
     )
-    from cert_prep.mock_profiler import run_mock_profiling
+    from cert_prep.b1_mock_profiler import run_mock_profiling
     _demo_profile = run_mock_profiling(_demo_raw)
     trace = build_mock_trace(_demo_raw, _demo_profile)
     profile = _demo_profile
@@ -304,34 +525,44 @@ with _j_col1:
     st.plotly_chart(funnel_fig, use_container_width=True)
 
 with _j_col2:
-    # Agent contribution pie chart
+    # Agent contribution — horizontal bar (cleaner than pie)
     _agent_labels = [s.agent_name.split("(")[0].strip() for s in trace.steps]
     _agent_times  = [s.duration_ms for s in trace.steps]
     _agent_clrs   = [AGENT_COLORS.get(s.agent_id, BLUE) for s in trace.steps]
+    _agent_pcts   = [t / max(1, trace.total_ms) * 100 for t in _agent_times]
 
-    pie_fig = go.Figure(go.Pie(
-        labels=_agent_labels,
-        values=_agent_times,
-        hole=0.45,
-        marker=dict(colors=_agent_clrs, line=dict(color=CARD_BG, width=2)),
-        textinfo="label+percent",
+    bar_fig = go.Figure(go.Bar(
+        y=_agent_labels,
+        x=_agent_times,
+        orientation="h",
+        marker_color=_agent_clrs,
+        text=[f"{t:.0f} ms ({p:.0f}%)" for t, p in zip(_agent_times, _agent_pcts)],
+        textposition="auto",
         textfont=dict(size=10),
-        hovertemplate="<b>%{label}</b><br>%{value:.0f} ms (%{percent})<extra></extra>",
+        hovertemplate="<b>%{y}</b><br>%{x:.0f} ms<extra></extra>",
     ))
-    pie_fig.update_layout(
+    bar_fig.update_layout(
         paper_bgcolor=CARD_BG,
         plot_bgcolor=CARD_BG,
         font=dict(color="#1B1B1B", size=11),
         height=340,
-        margin=dict(l=10, r=10, t=10, b=10),
+        margin=dict(l=10, r=10, t=10, b=30),
+        xaxis=dict(title="Time (ms)", color=GREY, gridcolor="#E1DFDD"),
+        yaxis=dict(color="#1B1B1B", autorange="reversed"),
         showlegend=False,
-        annotations=[dict(
-            text=f"<b>{trace.total_ms:.0f}<br>ms</b>",
-            x=0.5, y=0.5, font=dict(size=16, color="#1B1B1B"),
-            showarrow=False,
-        )],
     )
-    st.plotly_chart(pie_fig, use_container_width=True)
+    st.plotly_chart(bar_fig, use_container_width=True)
+
+    # Quick insight: bottleneck
+    _slowest = max(trace.steps, key=lambda s: s.duration_ms)
+    _slowest_pct = _slowest.duration_ms / max(1, trace.total_ms) * 100
+    st.markdown(
+        f'<div style="background:#FFF8F0;border-left:3px solid {ORANGE};border-radius:4px;'
+        f'padding:8px 12px;font-size:0.82rem;color:#323130;">'
+        f'⚡ <b>Bottleneck:</b> {_slowest.agent_name.split("(")[0].strip()} '
+        f'consumed {_slowest_pct:.0f}% of total run time ({_slowest.duration_ms:.0f} ms / {trace.total_ms:.0f} ms).</div>',
+        unsafe_allow_html=True,
+    )
 
 # ── 2b: Journey stage cards ──────────────────────────────────────────────────
 _journey_stages = [
