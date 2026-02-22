@@ -188,11 +188,11 @@ if not st.session_state["authenticated"]:
       /* ── Blue top banner (half text, half image) ─── */
       .ms-top-bar {
         background: linear-gradient(135deg, #0078D4 0%, #005A9E 100%);
-        padding: 3.5rem 3rem;
+        padding: 2.8rem 3rem 2.8rem 3rem;
         margin: 0 -3rem 0 -3rem;
         display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 3rem;
+        grid-template-columns: 1fr 1.1fr;
+        gap: 2.5rem;
         align-items: center;
       }
       .ms-top-left h1 {
@@ -206,42 +206,42 @@ if not st.session_state["authenticated"]:
         margin: 0; line-height: 1.65; max-width: 540px;
       }
       .ms-top-right {
-        position: relative;
-        height: 280px;
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 16px;
-        padding: 0 20px;
+        gap: 12px;
+        padding: 0;
+        align-items: start;
       }
       .hero-visual-col {
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 12px;
       }
       .hero-box {
-        border-radius: 16px;
+        border-radius: 20px;
         overflow: hidden;
         position: relative;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 2.8rem;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+        font-size: 3.4rem;
+        box-shadow: 0 6px 24px rgba(0,0,0,0.28);
         transition: transform 0.2s ease, box-shadow 0.2s ease;
+        flex-shrink: 0;
       }
       .hero-box:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 28px rgba(0,0,0,0.35);
+        transform: translateY(-4px) scale(1.02);
+        box-shadow: 0 12px 32px rgba(0,0,0,0.38);
       }
-      .hero-box.tall  { height: 176px; }
-      .hero-box.short { height: 96px;  }
-      /* Vivid gradients matching bento-grid design */
-      .hero-box.grad1 { background: linear-gradient(145deg, #5B3DE8 0%, #7B2FF2 100%); }
-      .hero-box.grad2 { background: linear-gradient(145deg, #F472B6 0%, #DB2777 100%); }
-      .hero-box.grad3 { background: linear-gradient(145deg, #22D3EE 0%, #06B6D4 100%); }
-      .hero-box.grad4 { background: linear-gradient(145deg, #34D399 0%, #10B981 100%); }
-      .hero-box.grad5 { background: linear-gradient(145deg, #FBBF24 0%, #F97316 100%); }
-      .hero-box.grad6 { background: linear-gradient(145deg, #3B82F6 0%, #1D4ED8 100%); }
+      .hero-box.tall  { height: 210px; }
+      .hero-box.short { height: 120px; }
+      /* Vivid bento gradients — exact match to design */
+      .hero-box.grad1 { background: linear-gradient(145deg, #6C3DD8 0%, #8B34F0 100%); }
+      .hero-box.grad2 { background: linear-gradient(145deg, #F0368A 0%, #C2185B 100%); }
+      .hero-box.grad3 { background: linear-gradient(145deg, #00C8E0 0%, #0097B2 100%); }
+      .hero-box.grad4 { background: linear-gradient(145deg, #2ECC71 0%, #16A34A 100%); }
+      .hero-box.grad5 { background: linear-gradient(145deg, #FFC107 0%, #FF8C00 100%); }
+      .hero-box.grad6 { background: linear-gradient(145deg, #4A5FD4 0%, #2A3FAA 100%); }
       /* ── Benefit cards (vertical, MS Learn style) ─── */
       .ben-grid {
         display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
