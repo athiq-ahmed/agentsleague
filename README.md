@@ -8,6 +8,75 @@ A multi-agent AI system that creates **personalised, adaptive study plans** for 
 
 ---
 
+## 🔀 Agent Orchestration Patterns
+
+As multi-agent solutions grow in complexity, choosing the right orchestration pattern is critical. This project demonstrates several production-ready patterns:
+
+### Patterns Implemented
+
+| Pattern | Status | Where in Code |
+|---------|--------|---------------|
+| **Sequential Pipeline** | ✅ Primary | `streamlit_app.py` — Intake → Profiling → Learning Path → Study Plan → Assessment → Cert Recommendation |
+| **Handoff** | ✅ Implemented | Each agent produces a typed output (`LearnerProfile`, `StudyPlan`, etc.) that is explicitly handed off to the next agent via `st.session_state` |
+| **Human-in-the-Loop (HITL)** | ✅ Implemented | Two explicit gates: Progress Check-In form and Quiz submission before `ProgressAgent` / `AssessmentAgent` run |
+| **Conditional Routing** | ✅ Implemented | Readiness Gate — score ≥ 70% → GO path; < 70% → Remediation loop back to Study Plan |
+| **Concurrent (Fan-out)** | 🟡 Architecturally ready | `LearningPathCuratorAgent` and `StudyPlanAgent` both consume `LearnerProfile` independently — can run in parallel |
+
+### How Sequential Coordination Works
+
+The agents execute in a strict linear pipeline where each agent's **typed output becomes the next agent's input**:
+
+```
+📥 Intake → 🛡️ Guardrails → 🧠 Profiler → 🗺️ Learning Path → 📅 Study Plan
+                                                                      ↓
+                                              📊 Cert Recommender ← 🧪 Assessment ← 📈 Progress
+```
+
+Every transition is wrapped by the **Guardrails Pipeline** (17 rules, G-01 to G-17) that validates inputs/outputs and can BLOCK, WARN, or INFO at each step.
+
+### How Handoff Works
+
+Agents hand off work through **shared typed dataclass/Pydantic models** — not raw text or unstructured messages:
+
+| From Agent | Handoff Object | To Agent |
+|------------|---------------|----------|
+| LearnerIntakeAgent | `RawStudentInput` | GuardrailsPipeline → LearnerProfilingAgent |
+| LearnerProfilingAgent | `LearnerProfile` | LearningPathCuratorAgent + StudyPlanAgent |
+| ProgressAgent | `ReadinessAssessment` | CertificationRecommendationAgent |
+| AssessmentAgent | `AssessmentResult` | CertificationRecommendationAgent |
+
+### Patterns Considered for Future Work
+
+| Pattern | Use Case | Status |
+|---------|----------|--------|
+| **Group Chat** | Multi-agent deliberation (e.g., profiler + domain expert agents debating a learner's skill level) | 🔮 Planned |
+| **Magnetic** | Dynamic agent attraction/routing based on content type | 🔮 Planned |
+| **Copilot Studio Orchestration** | Visual agent pipeline design with built-in monitoring | 🔮 Planned |
+
+---
+
+## 🛡️ Responsible AI & Guardrails
+
+Safety is not an afterthought — the **GuardrailsPipeline** wraps every agent transition with 17 validation rules across 6 categories:
+
+| Rules | Category | Level | Description |
+|-------|----------|-------|-------------|
+| G-01 to G-05 | **Input Validation** | BLOCK / WARN / INFO | Non-empty fields, sensible hours/weeks, recognised exam codes, PII notice |
+| G-06 to G-08 | **Profile Integrity** | BLOCK / WARN | Domain completeness, confidence bounds [0.0–1.0], valid risk domain IDs |
+| G-09 to G-10 | **Study Plan Bounds** | BLOCK / WARN | No start > end week, total hours within ±10% of budget |
+| G-11 to G-13 | **Progress Data Validity** | BLOCK | Non-negative hours, self-ratings [1–5], practice scores [0–100] |
+| G-14 to G-15 | **Quiz Integrity** | WARN / BLOCK | Minimum 5 questions, no duplicate question IDs |
+| G-16 to G-17 | **Content Safety & URL Trust** | BLOCK / WARN | Harmful content detection, URLs must be from `learn.microsoft.com` or `pearsonvue.com` |
+
+**Guardrail Levels:**
+- **🚫 BLOCK** — Hard-stop: pipeline does not proceed
+- **⚠️ WARN** — Soft-stop: pipeline proceeds with visible warning
+- **ℹ️ INFO** — Advisory: logged in agent trace
+
+All guardrail violations are surfaced in the **Admin Dashboard** for complete auditability.
+
+---
+
 ## ✨ Key Features
 
 | Feature | Description |
@@ -159,7 +228,8 @@ agentsleague/
 | **LLM Backend** | Azure OpenAI (gpt-4o) via OpenAI SDK |
 | **Orchestration** | Azure AI Foundry (planned) |
 | **Tool Use** | MS Learn MCP Server (planned) |
-| **Safety** | Azure AI Content Safety + custom guardrails |
+| **Safety** | Azure AI Content Safety + custom GuardrailsPipeline (17 rules, G-01 to G-17) |
+| **Orchestration Patterns** | Sequential Pipeline, Typed Handoff, Human-in-the-Loop, Conditional Routing |
 | **Observability** | Agent trace logging, Gantt timeline, admin audit |
 
 ---

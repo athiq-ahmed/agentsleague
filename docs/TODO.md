@@ -196,7 +196,7 @@
 - [x] Assessment Agent (mock quiz generation + scoring)
 - [x] Certification Recommendation Agent (mock)
 - [x] Progress Agent with readiness assessment + email summary
-- [x] Guardrails pipeline (PII filter, anti-cheat, content checks)
+- [x] Guardrails pipeline (17 rules: G-01 to G-17 — PII filter, anti-cheat, content safety, URL trust)
 - [x] Agent trace logging & Admin Dashboard
 - [x] Login gate with glassmorphism design (new / existing / admin)
 - [x] Tab visibility based on user type
@@ -205,6 +205,9 @@
 - [x] GitHub repo: [athiq-ahmed/agentsleague](https://github.com/athiq-ahmed/agentsleague)
 - [x] Creative login page (glassmorphism + gradient design)
 - [x] Folder cleanup + archive of old planning files
+- [x] Agent orchestration patterns documented (Sequential Pipeline, Typed Handoff, HITL Gates, Conditional Routing)
+- [x] Judge playbook created (`docs/judge_playbook.md`)
+- [x] Guardrails documented across README, architecture, and judge playbook
 
 ---
 
