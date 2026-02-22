@@ -59,138 +59,336 @@ APP_PIN = "1234"
 ADMIN_USER = "admin"
 ADMIN_PASS = "agents2026"
 
+# Default demo accounts for quick login
+DEMO_USERS = {
+    "new":      {"name": "Alex Chen",    "pin": "1234",       "desc": "First-time user · AI-102"},
+    "existing": {"name": "Priya Sharma", "pin": "1234",       "desc": "Returning · AZ-305 prep"},
+    "admin":    {"name": "admin",        "pin": "agents2026", "desc": "Dashboard & traces"},
+}
+
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
     st.session_state["user_type"] = None  # "new", "existing", or "admin"
 
 if not st.session_state["authenticated"]:
-    # ── Full-page login CSS ──────────────────────────────────────────────────
+    # ── Microsoft Fluent-inspired login CSS ──────────────────────────────────
     st.markdown("""
     <style>
-      /* Hide sidebar on login */
+      /* Hide sidebar & header, collapse top padding */
       [data-testid="stSidebar"] { display: none; }
-      /* Animated gradient background */
+      [data-testid="stHeader"] { display: none; }
+      .block-container { padding-top: 1rem !important; padding-bottom: 0.5rem !important; }
+      /* MS-style dark mesh gradient background */
       [data-testid="stAppViewContainer"] {
-        background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+        background:
+          radial-gradient(ellipse at 20% 50%, rgba(0,120,212,0.15) 0%, transparent 50%),
+          radial-gradient(ellipse at 80% 20%, rgba(80,230,255,0.08) 0%, transparent 40%),
+          radial-gradient(ellipse at 60% 80%, rgba(0,183,195,0.10) 0%, transparent 45%),
+          linear-gradient(145deg, #0a0a1a 0%, #0f1b2d 35%, #0d1117 70%, #050914 100%);
       }
-      /* Glass card */
-      .login-card {
-        background: rgba(255,255,255,0.07);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(255,255,255,0.12);
-        border-radius: 20px;
-        padding: 2.5rem 2rem 2rem;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.37);
-        max-width: 480px;
-        margin: 0 auto;
+      /* ── Left hero ────────────────────────────────── */
+      .ms-badge {
+        display: inline-flex; align-items: center; gap: 8px;
+        background: rgba(0,120,212,0.12);
+        border: 1px solid rgba(0,120,212,0.25);
+        color: #50E6FF; font-size: 0.72rem; font-weight: 600;
+        padding: 5px 16px; border-radius: 20px;
+        letter-spacing: 0.06em; text-transform: uppercase;
+        margin-bottom: 10px;
       }
-      .login-title {
-        text-align: center;
-        color: #ffffff;
-        font-size: 1.8rem;
-        font-weight: 800;
-        margin-bottom: 4px;
-        letter-spacing: -0.02em;
+      .ms-heading {
+        color: #ffffff; font-size: 2.4rem; font-weight: 700;
+        line-height: 1.15; letter-spacing: -0.02em;
+        margin: 0 0 10px;
+        font-family: 'Segoe UI', -apple-system, sans-serif;
       }
-      .login-subtitle {
-        text-align: center;
-        color: rgba(255,255,255,0.55);
-        font-size: 0.92rem;
-        margin-bottom: 20px;
+      .ms-heading .grad {
+        background: linear-gradient(90deg, #50E6FF 0%, #0078D4 50%, #005A9E 100%);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        background-clip: text;
       }
-      .login-badge {
-        display: inline-block;
-        background: linear-gradient(135deg, #5C2D91, #B4009E);
-        color: #fff;
+      .ms-sub {
+        color: rgba(255,255,255,0.55); font-size: 0.92rem;
+        line-height: 1.6; margin-bottom: 20px;
+        font-family: 'Segoe UI', sans-serif;
+      }
+      /* Benefit 2×2 grid */
+      .ben-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+      .ben-card {
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 12px; padding: 14px;
+        transition: border-color 0.2s;
+      }
+      .ben-card:hover { border-color: rgba(0,120,212,0.3); }
+      .ben-card .ic {
+        width: 34px; height: 34px; border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.1rem; margin-bottom: 6px;
+      }
+      .ben-card h4 {
+        color: #E8EDF3; font-size: 0.82rem; font-weight: 600;
+        margin: 0 0 2px; font-family: 'Segoe UI', sans-serif;
+      }
+      .ben-card p {
+        color: rgba(255,255,255,0.38); font-size: 0.72rem;
+        margin: 0; line-height: 1.35;
+      }
+      .ic-blue { background: rgba(0,120,212,0.15); border: 1px solid rgba(0,120,212,0.25); }
+      .ic-teal { background: rgba(0,183,195,0.15); border: 1px solid rgba(0,183,195,0.25); }
+      .ic-cyan { background: rgba(80,230,255,0.12); border: 1px solid rgba(80,230,255,0.2); }
+      .ic-green { background: rgba(16,124,16,0.15); border: 1px solid rgba(16,124,16,0.25); }
+      /* Stats bar */
+      .ms-stats {
+        display: flex; gap: 0; border-radius: 10px; overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.06);
+      }
+      .ms-stat {
+        flex: 1; text-align: center; padding: 12px 6px;
+        background: rgba(255,255,255,0.02);
+        border-right: 1px solid rgba(255,255,255,0.06);
+      }
+      .ms-stat:last-child { border-right: none; }
+      .ms-stat-n { color: #50E6FF; font-size: 1.3rem; font-weight: 800; }
+      .ms-stat-l {
+        color: rgba(255,255,255,0.38); font-size: 0.62rem;
+        text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px;
+      }
+      /* ── Right sign-in panel ────────────────────── */
+      .signin-title {
+        text-align: center; color: #fff; font-size: 1.2rem;
+        font-weight: 700; margin-bottom: 2px;
+        font-family: 'Segoe UI', sans-serif;
+      }
+      .signin-sub {
+        text-align: center; color: rgba(255,255,255,0.38);
+        font-size: 0.76rem; margin-bottom: 10px;
+      }
+      /* Quick-login demo user cards (visual only) */
+      .demo-grid { display: flex; gap: 8px; margin-bottom: 4px; }
+      .demo-card {
+        flex: 1; background: rgba(0,120,212,0.07);
+        border: 1px solid rgba(0,120,212,0.16);
+        border-radius: 10px; padding: 10px 6px;
+        text-align: center; transition: all 0.2s;
+      }
+      .demo-card:hover { background: rgba(0,120,212,0.14); border-color: #0078D4; }
+      .demo-card .dm-ic { font-size: 1.2rem; margin-bottom: 2px; }
+      .demo-card .dm-nm { color: #E8EDF3; font-size: 0.72rem; font-weight: 600; }
+      .demo-card .dm-rl { color: rgba(255,255,255,0.32); font-size: 0.62rem; }
+      /* Quick-login Streamlit buttons */
+      .stButton > button {
+        background: rgba(0,120,212,0.12) !important;
+        border: 1px solid rgba(0,120,212,0.25) !important;
+        border-radius: 8px !important;
+        color: #50E6FF !important;
+        font-size: 0.78rem !important;
+        font-weight: 600 !important;
+        padding: 6px 8px !important;
+        font-family: 'Segoe UI', sans-serif !important;
+        transition: all 0.15s;
+      }
+      .stButton > button:hover {
+        background: rgba(0,120,212,0.25) !important;
+        border-color: #0078D4 !important;
+      }
+      /* Divider */
+      .or-sep {
+        display: flex; align-items: center; gap: 10px;
+        margin: 8px 0 8px; color: rgba(255,255,255,0.2);
         font-size: 0.7rem;
-        font-weight: 700;
-        padding: 3px 12px;
-        border-radius: 20px;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
       }
-      .login-features {
-        display: flex;
-        gap: 12px;
-        margin-top: 18px;
-        flex-wrap: wrap;
-        justify-content: center;
+      .or-sep::before, .or-sep::after {
+        content: ''; flex: 1; height: 1px;
+        background: rgba(255,255,255,0.08);
       }
-      .login-feat {
-        background: rgba(255,255,255,0.06);
-        border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 12px;
-        padding: 10px 14px;
-        text-align: center;
-        flex: 1;
-        min-width: 120px;
+      /* Radio role selector */
+      div[data-testid="stRadio"] label,
+      div[data-testid="stRadio"] [role="radiogroup"] label {
+        background: rgba(255,255,255,0.04) !important;
+        border: 1px solid rgba(255,255,255,0.10) !important;
+        border-radius: 8px !important;
+        padding: 9px 14px !important;
+        transition: all 0.2s ease; cursor: pointer;
+        margin-bottom: 2px !important;
       }
-      .login-feat-icon { font-size: 1.5rem; }
-      .login-feat-label { color: rgba(255,255,255,0.7); font-size: 0.75rem; margin-top: 4px; }
-      /* Role selector pills */
+      div[data-testid="stRadio"] label:hover {
+        background: rgba(0,120,212,0.10) !important;
+        border-color: rgba(0,120,212,0.30) !important;
+      }
+      /* Force ALL radio label text visible */
+      div[data-testid="stRadio"] label *,
+      div[data-testid="stRadio"] label span,
+      div[data-testid="stRadio"] label p,
+      div[data-testid="stRadio"] label div,
+      div[data-testid="stRadio"] [role="radiogroup"] label *,
+      div[data-testid="stHorizontalRadio"] label *,
       div[data-testid="stHorizontalRadio"] label {
-        background: rgba(255,255,255,0.08) !important;
-        border: 1px solid rgba(255,255,255,0.15) !important;
-        border-radius: 24px !important;
-        padding: 6px 18px !important;
-        color: rgba(255,255,255,0.8) !important;
-        transition: all 0.2s ease;
+        color: #CBD5E1 !important;
+        font-size: 0.85rem !important;
+        font-weight: 600 !important;
+        font-family: 'Segoe UI', sans-serif !important;
       }
-      div[data-testid="stHorizontalRadio"] label:hover {
-        background: rgba(92,45,145,0.3) !important;
-        border-color: #5C2D91 !important;
+      /* Selected radio */
+      div[data-testid="stRadio"] label:has(input:checked) {
+        background: rgba(0,120,212,0.18) !important;
+        border-color: #0078D4 !important;
       }
-      div[data-testid="stHorizontalRadio"] label[data-checked="true"],
-      div[data-testid="stHorizontalRadio"] [aria-checked="true"] + label,
-      div[data-testid="stHorizontalRadio"] label[aria-pressed="true"] {
-        background: linear-gradient(135deg, #5C2D91, #B4009E) !important;
-        border-color: transparent !important;
-        color: #fff !important;
+      div[data-testid="stRadio"] label:has(input:checked) *,
+      div[data-testid="stRadio"] label:has(input:checked) span,
+      div[data-testid="stRadio"] label:has(input:checked) p {
+        color: #50E6FF !important;
       }
-      /* Input styling */
+      div[data-testid="stHorizontalRadio"] label:has(input:checked) {
+        background: rgba(0,120,212,0.18) !important;
+        border-color: #0078D4 !important;
+      }
+      div[data-testid="stHorizontalRadio"] label:has(input:checked) * {
+        color: #50E6FF !important;
+      }
+      /* Text inputs */
       .stTextInput input {
-        background: rgba(255,255,255,0.08) !important;
-        border: 1px solid rgba(255,255,255,0.18) !important;
-        border-radius: 10px !important;
-        color: #fff !important;
+        background: rgba(255,255,255,0.05) !important;
+        border: 1px solid rgba(255,255,255,0.10) !important;
+        border-radius: 8px !important;
+        color: #fff !important; padding: 10px 14px !important;
+        font-family: 'Segoe UI', sans-serif !important;
       }
       .stTextInput input:focus {
-        border-color: #5C2D91 !important;
-        box-shadow: 0 0 0 2px rgba(92,45,145,0.3) !important;
+        border-color: #0078D4 !important;
+        box-shadow: 0 0 0 2px rgba(0,120,212,0.2) !important;
       }
-      /* Button styling */
+      .stTextInput input::placeholder { color: rgba(255,255,255,0.28) !important; }
+      /* Submit button — Microsoft blue */
       .stFormSubmitButton button {
-        background: linear-gradient(135deg, #5C2D91, #B4009E) !important;
-        border: none !important;
-        border-radius: 12px !important;
-        padding: 12px !important;
-        font-size: 1rem !important;
-        font-weight: 700 !important;
-        letter-spacing: 0.03em;
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        background: #0078D4 !important;
+        border: none !important; border-radius: 8px !important;
+        padding: 11px !important; font-size: 0.95rem !important;
+        font-weight: 600 !important; color: #fff !important;
+        font-family: 'Segoe UI', sans-serif !important;
+        transition: background 0.15s ease, box-shadow 0.15s ease;
       }
       .stFormSubmitButton button:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 6px 20px rgba(92,45,145,0.45) !important;
+        background: #106EBE !important;
+        box-shadow: 0 4px 14px rgba(0,120,212,0.35) !important;
+      }
+      .role-desc {
+        text-align: center; color: rgba(255,255,255,0.38);
+        font-size: 0.74rem; margin: 4px 0 8px;
+        min-height: 24px;
       }
     </style>
     """, unsafe_allow_html=True)
 
-    # ── Layout ───────────────────────────────────────────────────────────────
-    st.markdown("<div style='height:40px'></div>", unsafe_allow_html=True)
-    _login_col = st.columns([1, 1.6, 1])[1]
-    with _login_col:
-        # Header
+    # ── Two-panel layout ─────────────────────────────────────────────────────
+    _left, _spacer, _right = st.columns([1.2, 0.08, 0.72])
+
+    # ── LEFT: Hero + benefits ──────────────────────────────────────────────
+    with _left:
         st.markdown("""
-        <div style="text-align:center;margin-bottom:8px;">
-          <div style="font-size:3.4rem;margin-bottom:4px;">🎓</div>
-          <span class="login-badge">Microsoft Agents League · Battle #2</span>
+        <span class="ms-badge">
+          <svg width="16" height="16" viewBox="0 0 23 23"><rect width="11" height="11" fill="#f25022"/><rect x="12" width="11" height="11" fill="#7fba00"/><rect y="12" width="11" height="11" fill="#00a4ef"/><rect x="12" y="12" width="11" height="11" fill="#ffb900"/></svg>
+          Agents League · Battle #2
+        </span>
+        <h1 class="ms-heading">
+          Your AI-Powered<br/>
+          <span class="grad">Certification Coach</span>
+        </h1>
+        <p class="ms-sub">
+          Six specialised AI agents profile your skills, build a personalised
+          study plan, quiz you on weak areas, and tell you exactly when
+          you're ready to book your exam.
+        </p>
+        """, unsafe_allow_html=True)
+
+        st.markdown("""
+        <div class="ben-grid">
+          <div class="ben-card">
+            <div class="ic ic-blue">🧠</div>
+            <h4>Intelligent Profiling</h4>
+            <p>AI maps your strengths &amp; gaps across every exam domain automatically.</p>
+          </div>
+          <div class="ben-card">
+            <div class="ic ic-teal">🗺️</div>
+            <h4>Personalised Study Plans</h4>
+            <p>Week-by-week schedule weighted by exam blueprint with MS Learn links.</p>
+          </div>
+          <div class="ben-card">
+            <div class="ic ic-cyan">🧪</div>
+            <h4>Adaptive Quizzes</h4>
+            <p>Domain-weighted, exam-style questions focusing on your weakest areas.</p>
+          </div>
+          <div class="ben-card">
+            <div class="ic ic-green">📊</div>
+            <h4>Readiness Verdict</h4>
+            <p>GO / NO-GO recommendation based on scores, study hours &amp; practice exams.</p>
+          </div>
         </div>
         """, unsafe_allow_html=True)
 
-        st.markdown('<div class="login-title">Microsoft Certification Prep</div>', unsafe_allow_html=True)
-        st.markdown('<div class="login-subtitle">Multi-Agent Reasoning System for Exam Readiness</div>', unsafe_allow_html=True)
+        st.markdown("""
+        <div class="ms-stats">
+          <div class="ms-stat"><div class="ms-stat-n">6</div><div class="ms-stat-l">AI Agents</div></div>
+          <div class="ms-stat"><div class="ms-stat-n">30+</div><div class="ms-stat-l">Certifications</div></div>
+          <div class="ms-stat"><div class="ms-stat-n">100%</div><div class="ms-stat-l">Personalised</div></div>
+          <div class="ms-stat"><div class="ms-stat-n">∞</div><div class="ms-stat-l">Practice Qs</div></div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # ── RIGHT: Sign-in form ────────────────────────────────────────────────
+    with _right:
+        st.markdown("""
+        <div style="text-align:center;margin-bottom:4px;">
+          <div style="font-size:1.8rem;">🎓</div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown('<div class="signin-title">Sign In</div>', unsafe_allow_html=True)
+        st.markdown('<div class="signin-sub">Pick a demo account or sign in manually</div>', unsafe_allow_html=True)
+
+        # Quick-login visual cards
+        st.markdown("""
+        <div class="demo-grid">
+          <div class="demo-card">
+            <div class="dm-ic">👩‍🎓</div>
+            <div class="dm-nm">Alex Chen</div>
+            <div class="dm-rl">New Learner</div>
+          </div>
+          <div class="demo-card">
+            <div class="dm-ic">👨‍💻</div>
+            <div class="dm-nm">Priya Sharma</div>
+            <div class="dm-rl">Returning</div>
+          </div>
+          <div class="demo-card">
+            <div class="dm-ic">🔧</div>
+            <div class="dm-nm">Admin</div>
+            <div class="dm-rl">Dashboard</div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Functional quick-login buttons
+        _d1, _d2, _d3 = st.columns(3)
+        with _d1:
+            if st.button("▶ Alex", key="demo_new", use_container_width=True):
+                st.session_state["authenticated"] = True
+                st.session_state["login_name"] = "Alex Chen"
+                st.session_state["user_type"] = "new"
+                st.rerun()
+        with _d2:
+            if st.button("▶ Priya", key="demo_existing", use_container_width=True):
+                st.session_state["authenticated"] = True
+                st.session_state["login_name"] = "Priya Sharma"
+                st.session_state["user_type"] = "existing"
+                st.rerun()
+        with _d3:
+            if st.button("▶ Admin", key="demo_admin", use_container_width=True):
+                st.session_state["authenticated"] = True
+                st.session_state["login_name"] = "Admin"
+                st.session_state["user_type"] = "admin"
+                st.session_state["admin_logged_in"] = True
+                st.rerun()
+
+        st.markdown('<div class="or-sep">or sign in manually</div>', unsafe_allow_html=True)
 
         # Role selector
         user_type = st.radio(
@@ -202,50 +400,37 @@ if not st.session_state["authenticated"]:
         )
         _is_admin_login = user_type.startswith("🔐")
 
-        # Form
+        # Role description
+        if _is_admin_login:
+            _role_desc = "Administrator — inspect agent traces and audit student runs."
+        elif user_type.startswith("🔄"):
+            _role_desc = "Welcome back! Track progress and pick up where you left off."
+        else:
+            _role_desc = "First time? We'll profile your skills and build a custom study plan."
+        st.markdown(f'<div class="role-desc">{_role_desc}</div>', unsafe_allow_html=True)
+
+        # Manual login form
         with st.form("login_form"):
             if _is_admin_login:
                 user_name = st.text_input("Username", placeholder="admin", label_visibility="collapsed")
                 credential = st.text_input("Password", type="password", placeholder="Enter password", label_visibility="collapsed")
             else:
                 user_name = st.text_input("Your name", placeholder="👤  Enter your name", label_visibility="collapsed")
-                credential = st.text_input("PIN", type="password", placeholder="🔑  Enter 4-digit PIN", label_visibility="collapsed")
+                credential = st.text_input("PIN", type="password", placeholder="🔑  PIN: 1234", label_visibility="collapsed")
 
-            login_btn = st.form_submit_button("→  Sign In", type="primary", use_container_width=True)
+            login_btn = st.form_submit_button("Sign In →", type="primary", use_container_width=True)
 
         if _is_admin_login:
             st.markdown(
-                "<p style='text-align:center;color:rgba(255,255,255,0.35);font-size:0.75rem;'>"
-                "Credentials: <code style='color:rgba(255,255,255,0.5)'>admin</code> / "
-                "<code style='color:rgba(255,255,255,0.5)'>agents2026</code></p>",
+                "<p style='text-align:center;color:rgba(255,255,255,0.28);font-size:0.68rem;'>"
+                "Credentials: <code style='color:#50E6FF'>admin</code> / "
+                "<code style='color:#50E6FF'>agents2026</code></p>",
                 unsafe_allow_html=True,
             )
 
-        # Feature highlights
-        st.markdown("""
-        <div class="login-features">
-          <div class="login-feat">
-            <div class="login-feat-icon">🧠</div>
-            <div class="login-feat-label">6 AI Agents</div>
-          </div>
-          <div class="login-feat">
-            <div class="login-feat-icon">📚</div>
-            <div class="login-feat-label">Personalized Plans</div>
-          </div>
-          <div class="login-feat">
-            <div class="login-feat-icon">🧪</div>
-            <div class="login-feat-label">Adaptive Quizzes</div>
-          </div>
-          <div class="login-feat">
-            <div class="login-feat-icon">🏅</div>
-            <div class="login-feat-label">Cert Guidance</div>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-
         st.markdown(
-            "<p style='text-align:center;color:rgba(255,255,255,0.25);font-size:0.72rem;margin-top:24px;'>"
-            "Built with Microsoft Foundry · Streamlit · Azure OpenAI</p>",
+            "<p style='text-align:center;color:rgba(255,255,255,0.16);font-size:0.62rem;margin-top:12px;'>"
+            "Built with Azure AI Foundry · Streamlit · Azure OpenAI</p>",
             unsafe_allow_html=True,
         )
 
