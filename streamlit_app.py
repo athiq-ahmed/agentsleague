@@ -43,18 +43,8 @@ BORDER = "#E1DFDD"
 GREEN = "#107C41"
 BORDER = "#E1DFDD"
 GREEN = "#107C41"
-"""
-streamlit_app.py – Microsoft Certification Prep  •  Block 1 Interactive UI
-
-Run:
-    streamlit run streamlit_app.py
-
-Modes:
-  • Mock mode  – rule-based profiler, no credentials needed (default)
-  • Live mode  – calls Azure OpenAI; requires .env with API credentials
-"""
-
-
+# streamlit_app.py – Microsoft Certification Prep
+# Multi-agent certification prep powered by Azure OpenAI & Microsoft Foundry
 
 import json
 import sys
@@ -634,38 +624,8 @@ if not st.session_state["authenticated"]:
                     if _db_student.get("progress_assessment_json"):
                         st.session_state["progress_assessment"] = _readiness_assessment_from_dict(_json_mod.loads(_db_student["progress_assessment_json"]))
                     st.rerun()
+    st.stop()
 
-            st.markdown("""
-            <div class="tech-strip">
-              ...existing code...
-            </div>
-            """, unsafe_allow_html=True)
-
-# ROI section at the bottom
-st.markdown("""
-<div class='roi-section' style='margin-top:32px;'>
-  <h2 style='text-align:center;margin-bottom:18px;'>Measurable ROI for Individuals & Organizations</h2>
-  <div class='roi-grid' style='display:flex;gap:18px;justify-content:center;'>
-    <div class='roi-card' style='background:#E6F2FF;border-radius:12px;padding:18px 22px;min-width:210px;box-shadow:0 2px 8px #0078D420;'>
-      <div style='font-size:1.25rem;font-weight:700;color:#0078D4;margin-bottom:6px;'>40% Less Study Time</div>
-      <div style='font-size:0.98rem;color:#1B1B1B;'>AI prioritizes only high-impact topics based on learner gaps</div>
-    </div>
-    <div class='roi-card' style='background:#F3E6FF;border-radius:12px;padding:18px 22px;min-width:210px;box-shadow:0 2px 8px #7B2FF220;'>
-      <div style='font-size:1.25rem;font-weight:700;color:#7B2FF2;margin-bottom:6px;'>2x Higher Exam Readiness</div>
-      <div style='font-size:0.98rem;color:#1B1B1B;'>Adaptive checkpoints + GO/NO-GO exam signals</div>
-    </div>
-    <div class='roi-card' style='background:#E6FFF2;border-radius:12px;padding:18px 22px;min-width:210px;box-shadow:0 2px 8px #107C410F;'>
-      <div style='font-size:1.25rem;font-weight:700;color:#107C41;margin-bottom:6px;'>30-50% Training Cost Savings</div>
-      <div style='font-size:0.98rem;color:#1B1B1B;'>No generic courses, only targeted learning paths</div>
-    </div>
-    <div class='roi-card' style='background:#FFF6E6;border-radius:12px;padding:18px 22px;min-width:210px;box-shadow:0 2px 8px #FFB90020;'>
-      <div style='font-size:1.25rem;font-weight:700;color:#FFB900;margin-bottom:6px;'>3x Faster Skill Deployment</div>
-      <div style='font-size:0.98rem;color:#1B1B1B;'>Employees become project-ready sooner</div>
-    </div>
-  </div>
-  <div style='text-align:center;font-size:1.05rem;color:#616161;margin-top:18px;'>Built for both learners and organizations — with outcomes you can <b>measure</b>.</div>
-</div>
-""", unsafe_allow_html=True)
 LEVEL_ICON = {
     "unknown":  "✗",
     "weak":     "⚠",
