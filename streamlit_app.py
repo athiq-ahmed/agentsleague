@@ -2233,97 +2233,60 @@ if "profile" in st.session_state:
     with tab_plan:
         plan: StudyPlan = st.session_state.get("plan")
 
-        # ── 1. Prerequisites / Fundamentals ──────────────────────────────────
-        st.markdown("### 🎓 Prerequisite & Recommended Certifications")
+        # ── 1. Prerequisites ──────────────────────────────────────────────────
+        st.markdown("### 🎓 Study Pre-requisites")
 
         if plan and plan.prerequisites:
-            has_gap = plan.prereq_gap
-            prereq_held     = [p for p in plan.prerequisites if p.already_held]
-            prereq_missing  = [p for p in plan.prerequisites if not p.already_held and p.relationship == "strongly_recommended"]
-            prereq_helpful  = [p for p in plan.prerequisites if not p.already_held and p.relationship == "helpful"]
+            prereq_held    = [p for p in plan.prerequisites if p.already_held]
+            prereq_missing = [p for p in plan.prerequisites if not p.already_held and p.relationship == "strongly_recommended"]
+            prereq_helpful = [p for p in plan.prerequisites if not p.already_held and p.relationship == "helpful"]
 
-            if has_gap:
-                st.warning(
-                    f"⚠️ **Prerequisite gap detected for {profile.exam_target}.**  \n"
-                    f"{plan.prereq_message}",
-                    icon="⚠️",
-                )
+            # Status banner (one line)
+            if plan.prereq_gap:
+                st.warning(f"⚠️ Prerequisite gap — {plan.prereq_message}", icon="⚠️")
             else:
-                st.success(
-                    f"✅ All strongly recommended prerequisites for **{profile.exam_target}** are already held.",
-                    icon="✅",
+                st.success(f"✅ All required prerequisites for **{profile.exam_target}** are already held.", icon="✅")
+
+            # Compact inline rows — one cert per row, styled simply
+            def _prereq_row(code, name, status_html):
+                return (
+                    f'<div style="display:flex;align-items:center;gap:10px;'
+                    f'padding:7px 12px;border-radius:7px;margin-bottom:5px;background:#F9FAFB;'
+                    f'border:1px solid #E5E7EB;">'
+                    f'<span style="font-weight:700;color:#111;font-size:0.88rem;min-width:70px;">{code}</span>'
+                    f'<span style="color:#555;font-size:0.83rem;flex:1;">{name}</span>'
+                    f'{status_html}</div>'
                 )
 
-            prereq_cols = st.columns(3)
-            with prereq_cols[0]:
-                st.markdown("**🔴 Strongly Recommended (missing)**")
-                if prereq_missing:
-                    for p in prereq_missing:
-                        st.markdown(
-                            f"""<div style='background:#FDE7F3;border-left:4px solid {PINK};
-                                 padding:6px 12px;border-radius:6px;margin-bottom:6px;'>
-                                 <b style='color:{PINK};'>{p.cert_code}</b>
-                                 <span style='color:#444;font-size:0.85rem;'><br/>{p.cert_name}</span>
-                                 <br/><span style='color:#d13438;font-size:0.78rem;'>⚠ Not yet held</span>
-                            </div>""",
-                            unsafe_allow_html=True,
-                        )
-                else:
-                    st.caption("None missing ✓")
+            rows_html = ""
+            for p in prereq_missing:
+                rows_html += _prereq_row(
+                    p.cert_code, p.cert_name,
+                    '<span style="background:#FEE2E2;color:#991B1B;border-radius:4px;'
+                    'padding:2px 8px;font-size:0.74rem;white-space:nowrap;">⚠ Required — not held</span>',
+                )
+            for p in prereq_held:
+                rows_html += _prereq_row(
+                    p.cert_code, p.cert_name,
+                    '<span style="background:#DCFCE7;color:#166534;border-radius:4px;'
+                    'padding:2px 8px;font-size:0.74rem;white-space:nowrap;">✓ Held</span>',
+                )
+            for p in prereq_helpful:
+                rows_html += _prereq_row(
+                    p.cert_code, p.cert_name,
+                    '<span style="background:#DBEAFE;color:#1E40AF;border-radius:4px;'
+                    'padding:2px 8px;font-size:0.74rem;white-space:nowrap;">💡 Helpful</span>',
+                )
 
-            with prereq_cols[1]:
-                st.markdown("**🟢 Already Held**")
-                if prereq_held:
-                    for p in prereq_held:
-                        st.markdown(
-                            f"""<div style='background:{GREEN_LITE};border-left:4px solid {GREEN};
-                                 padding:6px 12px;border-radius:6px;margin-bottom:6px;'>
-                                 <b style='color:{GREEN};'>{p.cert_code}</b>
-                                 <span style='color:#444;font-size:0.85rem;'><br/>{p.cert_name}</span>
-                                 <br/><span style='color:{GREEN};font-size:0.78rem;'>✓ Held</span>
-                            </div>""",
-                            unsafe_allow_html=True,
-                        )
-                else:
-                    st.caption("No relevant certifications held yet")
-
-            with prereq_cols[2]:
-                st.markdown("**🔵 Helpful (optional)**")
-                if prereq_helpful:
-                    for p in prereq_helpful:
-                        st.markdown(
-                            f"""<div style='background:{BLUE_LITE};border-left:4px solid {BLUE};
-                                 padding:6px 12px;border-radius:6px;margin-bottom:6px;'>
-                                 <b style='color:{BLUE};'>{p.cert_code}</b>
-                                 <span style='color:#444;font-size:0.85rem;'><br/>{p.cert_name}</span>
-                                 <br/><span style='color:{BLUE};font-size:0.78rem;'>Helpful but optional</span>
-                            </div>""",
-                            unsafe_allow_html=True,
-                        )
-                else:
-                    st.caption("No additional helpful certs")
+            st.markdown(rows_html, unsafe_allow_html=True)
         else:
             st.info(f"No prerequisite data available for **{profile.exam_target}**. Check Microsoft Learn for the latest guidance.")
 
         st.markdown("---")
 
-        # ── 2. Plan summary from agent ────────────────────────────────────────
-        if plan:
-            st.markdown("### 📋 Study Plan Agent Summary")
-            st.markdown(
-                f'<div class="card card-purple">{plan.plan_summary}</div>',
-                unsafe_allow_html=True,
-            )
-
-        st.markdown("---")
-
-        # ── 3. Gantt Chart ────────────────────────────────────────────────────
-        st.markdown("### 📊 Weekly Study Plan — Gantt Chart")
-        st.caption(
-            "Each bar represents the study block for a domain. "
-            "Domains are ordered by priority (critical → high → medium → low → self-test). "
-            "The final week is reserved for practice exams & revision."
-        )
+        # ── 2. Gantt Chart ────────────────────────────────────────────────────
+        st.markdown("### 📊 Weekly Study Plan")
+        st.caption("Domains ordered by priority — final week reserved for practice exams & revision.")
 
         if plan and plan.tasks:
             _BASE = datetime.date(2026, 1, 5)  # Monday Week 1 (display anchor)
@@ -2477,6 +2440,44 @@ if "profile" in st.session_state:
         else:
             st.info("Run the profiler to generate the study plan.")
 
+        # ── 3. Quick Summary ──────────────────────────────────────────────────
+        st.markdown("---")
+        st.markdown("### 📋 Study Setup Summary")
+
+        if plan:
+            _total_h_sum  = sum(t.total_hours for t in plan.tasks) + profile.hours_per_week
+            _critical_dom = [t.domain_name.replace("Implement ", "").replace(" Solutions", "")
+                             for t in plan.tasks if t.priority == "critical"]
+            _skip_dom     = [t.domain_name.replace("Implement ", "").replace(" Solutions", "")
+                             for t in plan.tasks if t.priority == "skip"]
+            _avg_conf_sum = sum(dp.confidence_score for dp in profile.domain_profiles) / len(profile.domain_profiles)
+
+            _s1, _s2, _s3, _s4 = st.columns(4)
+            with _s1: st.metric("Total Study Hours", f"{_total_h_sum:.0f} h")
+            with _s2: st.metric("Duration", f"{plan.total_weeks} weeks")
+            with _s3: st.metric("Hours / Week", f"{profile.hours_per_week:.0f} h")
+            with _s4: st.metric("Avg Confidence", f"{_avg_conf_sum*100:.0f}%")
+
+            _bullets = []
+            if _critical_dom:
+                _bullets.append(f"🔴 <b>Critical focus:</b> {', '.join(_critical_dom)}")
+            if _skip_dom:
+                _bullets.append(f"⏩ <b>Fast-track (skip):</b> {', '.join(_skip_dom)}")
+            _bullets.append(f"🏁 <b>Review week:</b> Week {plan.review_start_week} — practice exams & revision")
+            if plan.prereq_gap:
+                _bullets.append(f"⚠️ <b>Prerequisite gap</b> — address before exam booking")
+            else:
+                _bullets.append("✅ <b>All prerequisites met</b> — ready to start studying")
+
+            st.markdown(
+                '<div style="background:#F8FAFF;border:1px solid #DBEAFE;border-left:4px solid #0078D4;'
+                'border-radius:8px;padding:12px 16px;margin-top:8px;font-size:0.87rem;color:#374151;">'
+                + "<br/>".join(f"&nbsp;&nbsp;{b}" for b in _bullets)
+                + "</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.info("Complete the intake form to generate your personalised study setup summary.")
 
 
     # ── Tab 3: Learning Path ──────────────────────────────────────────────────
