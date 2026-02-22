@@ -1401,26 +1401,6 @@ with st.sidebar:
             st.session_state.pop("sidebar_prefill", None)
             st.rerun()
 
-    # Stage completion tracker — shown additionally when a profile exists
-    if is_returning:
-        st.markdown('<p style="color:rgba(255,255,255,0.5);font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-top:12px;margin-bottom:6px;padding-left:4px;">LEARNING STAGES</p>', unsafe_allow_html=True)
-        _stages = [
-            ("🗺️ Domain Map",       True),
-            ("📅 Study Plan",        "plan" in st.session_state),
-            ("📚 Learning Path",     "learning_path" in st.session_state),
-            ("📈 Progress Check",    "progress_assessment" in st.session_state),
-            ("🧪 Knowledge Check",   "assessment_result" in st.session_state),
-            ("🏅 Certification",     st.session_state.get("cert_recommendation") is not None),
-        ]
-        for _slabel, _sdone in _stages:
-            _si = "✅" if _sdone else "◻️"
-            _sc = "rgba(255,255,255,0.9)" if _sdone else "rgba(255,255,255,0.4)"
-            st.markdown(
-                f'<div style="padding:5px 8px;font-size:0.82rem;color:{_sc};">'
-                f'{_si}&nbsp;&nbsp;{_slabel}</div>',
-                unsafe_allow_html=True,
-            )
-
     if _utype == "admin":
         st.markdown("---")
         st.markdown('<p style="color:rgba(255,255,255,0.5);font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;padding-left:4px;">ADMIN</p>', unsafe_allow_html=True)
