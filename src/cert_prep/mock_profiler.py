@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import re
 from cert_prep.models import (
-    AI102_DOMAINS,
+    EXAM_DOMAINS,
     DomainKnowledge,
     ExperienceLevel,
     LearnerProfile,
@@ -208,7 +208,7 @@ def run_mock_profiling(raw: RawStudentInput) -> LearnerProfile:
 
     domain_profiles = [
         _domain_profile(d, boosted, risk, experience, is_ml)
-        for d in AI102_DOMAINS
+        for d in EXAM_DOMAINS
     ]
 
     modules_to_skip = [

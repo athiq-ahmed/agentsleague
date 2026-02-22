@@ -29,7 +29,7 @@ from rich import box
 
 from cert_prep.config import get_config, AzureOpenAIConfig
 from cert_prep.models import (
-    AI102_DOMAINS,
+    EXAM_DOMAINS,
     DomainKnowledge,
     ExperienceLevel,
     LearnerProfile,
@@ -168,7 +168,7 @@ _DOMAIN_REF = json.dumps(
             "exam_weight": f"{int(d['weight'] * 100)} %",
             "covers":      d["description"],
         }
-        for d in AI102_DOMAINS
+        for d in EXAM_DOMAINS
     ],
     indent=2,
 )
@@ -176,13 +176,12 @@ _DOMAIN_REF = json.dumps(
 _PROFILE_SCHEMA_STR = json.dumps(_PROFILE_JSON_SCHEMA, indent=2)
 
 _SYSTEM_PROMPT = textwrap.dedent("""
-    You are an expert Microsoft certification coach specialising in AI-102:
-    "Designing and Implementing a Microsoft Azure AI Solution".
+    You are an expert Microsoft certification coach.
 
     Your task is to analyse a student's background and produce a structured
     learner profile that will personalise their study plan.
 
-    ## AI-102 Domain Reference
+    ## Exam Domain Reference
 """) + _DOMAIN_REF + textwrap.dedent("""
 
     ## Personalisation Rules

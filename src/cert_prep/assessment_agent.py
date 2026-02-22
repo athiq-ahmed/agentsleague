@@ -572,10 +572,10 @@ class AssessmentAgent:
 
     def generate(self, profile, n_questions: int = 10) -> Assessment:
         """Return an `Assessment` of `n_questions` questions, domain-weighted."""
-        from cert_prep.models import AI102_DOMAINS
+        from cert_prep.models import EXAM_DOMAINS
 
         # Build domain → weight map
-        weight_map = {d["id"]: d["weight"] for d in AI102_DOMAINS}
+        weight_map = {d["id"]: d["weight"] for d in EXAM_DOMAINS}
 
         # Exclude skipped domains
         skip_ids = set(profile.domains_to_skip())

@@ -40,9 +40,12 @@ class ExperienceLevel(str, Enum):
     EXPERT_ML      = "expert_ml"      # data science / ML engineering background
 
 
-# ─── AI-102 Domain Registry ──────────────────────────────────────────────────
+# ─── Microsoft Exam Domain Registry ─────────────────────────────────────────
 
-AI102_DOMAINS: list[dict] = [
+# Default / sample domain blueprint (AI-102).  The system is exam-agnostic;
+# swap or extend via EXAM_DOMAIN_REGISTRY for any Microsoft certification.
+
+EXAM_DOMAINS: list[dict] = [
     {
         "id":     "plan_manage",
         "name":   "Plan & Manage Azure AI Solutions",
@@ -99,7 +102,22 @@ AI102_DOMAINS: list[dict] = [
     },
 ]
 
-DOMAIN_IDS = [d["id"] for d in AI102_DOMAINS]
+DOMAIN_IDS = [d["id"] for d in EXAM_DOMAINS]
+
+
+# ─── Multi-exam registry (extensible) ─────────────────────────────────────────
+
+EXAM_DOMAIN_REGISTRY: dict[str, list[dict]] = {
+    "AI-102": EXAM_DOMAINS,
+    # Add more exams here, e.g.:
+    # "DP-100": [ ... ],
+    # "AZ-204": [ ... ],
+}
+
+
+def get_exam_domains(exam_code: str) -> list[dict]:
+    """Return domain list for *exam_code*, falling back to the default blueprint."""
+    return EXAM_DOMAIN_REGISTRY.get(exam_code.upper(), EXAM_DOMAINS)
 
 
 # ─── Block 1 Input Model ─────────────────────────────────────────────────────
@@ -150,7 +168,7 @@ class LearnerProfile(BaseModel):
     total_budget_hours:  float
 
     domain_profiles:     list[DomainProfile] = Field(
-        description="One entry per AI-102 domain, in exam blueprint order"
+        description="One entry per exam domain, in blueprint order"
     )
     modules_to_skip:     list[str] = Field(
         description="Human-readable module names that can be safely skipped"

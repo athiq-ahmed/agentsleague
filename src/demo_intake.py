@@ -143,7 +143,7 @@ def show_profile(raw: RawStudentInput, profile: LearnerProfile) -> None:
 def main() -> None:
     console.print()
     console.print(Panel(
-        "[bold]Microsoft Agents League — AI-102 Cert Prep[/bold]\n"
+        "[bold]Microsoft Agents League — Certification Prep[/bold]\n"
         "[dim]Multi-Agent System  •  Block 1: Learner Intake & Profiling[/dim]",
         style="on dark_violet",
         expand=False,

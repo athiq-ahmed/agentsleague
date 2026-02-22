@@ -1,5 +1,5 @@
 """
-streamlit_app.py – AI-102 Certification Prep  •  Block 1 Interactive UI
+streamlit_app.py – Microsoft Certification Prep  •  Block 1 Interactive UI
 
 Run:
     streamlit run streamlit_app.py
@@ -23,7 +23,7 @@ import streamlit as st
 import plotly.graph_objects as go
 
 from cert_prep.models import (
-    AI102_DOMAINS,
+    EXAM_DOMAINS,
     DomainKnowledge,
     RawStudentInput,
     LearnerProfile,
@@ -48,11 +48,228 @@ import datetime
 
 # ─── Page config ─────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="AI-102 Student Learning App",
+    page_title="Microsoft Cert Prep - Student Learning App",
     page_icon="🎓",
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# ─── Login gate ──────────────────────────────────────────────────────────────
+APP_PIN = "1234"
+ADMIN_USER = "admin"
+ADMIN_PASS = "agents2026"
+
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+    st.session_state["user_type"] = None  # "new", "existing", or "admin"
+
+if not st.session_state["authenticated"]:
+    # ── Full-page login CSS ──────────────────────────────────────────────────
+    st.markdown("""
+    <style>
+      /* Hide sidebar on login */
+      [data-testid="stSidebar"] { display: none; }
+      /* Animated gradient background */
+      [data-testid="stAppViewContainer"] {
+        background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+      }
+      /* Glass card */
+      .login-card {
+        background: rgba(255,255,255,0.07);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 20px;
+        padding: 2.5rem 2rem 2rem;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.37);
+        max-width: 480px;
+        margin: 0 auto;
+      }
+      .login-title {
+        text-align: center;
+        color: #ffffff;
+        font-size: 1.8rem;
+        font-weight: 800;
+        margin-bottom: 4px;
+        letter-spacing: -0.02em;
+      }
+      .login-subtitle {
+        text-align: center;
+        color: rgba(255,255,255,0.55);
+        font-size: 0.92rem;
+        margin-bottom: 20px;
+      }
+      .login-badge {
+        display: inline-block;
+        background: linear-gradient(135deg, #5C2D91, #B4009E);
+        color: #fff;
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 3px 12px;
+        border-radius: 20px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .login-features {
+        display: flex;
+        gap: 12px;
+        margin-top: 18px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .login-feat {
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 12px;
+        padding: 10px 14px;
+        text-align: center;
+        flex: 1;
+        min-width: 120px;
+      }
+      .login-feat-icon { font-size: 1.5rem; }
+      .login-feat-label { color: rgba(255,255,255,0.7); font-size: 0.75rem; margin-top: 4px; }
+      /* Role selector pills */
+      div[data-testid="stHorizontalRadio"] label {
+        background: rgba(255,255,255,0.08) !important;
+        border: 1px solid rgba(255,255,255,0.15) !important;
+        border-radius: 24px !important;
+        padding: 6px 18px !important;
+        color: rgba(255,255,255,0.8) !important;
+        transition: all 0.2s ease;
+      }
+      div[data-testid="stHorizontalRadio"] label:hover {
+        background: rgba(92,45,145,0.3) !important;
+        border-color: #5C2D91 !important;
+      }
+      div[data-testid="stHorizontalRadio"] label[data-checked="true"],
+      div[data-testid="stHorizontalRadio"] [aria-checked="true"] + label,
+      div[data-testid="stHorizontalRadio"] label[aria-pressed="true"] {
+        background: linear-gradient(135deg, #5C2D91, #B4009E) !important;
+        border-color: transparent !important;
+        color: #fff !important;
+      }
+      /* Input styling */
+      .stTextInput input {
+        background: rgba(255,255,255,0.08) !important;
+        border: 1px solid rgba(255,255,255,0.18) !important;
+        border-radius: 10px !important;
+        color: #fff !important;
+      }
+      .stTextInput input:focus {
+        border-color: #5C2D91 !important;
+        box-shadow: 0 0 0 2px rgba(92,45,145,0.3) !important;
+      }
+      /* Button styling */
+      .stFormSubmitButton button {
+        background: linear-gradient(135deg, #5C2D91, #B4009E) !important;
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 12px !important;
+        font-size: 1rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.03em;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+      }
+      .stFormSubmitButton button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(92,45,145,0.45) !important;
+      }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # ── Layout ───────────────────────────────────────────────────────────────
+    st.markdown("<div style='height:40px'></div>", unsafe_allow_html=True)
+    _login_col = st.columns([1, 1.6, 1])[1]
+    with _login_col:
+        # Header
+        st.markdown("""
+        <div style="text-align:center;margin-bottom:8px;">
+          <div style="font-size:3.4rem;margin-bottom:4px;">🎓</div>
+          <span class="login-badge">Microsoft Agents League · Battle #2</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown('<div class="login-title">Microsoft Certification Prep</div>', unsafe_allow_html=True)
+        st.markdown('<div class="login-subtitle">Multi-Agent Reasoning System for Exam Readiness</div>', unsafe_allow_html=True)
+
+        # Role selector
+        user_type = st.radio(
+            "I am a …",
+            options=["🆕 New Learner", "🔄 Returning Learner", "🔐 Admin"],
+            horizontal=True,
+            key="login_role",
+            label_visibility="collapsed",
+        )
+        _is_admin_login = user_type.startswith("🔐")
+
+        # Form
+        with st.form("login_form"):
+            if _is_admin_login:
+                user_name = st.text_input("Username", placeholder="admin", label_visibility="collapsed")
+                credential = st.text_input("Password", type="password", placeholder="Enter password", label_visibility="collapsed")
+            else:
+                user_name = st.text_input("Your name", placeholder="👤  Enter your name", label_visibility="collapsed")
+                credential = st.text_input("PIN", type="password", placeholder="🔑  Enter 4-digit PIN", label_visibility="collapsed")
+
+            login_btn = st.form_submit_button("→  Sign In", type="primary", use_container_width=True)
+
+        if _is_admin_login:
+            st.markdown(
+                "<p style='text-align:center;color:rgba(255,255,255,0.35);font-size:0.75rem;'>"
+                "Credentials: <code style='color:rgba(255,255,255,0.5)'>admin</code> / "
+                "<code style='color:rgba(255,255,255,0.5)'>agents2026</code></p>",
+                unsafe_allow_html=True,
+            )
+
+        # Feature highlights
+        st.markdown("""
+        <div class="login-features">
+          <div class="login-feat">
+            <div class="login-feat-icon">🧠</div>
+            <div class="login-feat-label">6 AI Agents</div>
+          </div>
+          <div class="login-feat">
+            <div class="login-feat-icon">📚</div>
+            <div class="login-feat-label">Personalized Plans</div>
+          </div>
+          <div class="login-feat">
+            <div class="login-feat-icon">🧪</div>
+            <div class="login-feat-label">Adaptive Quizzes</div>
+          </div>
+          <div class="login-feat">
+            <div class="login-feat-icon">🏅</div>
+            <div class="login-feat-label">Cert Guidance</div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown(
+            "<p style='text-align:center;color:rgba(255,255,255,0.25);font-size:0.72rem;margin-top:24px;'>"
+            "Built with Microsoft Foundry · Streamlit · Azure OpenAI</p>",
+            unsafe_allow_html=True,
+        )
+
+        if login_btn:
+            if not user_name.strip():
+                st.error("Please enter your name." if not _is_admin_login else "Please enter the username.")
+            elif _is_admin_login:
+                if user_name.strip() == ADMIN_USER and credential == ADMIN_PASS:
+                    st.session_state["authenticated"] = True
+                    st.session_state["login_name"] = "Admin"
+                    st.session_state["user_type"] = "admin"
+                    st.session_state["admin_logged_in"] = True
+                    st.rerun()
+                else:
+                    st.error("Invalid admin credentials.")
+            elif credential != APP_PIN:
+                st.error("Incorrect PIN. Please try again.")
+            else:
+                st.session_state["authenticated"] = True
+                st.session_state["login_name"] = user_name.strip()
+                st.session_state["user_type"] = "existing" if user_type.startswith("🔄") else "new"
+                st.rerun()
+
+    st.stop()
 
 # ─── Colour palette (matches architecture diagram) ───────────────────────────
 PURPLE      = "#5C2D91"
@@ -79,7 +296,7 @@ LEVEL_ICON = {
     "strong":   "✓",
 }
 
-AI102_DOMAIN_NAMES = {d["id"]: d["name"] for d in AI102_DOMAINS}
+EXAM_DOMAIN_NAMES = {d["id"]: d["name"] for d in EXAM_DOMAINS}
 
 # ─── Azure / Microsoft certification catalogue ────────────────────────────────
 AZURE_CERTS = [
@@ -173,6 +390,17 @@ st.markdown(f"""
 # ─── Sidebar – mode + optional credentials ───────────────────────────────────
 with st.sidebar:
     st.image("https://img-prod-cms-rt-microsoft-com.akamaized.net/cms/api/am/imageFileData/RE1Mu3b?ver=5c31", width=140)
+
+    # Greeting & sign-out
+    _login_name = st.session_state.get("login_name", "Learner")
+    _user_type_label = "Returning" if st.session_state.get("user_type") == "existing" else "New"
+    st.markdown(f"👋 **{_login_name}** ({_user_type_label})")
+    if st.button("🚪 Sign Out", use_container_width=True):
+        for k in list(st.session_state.keys()):
+            del st.session_state[k]
+        st.rerun()
+    st.markdown("---")
+
     st.markdown("### ⚙️ Configuration")
 
     mode = st.radio(
@@ -268,7 +496,7 @@ SCENARIOS = {
         "weeks":      5,
         "concerns":   "Bot Service, Document Intelligence, Responsible AI",
         "style":      "Hands-on API-first. Show me SDK code before portal screenshots. Map new Azure concepts to things I know from ML.",
-        "goal":       "Formalise and certify Azure AI knowledge to lead company's AI-102 compliance programme.",
+        "goal":       "Formalise and certify Azure AI knowledge to lead company's certification compliance programme.",
     },
 }
 
@@ -295,7 +523,7 @@ elif is_returning and "profile" not in st.session_state:
 else:
     st.markdown("""
     <div class="hero">
-      <h1>🎓 AI-102 Certification Prep — Learner Profiler</h1>
+      <h1>🎓 Microsoft Certification Prep — Learner Profiler</h1>
       <p>Block 1: Learner Intake &amp; Profiling &nbsp;|&nbsp; Microsoft Agents League Multi-Agent System</p>
     </div>
     """, unsafe_allow_html=True)
@@ -303,7 +531,7 @@ else:
 
 # ─── Intake form ─────────────────────────────────────────────────────────────
 st.markdown("## 📝 Student Intake Form")
-st.caption("Fill in the details below. The AI profiling agent will personalise your AI-102 study plan.")
+st.caption("Fill in the details below. The AI profiling agent will personalise your certification study plan.")
 
 with st.form("intake_form", clear_on_submit=False):
 
@@ -576,20 +804,30 @@ if "profile" in st.session_state:
     st.markdown(kpi_cards, unsafe_allow_html=True)
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    tab_domains, tab_plan, tab_path, tab_recs, tab_progress, tab_quiz, tab_json = st.tabs([
-        "🗺️ Domain Map",
-        "📅 Study Setup",
-        "📚 Learning Path",
-        "💡 Recommendations",
-        "📈 My Progress",
-        "🧪 Knowledge Check",
-        "📄 Raw JSON",
-    ])
+    _is_existing = st.session_state.get("user_type") == "existing"
+
+    if _is_existing:
+        tab_domains, tab_plan, tab_path, tab_recs, tab_progress, tab_quiz, tab_json = st.tabs([
+            "🗺️ Domain Map",
+            "📅 Study Setup",
+            "📚 Learning Path",
+            "💡 Recommendations",
+            "📈 My Progress",
+            "🧪 Knowledge Check",
+            "📄 Raw JSON",
+        ])
+    else:
+        tab_domains, tab_plan, tab_path = st.tabs([
+            "🗺️ Domain Map",
+            "📅 Study Setup",
+            "📚 Learning Path",
+        ])
+        tab_recs = tab_progress = tab_quiz = tab_json = None
 
     # ── Tab 1: Domain Map ─────────────────────────────────────────────────────
     with tab_domains:
         st.markdown("### Domain Knowledge Assessment")
-        st.caption("Confidence scores and knowledge levels across the 6 AI-102 domains.")
+        st.caption("Confidence scores and knowledge levels across the exam domains.")
 
         # ── Pre-compute insight data ──────────────────────────────────────────
         labels    = [dp.domain_name.replace(" Solutions", "").replace("Implement ", "")
@@ -1054,7 +1292,7 @@ if "profile" in st.session_state:
             if profile.risk_domains:
                 st.markdown("#### ⚠️ Priority risk domains")
                 for did in profile.risk_domains:
-                    name = AI102_DOMAIN_NAMES.get(did, did)
+                    name = EXAM_DOMAIN_NAMES.get(did, did)
                     st.error(f"⚠ {name}")
 
         with col_r:
@@ -1168,7 +1406,8 @@ if "profile" in st.session_state:
                 st.metric("Budget Utilisation", f"{_ratio:.0%}")
 
     # ── Tab 4: Recommendations ────────────────────────────────────────────────
-    with tab_recs:
+    if tab_recs is not None:
+      with tab_recs:
         st.markdown("### 💡 Personalisation Recommendation")
         st.markdown(
             f'<div class="card card-green">{profile.recommended_approach}</div>',
@@ -1315,7 +1554,8 @@ if "profile" in st.session_state:
             )
 
     # ── Tab 4: My Progress ────────────────────────────────────────────────────
-    with tab_progress:
+    if tab_progress is not None:
+      with tab_progress:
         st.markdown("### 📈 My Progress Check-In")
 
         _has_plan = "plan" in st.session_state
@@ -1609,7 +1849,7 @@ if "profile" in st.session_state:
                 # ── Recommended focus ─────────────────────────────────────────
                 if _asmt.recommended_focus:
                     _focus_names = [
-                        AI102_DOMAIN_NAMES.get(did, did)
+                        EXAM_DOMAIN_NAMES.get(did, did)
                         for did in _asmt.recommended_focus
                     ]
                     st.markdown(
@@ -1651,7 +1891,7 @@ if "profile" in st.session_state:
                     else:
                         _html_body = generate_weekly_summary(profile, _snap, _asmt)
                         _subject   = (
-                            f"AI-102 Weekly Study Report — "
+                            f"{profile.exam_target} Weekly Study Report — "
                             f"{profile.student_name} — "
                             f"Readiness {_asmt.readiness_pct:.0f}%"
                         )
@@ -1683,7 +1923,8 @@ if "profile" in st.session_state:
                     )
 
     # ── Tab 6: Knowledge Check (Assessment Agent) ────────────────────────────
-    with tab_quiz:
+    if tab_quiz is not None:
+      with tab_quiz:
         st.markdown("### 🧪 Knowledge Check — Readiness Quiz")
         st.caption(
             "A domain-weighted mini-exam generated by the Assessment Agent. "
@@ -1743,7 +1984,7 @@ if "profile" in st.session_state:
                 st.markdown("#### 📊 Domain Breakdown")
                 for _did, _ds in sorted(_prior_result.domain_scores.items(), key=lambda x: x[1]):
                     _dc = "#16a34a" if _ds >= 70 else ("#f59e0b" if _ds >= 50 else "#dc2626")
-                    _dn = AI102_DOMAIN_NAMES.get(_did, _did).replace("Implement ", "").replace(" Solutions","")
+                    _dn = EXAM_DOMAIN_NAMES.get(_did, _did).replace("Implement ", "").replace(" Solutions","")
                     st.markdown(
                         f"""<div style="display:flex;align-items:center;gap:10px;
                              margin-bottom:6px;padding:6px 12px;border-radius:6px;
@@ -1838,7 +2079,8 @@ if "profile" in st.session_state:
                     st.rerun()
 
     # ── Tab 7: Raw JSON ───────────────────────────────────────────────────────
-    with tab_json:
+    if tab_json is not None:
+      with tab_json:
         col_j1, col_j2 = st.columns(2)
         with col_j1:
             st.markdown("#### Raw Student Input")

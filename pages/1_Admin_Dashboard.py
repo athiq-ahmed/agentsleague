@@ -20,7 +20,7 @@ import plotly.express as px
 
 # ─── Page config ─────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Admin Dashboard – AI-102 Agents",
+    page_title="Admin Dashboard – Cert Prep Agents",
     page_icon="🔐",
     layout="wide",
 )
@@ -98,6 +98,10 @@ def _hex_rgba(hex_color: str, alpha: float = 1.0) -> str:
 
 MOCK_USER = "admin"
 MOCK_PASS = "agents2026"
+
+# Auto-login if already authenticated as admin from the main sign-in page
+if st.session_state.get("user_type") == "admin":
+    st.session_state["admin_logged_in"] = True
 
 if "admin_logged_in" not in st.session_state:
     st.session_state["admin_logged_in"] = False
@@ -180,7 +184,7 @@ raw                    = st.session_state.get("raw", None)
 if trace is None:
     st.info(
         "🔍 **No profiling run detected yet.**\n\n"
-        "Go to the main **AI-102 Cert Prep** page, fill in the intake form, "
+        "Go to the main **Cert Prep** page, fill in the intake form, "
         "and click **Generate Profile**. Then return here to inspect the "
         "full agent interaction log.",
         icon="ℹ️",
@@ -237,243 +241,125 @@ if _demo_mode:
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# SECTION 2 – Architecture-style Pipeline Diagram
+# SECTION 2 – Learner Journey Flow
 # ═════════════════════════════════════════════════════════════════════════════
-_section_header("Agent Pipeline Flow", "🔀")
+_section_header("Learner Journey Flow", "🗺️")
 
 st.caption(
-    "Architecture-diagram view inspired by the **r4 design**. "
-    "Solid-filled blocks = **active in this run** (with ✓ timing). "
-    "Outlined blocks = exist in full system, not invoked this run. "
-    "🟡 badges = execution step order."
+    "End-to-end view of the learner's path through the multi-agent system. "
+    "Each stage shows the responsible agent, its contribution, and timing."
 )
 
+# ── 2a: Journey funnel ───────────────────────────────────────────────────────
+_j_col1, _j_col2 = st.columns([3, 2])
 
-def _build_pipeline_fig(trace_obj):
-    """
-    Draws an architecture block diagram that mirrors the r4 drawio layout.
-    Color palette matches the official diagram exactly.
-    Active agents are solid-filled; inactive blocks are outline-only.
-    """
-    sid = {s.agent_id: s for s in trace_obj.steps}
+with _j_col1:
+    _stages = [
+        "Student Input",
+        "Intake & Profiling",
+        "Learning Path Planning",
+        "Study Plan Generation",
+        "Domain Confidence Scoring",
+        "Readiness Assessment",
+    ]
+    _stage_values  = [100, 92, 85, 78, 70, 65]
+    _stage_colors  = [BLUE, PURPLE, "#a78bfa", "#06b6d4", GREEN, ORANGE]
 
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=[0, 100], y=[-2, 70], mode="markers",
-        marker=dict(opacity=0, size=1), showlegend=False, hoverinfo="skip",
+    funnel_fig = go.Figure(go.Funnel(
+        y=_stages,
+        x=_stage_values,
+        textinfo="value+percent initial",
+        marker=dict(color=_stage_colors),
+        connector=dict(line=dict(color="#2a3a50", width=1)),
     ))
-
-    shapes, anns = [], []
-
-    # ── Helpers ────────────────────────────────────────────────────────────
-    def _r(x0, y0, x1, y1, fill, border, bw=1.5, op=1.0, above=False):
-        shapes.append(dict(
-            type="rect", x0=x0, y0=y0, x1=x1, y1=y1,
-            fillcolor=fill, opacity=op,
-            line=dict(color=border, width=bw),
-            layer="above" if above else "below",
-        ))
-
-    def _a(x, y, txt, color="#ffffff", sz=10, bold=False,
-           xa="center", ya="middle", bg=None, bdc=None):
-        d = dict(x=x, y=y, text=f"<b>{txt}</b>" if bold else txt,
-                 showarrow=False, font=dict(color=color, size=sz, family="Segoe UI, Arial"),
-                 xanchor=xa, yanchor=ya, xref="x", yref="y")
-        if bg:
-            d["bgcolor"] = bg
-            d["bordercolor"] = bdc or bg
-            d["borderwidth"] = 1
-            d["borderpad"] = 3
-        anns.append(d)
-
-    def _arr(x0, y0, x1, y1, clr="#aaaaaa", head=2, w=1.5, txt="", tsz=8):
-        d = dict(x=x1, y=y1, ax=x0, ay=y0, xref="x", yref="y", axref="x", ayref="y",
-                 showarrow=True, arrowhead=head, arrowsize=1.2,
-                 arrowwidth=w, arrowcolor=clr)
-        if txt:
-            d["text"] = txt
-            d["font"] = dict(color="#e8edf3", size=tsz)
-        anns.append(d)
-
-    def _block(aid, x0, y0, x1, y1, title, sub="",
-               bf="#EEF6FF", bb="#0F6CBD", bt="#0F3D7A"):
-        step   = sid.get(aid)
-        active = step is not None
-        fill   = bb    if active else bf
-        bw     = 2.5   if active else 1.5
-        tc     = "#ffffff" if active else bt
-        sc     = "#ddeeff" if active else "#888888"
-
-        shapes.append(dict(
-            type="rect", x0=x0, y0=y0, x1=x1, y1=y1,
-            fillcolor=fill, line=dict(color=bb, width=bw), layer="above",
-        ))
-        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
-        if sub:
-            _a(cx, cy + 2.0, title, tc, sz=10, bold=True)
-            _a(cx, cy - 0.5, sub,   sc, sz=8)
-        else:
-            _a(cx, cy, title, tc, sz=10, bold=True)
-
-        if step:
-            _a(x1 - 0.4, y0 + 1.0, f"✓ {step.duration_ms:.0f} ms",
-               "#fbbf24", sz=8, xa="right", ya="bottom")
-
-    # ── SAFETY BAR (top, cross-cutting) ────────────────────────────────────
-    ss  = sid.get("safety")
-    _r(0, 64, 100, 69, "#B4009E" if ss else "#FDE7F3", "#B4009E", bw=2)
-    _a(50, 66.5,
-       "🛡️  Policy & Safety Guardrails  ·  cross-cutting  ·  PII filter  ·  anti-cheating  ·  human escalation",
-       "#ffffff" if ss else "#7a0068", sz=10, bold=True)
-    if ss:
-        _a(97, 66.5, f"✓ {ss.duration_ms:.0f} ms", "#fbbf24", sz=9, xa="right")
-
-    # ── SECTION 1: INTAKE & PREPARATION (light-yellow container) ───────────
-    _r(0, 9, 100, 63, "#FFFDE7", "#8A6D00", bw=1.5, op=0.45)
-    _a(2, 62.3, "1.  Intake & Preparation", "#5a4200", sz=11, bold=True, xa="left")
-
-    # Orchestrator sub-container (gold)
-    _r(37, 11, 99, 61, "#FFF4CE", "#8A6D00", bw=1, op=0.35)
-    _a(68, 60.3, "Preparation Orchestrator  (Central Brain)", "#5a4200", sz=10, bold=True)
-
-    # Reasoning trace log strip (inside orchestrator, bottom)
-    _r(42, 9.5, 96, 11.5, "#FFF9C4", "#8A6D00", bw=1, op=0.7)
-    _a(69, 10.5, "Reasoning Trace Log  (explainability)", "#7a5d00", sz=9)
-
-    # Student Input  ── always shown as "origin" (solid blue)
-    _r(1, 29, 16, 57, "#0F6CBD", "#0F6CBD", bw=2.5, above=True)
-    _a(8.5, 46,   "Student Input", "#ffffff",  sz=10, bold=True)
-    _a(8.5, 41,   "Topics · Exam", "#d0e8ff",  sz=8)
-    _a(8.5, 37.5, "Time · Prefs",  "#d0e8ff",  sz=8)
-
-    # Learner Intake & Profiling
-    _block("intake", 19, 29, 36, 57,
-           "Learner Intake", "& Profiling",
-           "#F5F0FF", "#5C2D91", "#3d1077")
-    if sid.get("profiling"):
-        p = sid["profiling"]
-        _a(27.5, 32.5, f"⚙ LLM  {p.duration_ms:.0f} ms", "#c4a8ff", sz=8)
-
-    # 1.1 – Learning Path Planner  (analogy mapper maps here)
-    _block("analogy", 39, 29, 65, 57,
-           "1.1  Learning Path Planner",
-           "Syllabus mapper · resource curator",
-           "#F5F0FF", "#5C2D91", "#3d1077")
-
-    # 1.2 – Study Plan & Engagement Generator
-    _block("engagement", 67, 29, 97, 57,
-           "1.2  Study Plan &",
-           "Engagement Generator",
-           "#F5F0FF", "#5C2D91", "#3d1077")
-
-    # Domain Confidence Scorer  (inside orchestrator, below main row)
-    sc2  = sid.get("scorer")
-    sf   = "#27ae60" if sc2 else "#d5f5e3"
-    stc  = "#ffffff" if sc2 else "#0a5c0a"
-    _r(39, 13, 65, 27, sf, "#107C10", bw=1.5, op=0.95, above=True)
-    _a(52, 21, "Domain Confidence Scorer", stc, sz=9, bold=True)
-    _a(52, 17, "Confidence thresholds per domain", stc if sc2 else "#4a8a4a", sz=8)
-    if sc2:
-        _a(52, 13.5, f"✓ {sc2.duration_ms:.0f} ms", "#fbbf24", sz=8)
-
-    # Preparation Output Artifact  (bottom-left of Section 1)
-    _r(1, 10, 35, 27, "#EEF6FF", "#0F6CBD", bw=1.8, op=0.95, above=True)
-    _a(18, 21,   "Preparation Output Artifact", "#0F3D7A", sz=9, bold=True)
-    _a(18, 16,   "Study Plan + Resources", "#3366aa", sz=8)
-    _a(18, 12.5, "+ Milestones",            "#3366aa", sz=8)
-
-    # Readiness Gate diamond  (sits right of scorer, bridging vertical gap)
-    gs   = sid.get("gate")
-    gf   = "#107C10" if gs else "#E9F7EE"
-    gtc  = "#ffffff" if gs else "#0a4d0a"
-    gx, gy, gr = 68, 18.5, 6.2
-    shapes.append(dict(
-        type="path",
-        path=f"M {gx} {gy+gr} L {gx+gr*1.55} {gy} L {gx} {gy-gr} L {gx-gr*1.55} {gy} Z",
-        fillcolor=gf, line=dict(color="#107C10", width=2.2 if gs else 1.5),
-        layer="above",
-    ))
-    _a(gx, gy + 1.5, "Ready for",       gtc, sz=9, bold=True)
-    _a(gx, gy - 1.5, "Assessment?",     gtc, sz=9, bold=True)
-    if gs:
-        _a(gx, gy - 5, f"✓ {gs.duration_ms:.0f} ms", "#fbbf24", sz=8)
-
-    # ── SECTION 2: ASSESSMENT + VERIFICATION ───────────────────────────────
-    _r(26, 0.3, 100, 8, "#F3F0FF", "#5C2D91", bw=1.5, op=0.5)
-    _a(63, 7.5, "2.  Assessment + Verification", "#3d1a6e", sz=10, bold=True)
-
-    _r(27.5, 0.8, 47, 6.5, "#F5F0FF", "#5C2D91", bw=1.5, op=0.95, above=True)
-    _a(37.25, 4.0, "2.1  Assessment Builder", "#3d1077", sz=9, bold=True)
-    _a(37.25, 2.0, "(exam-style questions)",   "#888888", sz=8)
-
-    _r(49, 0.8, 69, 6.5, "#FDE7F3", "#B4009E", bw=1.5, op=0.95, above=True)
-    _a(59, 4.0, "2.2  Tiered Verifier",  "#7a0068", sz=9, bold=True)
-    _a(59, 2.0, "+ Repair Loop",         "#7a0068", sz=8)
-
-    _r(71, 0.8, 90, 6.5, "#E9F7EE", "#107C10", bw=1.5, op=0.95, above=True)
-    _a(80.5, 4.0, "2.3  Scoring Engine", "#0a4d0a", sz=9, bold=True)
-    _a(80.5, 2.0, "(deterministic)",     "#888888", sz=8)
-
-    # ── SECTION 3: DECISION + ADAPTATION ───────────────────────────────────
-    _r(0, 0.3, 24.5, 8, "#E9F7EE", "#107C10", bw=1.5, op=0.5)
-    _a(12.25, 7.5, "3.  Decision + Adaptation", "#0a4d0a", sz=10, bold=True)
-
-    _r(0.5, 0.8, 11.5, 6.5, "#EEF6FF", "#0F6CBD", bw=1.5, op=0.95, above=True)
-    _a(6.0, 4.0, "3.2  Cert &",    "#0F3D7A", sz=9, bold=True)
-    _a(6.0, 2.0, "Exam Planner",  "#0F3D7A", sz=8)
-
-    _r(13, 0.8, 24, 6.5, "#E9F7EE", "#107C10", bw=1.5, op=0.95, above=True)
-    _a(18.5, 4.0, "3.1  Gap Analyzer",   "#0a4d0a", sz=9, bold=True)
-    _a(18.5, 2.0, "& Decision Policy",   "#0a4d0a", sz=8)
-
-    # ── OBSERVABILITY BAR (bottom) ─────────────────────────────────────────
-    _r(0, -1.4, 100, 0.2, "#EEF6FF", "#0F6CBD", bw=1, op=0.7)
-    _a(50, -0.65,
-       "📊  Evaluation Harness & Observability  ·  KPIs  ·  latency  ·"
-       "  verifier catch-rate  ·  gap delta  ·  readiness accuracy",
-       "#0F6CBD", sz=8)
-
-    # ── ARROWS ─────────────────────────────────────────────────────────────
-    _arr(16, 43,  19, 43, "#aaaaaa")            # Student Input → Intake
-    _arr(36, 43,  39, 43, "#5C2D91")            # Intake → Orchestrator
-    _arr(65, 43,  67, 43, "#5C2D91")            # 1.1 → 1.2
-    _arr(27.5, 29, 20, 27, "#0F6CBD")           # Intake → Output Artifact
-    _arr(35, 18.5, 57.7, 18.5, "#107C10")       # Output → Gate
-    _arr(62, 12.5, 37.25, 8, "#107C10",         # Gate Yes → Section 2
-         txt="Yes →", tsz=8)
-    _arr(74, 18.5, 98, 18.5, "#e67e22",         # Gate No → right edge
-         txt="No → Remedi-\nate & Replan", tsz=8)
-    _arr(18, 10, 18.5, 8, "#0F6CBD")            # Output → Section 3
-
-    # ── STEP ORDER BADGES (gold circle numbers) ────────────────────────────
-    badge_pos = {
-        "safety":     (50,   66.5),
-        "intake":     (27.5, 57.8),
-        "profiling":  (34.5, 34.0),
-        "scorer":     (63.5, 27.5),
-        "gate":       (77.5, 24.5),
-        "analogy":    (52.0, 57.8),
-        "engagement": (82.0, 57.8),
-    }
-    for i, step in enumerate(trace_obj.steps):
-        if step.agent_id in badge_pos:
-            bx, by = badge_pos[step.agent_id]
-            _a(bx, by, str(i + 1), "#0e1117", sz=9, bold=True,
-               bg="#fbbf24", bdc="#f59e0b")
-
-    fig.update_layout(
-        shapes=shapes, annotations=anns,
-        paper_bgcolor=CARD_BG, plot_bgcolor=CARD_BG,
-        height=540,
-        margin=dict(l=4, r=4, t=8, b=4),
-        xaxis=dict(range=[0, 100], visible=False, fixedrange=True),
-        yaxis=dict(range=[-2, 70],  visible=False, fixedrange=True),
-        dragmode=False,
+    funnel_fig.update_layout(
+        paper_bgcolor=CARD_BG,
+        plot_bgcolor=CARD_BG,
+        font=dict(color="#e8edf3", size=11),
+        height=340,
+        margin=dict(l=10, r=10, t=10, b=10),
     )
-    return fig
+    st.plotly_chart(funnel_fig, use_container_width=True)
 
+with _j_col2:
+    # Agent contribution pie chart
+    _agent_labels = [s.agent_name.split("(")[0].strip() for s in trace.steps]
+    _agent_times  = [s.duration_ms for s in trace.steps]
+    _agent_clrs   = [AGENT_COLORS.get(s.agent_id, BLUE) for s in trace.steps]
 
-st.plotly_chart(_build_pipeline_fig(trace), use_container_width=True)
+    pie_fig = go.Figure(go.Pie(
+        labels=_agent_labels,
+        values=_agent_times,
+        hole=0.45,
+        marker=dict(colors=_agent_clrs, line=dict(color=CARD_BG, width=2)),
+        textinfo="label+percent",
+        textfont=dict(size=10),
+        hovertemplate="<b>%{label}</b><br>%{value:.0f} ms (%{percent})<extra></extra>",
+    ))
+    pie_fig.update_layout(
+        paper_bgcolor=CARD_BG,
+        plot_bgcolor=CARD_BG,
+        font=dict(color="#e8edf3", size=11),
+        height=340,
+        margin=dict(l=10, r=10, t=10, b=10),
+        showlegend=False,
+        annotations=[dict(
+            text=f"<b>{trace.total_ms:.0f}<br>ms</b>",
+            x=0.5, y=0.5, font=dict(size=16, color="#e8edf3"),
+            showarrow=False,
+        )],
+    )
+    st.plotly_chart(pie_fig, use_container_width=True)
+
+# ── 2b: Journey stage cards ──────────────────────────────────────────────────
+_journey_stages = [
+    {
+        "icon": "📥", "title": "Intake",
+        "agent": "safety + intake", "color": BLUE,
+        "desc": "Collect learner background, goals, constraints. Apply safety guardrails.",
+    },
+    {
+        "icon": "🧠", "title": "Profiling",
+        "agent": "profiling + scorer", "color": PURPLE,
+        "desc": "Infer experience level, learning style, per-domain knowledge & confidence.",
+    },
+    {
+        "icon": "🗺️", "title": "Learning Path",
+        "agent": "analogy mapper", "color": "#06b6d4",
+        "desc": "Map existing skills to exam domains. Curate MS Learn modules & resources.",
+    },
+    {
+        "icon": "📅", "title": "Study Plan",
+        "agent": "engagement gen", "color": GREEN,
+        "desc": "Generate week-by-week Gantt plan. Allocate hours by domain weight & risk.",
+    },
+    {
+        "icon": "✅", "title": "Readiness Gate",
+        "agent": "gate checker", "color": ORANGE,
+        "desc": "Evaluate if learner is ready for assessment or needs remediation loop.",
+    },
+    {
+        "icon": "📊", "title": "Assessment",
+        "agent": "assessment + verifier", "color": RED,
+        "desc": "Build exam-style quiz, verify quality, score results, decide GO/NO-GO.",
+    },
+]
+
+_jcols = st.columns(len(_journey_stages))
+for _jc, _js in zip(_jcols, _journey_stages):
+    with _jc:
+        st.markdown(
+            f"""<div style="background:{CARD_BG};border-top:3px solid {_js['color']};
+                 border-radius:8px;padding:14px 12px;text-align:center;min-height:180px;">
+              <div style="font-size:1.8rem;">{_js['icon']}</div>
+              <div style="color:#e8edf3;font-weight:700;font-size:0.95rem;margin:6px 0 4px;">
+                {_js['title']}</div>
+              <div style="color:{GREY};font-size:0.72rem;text-transform:uppercase;
+                   letter-spacing:.04em;margin-bottom:6px;">{_js['agent']}</div>
+              <div style="color:#b0bec5;font-size:0.78rem;line-height:1.4;">{_js['desc']}</div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -746,7 +632,7 @@ else:
     # Demo mode fallback
     history_df = pd.DataFrame([{
         "run_id": trace.run_id, "student": trace.student_name,
-        "exam": "AI-102", "mode": trace.mode, "time": trace.timestamp,
+        "exam": trace.exam_target.split("–")[0].strip(), "mode": trace.mode, "time": trace.timestamp,
         "total_ms": f"{trace.total_ms:.0f} ms",
         "level": profile.experience_level.value.replace("_", " ").title() if profile else "—",
         "avg_conf": "—", "risk_count": "—",
@@ -777,7 +663,7 @@ else:
 st.markdown("---")
 st.markdown(
     "<p style='text-align:center;color:#4a5568;font-size:0.78rem;'>"
-    "🔐 Admin Dashboard · AI-102 Agents League · For authorised users only"
+    "🔐 Admin Dashboard · Microsoft Agents League · For authorised users only"
     "</p>",
     unsafe_allow_html=True,
 )

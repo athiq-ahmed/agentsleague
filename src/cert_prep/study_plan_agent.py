@@ -17,7 +17,7 @@ import math
 from dataclasses import dataclass, field
 from typing import List
 
-from cert_prep.models import AI102_DOMAINS, LearnerProfile
+from cert_prep.models import EXAM_DOMAINS, LearnerProfile
 
 
 # ─── Certificate prerequisite / recommendation catalogue ─────────────────────
@@ -186,7 +186,7 @@ class StudyPlanAgent:
     """
 
     # Domain metadata lookup keyed by id
-    _DOMAIN_META: dict[str, dict] = {d["id"]: d for d in AI102_DOMAINS}
+    _DOMAIN_META: dict[str, dict] = {d["id"]: d for d in EXAM_DOMAINS}
 
     # ── Public entry point ────────────────────────────────────────────────────
 
@@ -302,7 +302,7 @@ class StudyPlanAgent:
         annotated = []
         for dp in profile.domain_profiles:
             meta     = self._DOMAIN_META.get(dp.domain_id, {})
-            exam_w   = meta.get("weight", 1 / len(AI102_DOMAINS))
+            exam_w   = meta.get("weight", 1 / len(EXAM_DOMAINS))
             priority = self._priority_for(dp, profile)
             weight_mult = {"critical": 2.0, "high": 1.5, "medium": 1.0, "low": 0.5, "skip": 0.0}
             relative_w  = exam_w * weight_mult[priority]
