@@ -324,7 +324,7 @@ if not st.session_state["authenticated"]:
         text-align: center; color: #616161;
         font-size: 0.7rem; margin-bottom: 6px;
       }
-      /* Quick-login demo user cards */
+      /* Quick-login demo card-buttons */
       .demo-grid { display: flex; gap: 6px; margin-bottom: 4px; }
       .demo-card {
         flex: 1; background: #EFF6FF;
@@ -336,6 +336,22 @@ if not st.session_state["authenticated"]:
       .demo-card .dm-ic { font-size: 1rem; margin-bottom: 1px; }
       .demo-card .dm-nm { color: #1B1B1B; font-size: 0.68rem; font-weight: 600; }
       .demo-card .dm-rl { color: #616161; font-size: 0.6rem; }
+      /* Demo card-button group — overrides global .stButton for the 3 demo columns */
+      .dcg .stButton > button {
+        height: 76px !important;
+        background: #EFF6FF !important;
+        border: 1px solid #BFD4EF !important;
+        color: #1B1B1B !important;
+        font-size: 0.72rem !important;
+        font-weight: 600 !important;
+        line-height: 1.55 !important;
+        border-radius: 8px !important;
+      }
+      .dcg .stButton > button:hover {
+        background: #DCEAFE !important;
+        border-color: #0078D4 !important;
+        color: #0078D4 !important;
+      }
       /* Quick-login Streamlit buttons */
       .stButton > button {
         background: #0078D4 !important;
@@ -526,38 +542,18 @@ if not st.session_state["authenticated"]:
         st.markdown('<div class="signin-title">Sign In</div>', unsafe_allow_html=True)
         st.markdown('<div class="signin-sub">Pick a demo account or sign in manually</div>', unsafe_allow_html=True)
 
-        # Quick-login visual cards
-        st.markdown("""
-        <div class="demo-grid">
-          <div class="demo-card">
-            <div class="dm-ic">🌱</div>
-            <div class="dm-nm">AI Beginner</div>
-            <div class="dm-rl">First-time · AI-102</div>
-          </div>
-          <div class="demo-card">
-            <div class="dm-ic">📊</div>
-            <div class="dm-nm">Data Professional</div>
-            <div class="dm-rl">Returning · DP-100</div>
-          </div>
-          <div class="demo-card">
-            <div class="dm-ic">🔧</div>
-            <div class="dm-nm">Admin</div>
-            <div class="dm-rl">Dashboard &amp; Traces</div>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Functional quick-login buttons
+        # Quick-login card-buttons (card visual + button combined)
+        st.markdown('<div class="dcg">', unsafe_allow_html=True)
         _d1, _d2, _d3 = st.columns(3)
         with _d1:
-            if st.button("▶ Beginner", key="demo_new", use_container_width=True):
+            if st.button("🌱 AI Beginner\nFirst-time · AI-102", key="demo_new", use_container_width=True):
                 upsert_student("Alex Chen", "1234", "learner")
                 st.session_state["authenticated"] = True
                 st.session_state["login_name"] = "Alex Chen"
                 st.session_state["user_type"] = "learner"
                 st.rerun()
         with _d2:
-            if st.button("▶ Pro", key="demo_jordan", use_container_width=True):
+            if st.button("📊 Data Pro\nReturning · DP-100", key="demo_jordan", use_container_width=True):
                 upsert_student("Priyanka Sharma", "1234", "learner")
                 st.session_state["authenticated"] = True
                 st.session_state["login_name"] = "Priyanka Sharma"
@@ -574,13 +570,13 @@ if not st.session_state["authenticated"]:
                         st.session_state["learning_path"] = _learning_path_from_dict(_json_ql.loads(_db_p["learning_path_json"]))
                 st.rerun()
         with _d3:
-            if st.button("▶ Admin", key="demo_admin", use_container_width=True):
+            if st.button("🔧 Admin\nDashboard & Traces", key="demo_admin", use_container_width=True):
                 st.session_state["authenticated"] = True
                 st.session_state["login_name"] = "Admin"
                 st.session_state["user_type"] = "admin"
                 st.session_state["admin_logged_in"] = True
                 st.switch_page("pages/1_Admin_Dashboard.py")
-
+        st.markdown('</div>', unsafe_allow_html=True)
         st.markdown('<div class="or-sep">or sign in manually</div>', unsafe_allow_html=True)
 
         # Manual login form (unified — no role selector)
@@ -597,14 +593,7 @@ if not st.session_state["authenticated"]:
               <svg viewBox="0 0 23 23"><rect width="11" height="11" fill="#f25022"/><rect x="12" width="11" height="11" fill="#7fba00"/><rect y="12" width="11" height="11" fill="#00a4ef"/><rect x="12" y="12" width="11" height="11" fill="#ffb900"/></svg>
               AI Foundry
             </div>
-            <div class="tech-pill"><span class="tp-icon">🤖</span> OpenAI GPT-4o</div>
-            <div class="tech-pill"><span class="tp-icon">🌌</span> Cosmos DB NoSQL</div>
-            <div class="tech-pill"><span class="tp-icon">🔍</span> AI Search</div>
-            <div class="tech-pill"><span class="tp-icon">📄</span> Document Intelligence</div>
-            <div class="tech-pill"><span class="tp-icon">👁️</span> Computer Vision</div>
-            <div class="tech-pill"><span class="tp-icon">💬</span> Azure AI Language</div>
-            <div class="tech-pill"><span class="tp-icon">🎙️</span> Speech Service</div>
-            <div class="tech-pill"><span class="tp-icon">🐙</span> GitHub Copilot</div>
+            <div class="tech-pill"><span class="tp-icon">🤖</span> Azure OpenAI GPT-4o</div>
             <div class="tech-pill"><span class="tp-icon">⚡</span> Streamlit</div>
           </div>
         </div>
