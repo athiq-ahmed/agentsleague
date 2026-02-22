@@ -45,6 +45,7 @@ BORDER = "#E1DFDD"
 GREEN = "#107C41"
 # streamlit_app.py – Microsoft Certification Prep
 # Multi-agent certification prep powered by Azure OpenAI & Microsoft Foundry
+PINK = "#D63384"
 
 import json
 import sys
@@ -1664,8 +1665,8 @@ if "profile" in st.session_state:
         _score_range  = _strongest.confidence_score - _weakest.confidence_score
         _avg_score    = sum(scores) / len(scores)
 
-        # ── Chart 1: Radar ────────────────────────────────────────────────────
-        st.markdown("#### 🕸️ Chart 1 — Confidence Radar")
+        # ── Radar: Knowledge Coverage by Domain ─────────────────────────────
+        st.markdown("#### 🕸️ Knowledge Coverage by Domain")
         st.caption(
             "The filled shape represents your current knowledge coverage. "
             "The dashed orange ring marks the 50 % pass-readiness threshold. "
@@ -1768,9 +1769,9 @@ if "profile" in st.session_state:
                     unsafe_allow_html=True,
                 )
 
-        # ── Chart 2: Horizontal Bar ───────────────────────────────────────────
+        # ── Bar: Domain Confidence Breakdown ────────────────────────────────
         st.markdown("---")
-        st.markdown("#### 📊 Chart 2 — Domain Confidence Bar Chart")
+        st.markdown("#### 📊 Domain Confidence Breakdown")
         st.caption(
             "Bars show each domain's confidence score, colour-coded by knowledge level. "
             "The dashed line at 50 % is the risk threshold — anything left of it needs prioritised study time."
