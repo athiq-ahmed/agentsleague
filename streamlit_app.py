@@ -2572,35 +2572,166 @@ if "profile" in st.session_state:
 
     # ── Tab 4: Recommendations ────────────────────────────────────────────────
     with tab_recs:
-        st.markdown("### 💡 Personalisation Recommendation")
+        # ── 1. Personalised Recommendation ───────────────────────────────────
+        st.markdown("### 💡 Personalised Recommendation")
+
+        _style_label   = profile.learning_style.value.replace("_", " ").title()
+        _exp_label     = profile.experience_level.value.replace("_", " ").title()
+        _risk_names    = [EXAM_DOMAIN_NAMES.get(d, d) for d in (profile.risk_domains or [])]
+        _skip_names    = [EXAM_DOMAIN_NAMES.get(m, m) for m in (profile.modules_to_skip or [])]
+
+        _rc1, _rc2, _rc3 = st.columns(3)
+        with _rc1:
+            st.markdown(
+                f"""<div style="background:#EFF6FF;border-radius:10px;padding:14px 16px;height:100%;">
+                  <div style="font-size:0.72rem;font-weight:700;color:#2563EB;
+                       text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">
+                    Learning Style
+                  </div>
+                  <div style="font-size:1.1rem;font-weight:700;color:#1e3a8a;">{_style_label}</div>
+                  <div style="font-size:0.78rem;color:#555;margin-top:6px;">
+                    Experience: <b>{_exp_label}</b><br/>
+                    Budget: <b>{profile.hours_per_week:.0f} h/wk × {profile.weeks_available} wks
+                    = {profile.total_budget_hours:.0f} h total</b>
+                  </div>
+                </div>""",
+                unsafe_allow_html=True,
+            )
+        with _rc2:
+            _risk_html = "".join(
+                f'<span style="display:inline-block;background:#FEE2E2;color:#991B1B;'
+                f'border-radius:4px;padding:2px 8px;margin:2px 2px;font-size:0.76rem;">'
+                f'⚠ {n}</span>'
+                for n in _risk_names
+            ) if _risk_names else '<span style="color:#16a34a;font-size:0.82rem;">✓ No critical gaps</span>'
+            st.markdown(
+                f"""<div style="background:#FFF5F5;border-radius:10px;padding:14px 16px;height:100%;">
+                  <div style="font-size:0.72rem;font-weight:700;color:#DC2626;
+                       text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">
+                    Focus Domains
+                  </div>
+                  {_risk_html}
+                </div>""",
+                unsafe_allow_html=True,
+            )
+        with _rc3:
+            _skip_html = "".join(
+                f'<span style="display:inline-block;background:#DCFCE7;color:#166534;'
+                f'border-radius:4px;padding:2px 8px;margin:2px 2px;font-size:0.76rem;">'
+                f'⏩ {n}</span>'
+                for n in _skip_names
+            ) if _skip_names else '<span style="color:#6b7280;font-size:0.82rem;">No fast-tracks — full study recommended</span>'
+            st.markdown(
+                f"""<div style="background:#F0FDF4;border-radius:10px;padding:14px 16px;height:100%;">
+                  <div style="font-size:0.72rem;font-weight:700;color:#16A34A;
+                       text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">
+                    Fast-Track Candidates
+                  </div>
+                  {_skip_html}
+                </div>""",
+                unsafe_allow_html=True,
+            )
+
         st.markdown(
-            f'<div class="card card-green">{profile.recommended_approach}</div>',
+            f"""<div style="background:#F9FAFB;border:1px solid #E5E7EB;border-left:4px solid #0078D4;
+                 border-radius:8px;padding:12px 16px;margin-top:10px;font-size:0.88rem;color:#374151;">
+              <b style="color:#0078D4;">📌 Agent Recommendation</b><br/>{profile.recommended_approach}
+            </div>""",
             unsafe_allow_html=True,
         )
 
-        st.markdown("### 🏁 Predicted Readiness Outlook")
-        ready_domains  = sum(1 for dp in profile.domain_profiles if dp.confidence_score >= 0.70)
-        total_domains  = len(profile.domain_profiles)
-        ready_pct      = ready_domains / total_domains
+        st.markdown("<br/>", unsafe_allow_html=True)
 
-        col_a, col_b = st.columns([2, 1])
-        with col_a:
-            st.progress(ready_pct)
-            st.caption(f"{ready_domains}/{total_domains} domains currently above 70% confidence.")
-        with col_b:
-            if ready_pct == 1.0:
-                st.markdown(
-                    '<div class="decision-ready"><b style="color:#107C10;">✓ On track for first-attempt pass</b></div>',
-                    unsafe_allow_html=True,
-                )
-            elif ready_pct >= 0.66:
-                st.markdown(
-                    '<div class="decision-not-ready"><b style="color:#B4009E;">⚠ Likely 1 remediation cycle needed</b></div>',
-                    unsafe_allow_html=True,
-                )
+        # ── 2. Predicted Readiness Outlook ────────────────────────────────────
+        st.markdown("### 🏁 Predicted Readiness Outlook")
+
+        ready_domains = sum(1 for dp in profile.domain_profiles if dp.confidence_score >= 0.70)
+        total_domains = len(profile.domain_profiles)
+        ready_pct     = ready_domains / total_domains
+        avg_conf      = sum(dp.confidence_score for dp in profile.domain_profiles) / total_domains
+
+        # Verdict config
+        if ready_pct == 1.0:
+            _vdict_label = "On Track — First-Attempt Pass Likely"
+            _vdict_icon  = "✅"
+            _vdict_bg    = "#F0FDF4"
+            _vdict_col   = "#16A34A"
+        elif ready_pct >= 0.66:
+            _vdict_label = "Nearly Ready — 1 Remediation Cycle Needed"
+            _vdict_icon  = "⚠️"
+            _vdict_bg    = "#FFFBEB"
+            _vdict_col   = "#D97706"
+        else:
+            _vdict_label = "Structured Full Prep Recommended"
+            _vdict_icon  = "📖"
+            _vdict_bg    = "#FFF1F0"
+            _vdict_col   = "#DC2626"
+
+        # Top metric row
+        _rm1, _rm2, _rm3, _rm4 = st.columns(4)
+        with _rm1:
+            st.metric("Avg Confidence", f"{avg_conf*100:.0f}%")
+        with _rm2:
+            st.metric("Domains Ready (≥70%)", f"{ready_domains}/{total_domains}")
+        with _rm3:
+            _at_risk = len(profile.risk_domains or [])
+            st.metric("At-Risk Domains", _at_risk)
+        with _rm4:
+            st.metric("Study Budget", f"{profile.total_budget_hours:.0f} h")
+
+        # Verdict banner
+        _bar_w = int(ready_pct * 100)
+        st.markdown(
+            f"""<div style="background:{_vdict_bg};border:1.5px solid {_vdict_col};
+                 border-radius:10px;padding:14px 18px;margin:10px 0;">
+              <div style="font-size:1.05rem;font-weight:700;color:{_vdict_col};">
+                {_vdict_icon} {_vdict_label}
+              </div>
+              <div style="background:#e5e7eb;border-radius:6px;height:10px;margin:10px 0 4px;">
+                <div style="background:{_vdict_col};width:{_bar_w}%;height:10px;
+                     border-radius:6px;transition:width .4s;"></div>
+              </div>
+              <div style="font-size:0.78rem;color:#555;">
+                {ready_domains} of {total_domains} domains above 70% confidence threshold
+              </div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+
+        # Per-domain confidence grid
+        st.markdown("##### Domain Readiness Breakdown")
+        _sorted_recs = sorted(profile.domain_profiles, key=lambda d: d.confidence_score)
+        _dom_cols = st.columns(2)
+        for _di, _dp in enumerate(_sorted_recs):
+            _conf     = _dp.confidence_score
+            _conf_pct = int(_conf * 100)
+            _short    = (_dp.domain_name
+                         .replace("Implement ", "").replace(" Solutions", "")
+                         .replace(" & Knowledge Mining", " & KM"))
+            _is_risk  = _dp.domain_id in (profile.risk_domains or [])
+            _is_skip  = _dp.domain_id in (profile.modules_to_skip or [])
+            if _conf >= 0.70:
+                _d_col, _d_bg, _badge = "#16A34A", "#F0FDF4", "✅ Ready"
+            elif _conf >= 0.50:
+                _d_col, _d_bg, _badge = "#D97706", "#FFFBEB", "⚠️ Building"
             else:
+                _d_col, _d_bg, _badge = "#DC2626", "#FFF1F0", "📖 Needs Work"
+            if _is_skip:
+                _badge = "⏩ Fast-track"
+                _d_col, _d_bg = "#2563EB", "#EFF6FF"
+            with _dom_cols[_di % 2]:
                 st.markdown(
-                    '<div class="decision-not-ready"><b style="color:#d13438;">✗ Structured full prep recommended</b></div>',
+                    f"""<div style="background:{_d_bg};border-left:4px solid {_d_col};
+                         border-radius:8px;padding:10px 14px;margin-bottom:8px;">
+                      <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-weight:600;font-size:0.85rem;color:#111;">{_short}</span>
+                        <span style="font-size:0.75rem;color:{_d_col};font-weight:700;">{_badge}</span>
+                      </div>
+                      <div style="background:#e5e7eb;border-radius:4px;height:7px;margin:6px 0 3px;">
+                        <div style="background:{_d_col};width:{_conf_pct}%;height:7px;border-radius:4px;"></div>
+                      </div>
+                      <div style="font-size:0.76rem;color:#555;">{_conf_pct}% confidence</div>
+                    </div>""",
                     unsafe_allow_html=True,
                 )
 
