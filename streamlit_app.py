@@ -71,150 +71,146 @@ if "authenticated" not in st.session_state:
     st.session_state["user_type"] = None  # "new", "existing", or "admin"
 
 if not st.session_state["authenticated"]:
-    # ── Microsoft Fluent-inspired login CSS ──────────────────────────────────
+    # ── Microsoft Learn-inspired login CSS ───────────────────────────────────
     st.markdown("""
     <style>
       /* Hide sidebar & header, collapse top padding */
       [data-testid="stSidebar"] { display: none; }
       [data-testid="stHeader"] { display: none; }
-      .block-container { padding-top: 1rem !important; padding-bottom: 0.5rem !important; }
-      /* MS-style dark mesh gradient background */
+      .block-container { padding-top: 0 !important; padding-bottom: 0.5rem !important; }
+      /* MS Learn light background */
       [data-testid="stAppViewContainer"] {
-        background:
-          radial-gradient(ellipse at 20% 50%, rgba(0,120,212,0.15) 0%, transparent 50%),
-          radial-gradient(ellipse at 80% 20%, rgba(80,230,255,0.08) 0%, transparent 40%),
-          radial-gradient(ellipse at 60% 80%, rgba(0,183,195,0.10) 0%, transparent 45%),
-          linear-gradient(145deg, #0a0a1a 0%, #0f1b2d 35%, #0d1117 70%, #050914 100%);
+        background: #f5f5f5;
+        font-family: 'Segoe UI', -apple-system, system-ui, sans-serif;
       }
-      /* ── Left hero ────────────────────────────────── */
-      .ms-badge {
-        display: inline-flex; align-items: center; gap: 8px;
-        background: rgba(0,120,212,0.12);
-        border: 1px solid rgba(0,120,212,0.25);
-        color: #50E6FF; font-size: 0.72rem; font-weight: 600;
-        padding: 5px 16px; border-radius: 20px;
-        letter-spacing: 0.06em; text-transform: uppercase;
-        margin-bottom: 10px;
+      /* ── Blue top banner ────────────────────────── */
+      .ms-top-bar {
+        background: linear-gradient(135deg, #0078D4 0%, #005A9E 100%);
+        padding: 2.5rem 2rem 2rem;
+        margin: 0 -1rem 0 -1rem;
+        text-align: center;
       }
-      .ms-heading {
-        color: #ffffff; font-size: 2.4rem; font-weight: 700;
-        line-height: 1.15; letter-spacing: -0.02em;
-        margin: 0 0 10px;
-        font-family: 'Segoe UI', -apple-system, sans-serif;
+      .ms-top-bar .ms-logo {
+        display: inline-flex; align-items: center; gap: 10px;
+        margin-bottom: 14px;
       }
-      .ms-heading .grad {
-        background: linear-gradient(90deg, #50E6FF 0%, #0078D4 50%, #005A9E 100%);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        background-clip: text;
+      .ms-top-bar h1 {
+        color: #fff !important; font-size: 2rem; font-weight: 600;
+        margin: 0 0 6px; font-family: 'Segoe UI', sans-serif;
+        letter-spacing: -0.01em;
       }
-      .ms-sub {
-        color: rgba(255,255,255,0.55); font-size: 0.92rem;
-        line-height: 1.6; margin-bottom: 20px;
-        font-family: 'Segoe UI', sans-serif;
+      .ms-top-bar p {
+        color: rgba(255,255,255,0.8); font-size: 0.92rem;
+        margin: 0; line-height: 1.5;
       }
-      /* Benefit 2×2 grid */
-      .ben-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+      /* ── Benefit cards ──────────────────────────── */
+      .ben-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0 16px; }
       .ben-card {
-        background: rgba(255,255,255,0.03);
-        border: 1px solid rgba(255,255,255,0.07);
-        border-radius: 12px; padding: 14px;
-        transition: border-color 0.2s;
+        background: #fff;
+        border: 1px solid #E1DFDD;
+        border-radius: 4px; padding: 16px;
+        transition: box-shadow 0.2s;
       }
-      .ben-card:hover { border-color: rgba(0,120,212,0.3); }
+      .ben-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
       .ben-card .ic {
-        width: 34px; height: 34px; border-radius: 8px;
+        width: 36px; height: 36px; border-radius: 4px;
         display: flex; align-items: center; justify-content: center;
-        font-size: 1.1rem; margin-bottom: 6px;
+        font-size: 1.1rem; margin-bottom: 8px;
       }
       .ben-card h4 {
-        color: #E8EDF3; font-size: 0.82rem; font-weight: 600;
-        margin: 0 0 2px; font-family: 'Segoe UI', sans-serif;
+        color: #1B1B1B; font-size: 0.88rem; font-weight: 600;
+        margin: 0 0 4px; font-family: 'Segoe UI', sans-serif;
       }
       .ben-card p {
-        color: rgba(255,255,255,0.38); font-size: 0.72rem;
-        margin: 0; line-height: 1.35;
+        color: #616161; font-size: 0.78rem;
+        margin: 0; line-height: 1.4;
       }
-      .ic-blue { background: rgba(0,120,212,0.15); border: 1px solid rgba(0,120,212,0.25); }
-      .ic-teal { background: rgba(0,183,195,0.15); border: 1px solid rgba(0,183,195,0.25); }
-      .ic-cyan { background: rgba(80,230,255,0.12); border: 1px solid rgba(80,230,255,0.2); }
-      .ic-green { background: rgba(16,124,16,0.15); border: 1px solid rgba(16,124,16,0.25); }
+      .ic-blue  { background: #EFF6FF; border: 1px solid #BFD4EF; }
+      .ic-teal  { background: #E6FAFA; border: 1px solid #B3E8E8; }
+      .ic-cyan  { background: #EFF6FF; border: 1px solid #BFD4EF; }
+      .ic-green { background: #F0FFF4; border: 1px solid #B7E1C7; }
       /* Stats bar */
       .ms-stats {
-        display: flex; gap: 0; border-radius: 10px; overflow: hidden;
-        border: 1px solid rgba(255,255,255,0.06);
+        display: flex; gap: 0; border-radius: 4px; overflow: hidden;
+        border: 1px solid #E1DFDD; background: #fff;
       }
       .ms-stat {
-        flex: 1; text-align: center; padding: 12px 6px;
-        background: rgba(255,255,255,0.02);
-        border-right: 1px solid rgba(255,255,255,0.06);
+        flex: 1; text-align: center; padding: 14px 6px;
+        border-right: 1px solid #E1DFDD;
       }
       .ms-stat:last-child { border-right: none; }
-      .ms-stat-n { color: #50E6FF; font-size: 1.3rem; font-weight: 800; }
+      .ms-stat-n { color: #0078D4; font-size: 1.3rem; font-weight: 700; }
       .ms-stat-l {
-        color: rgba(255,255,255,0.38); font-size: 0.62rem;
+        color: #616161; font-size: 0.65rem;
         text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px;
       }
-      /* ── Right sign-in panel ────────────────────── */
+      /* ── Sign-in card ───────────────────────────── */
+      .signin-card {
+        background: #fff;
+        border: 1px solid #E1DFDD;
+        border-radius: 4px;
+        padding: 24px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+      }
       .signin-title {
-        text-align: center; color: #fff; font-size: 1.2rem;
-        font-weight: 700; margin-bottom: 2px;
+        text-align: center; color: #1B1B1B; font-size: 1.2rem;
+        font-weight: 600; margin-bottom: 2px;
         font-family: 'Segoe UI', sans-serif;
       }
       .signin-sub {
-        text-align: center; color: rgba(255,255,255,0.38);
-        font-size: 0.76rem; margin-bottom: 10px;
+        text-align: center; color: #616161;
+        font-size: 0.78rem; margin-bottom: 12px;
       }
-      /* Quick-login demo user cards (visual only) */
-      .demo-grid { display: flex; gap: 8px; margin-bottom: 4px; }
+      /* Quick-login demo user cards */
+      .demo-grid { display: flex; gap: 8px; margin-bottom: 8px; }
       .demo-card {
-        flex: 1; background: rgba(0,120,212,0.07);
-        border: 1px solid rgba(0,120,212,0.16);
-        border-radius: 10px; padding: 10px 6px;
+        flex: 1; background: #EFF6FF;
+        border: 1px solid #BFD4EF;
+        border-radius: 4px; padding: 10px 6px;
         text-align: center; transition: all 0.2s;
       }
-      .demo-card:hover { background: rgba(0,120,212,0.14); border-color: #0078D4; }
+      .demo-card:hover { background: #DCEAFE; border-color: #0078D4; }
       .demo-card .dm-ic { font-size: 1.2rem; margin-bottom: 2px; }
-      .demo-card .dm-nm { color: #E8EDF3; font-size: 0.72rem; font-weight: 600; }
-      .demo-card .dm-rl { color: rgba(255,255,255,0.32); font-size: 0.62rem; }
+      .demo-card .dm-nm { color: #1B1B1B; font-size: 0.75rem; font-weight: 600; }
+      .demo-card .dm-rl { color: #616161; font-size: 0.65rem; }
       /* Quick-login Streamlit buttons */
       .stButton > button {
-        background: rgba(0,120,212,0.12) !important;
-        border: 1px solid rgba(0,120,212,0.25) !important;
-        border-radius: 8px !important;
-        color: #50E6FF !important;
-        font-size: 0.78rem !important;
+        background: #0078D4 !important;
+        border: none !important;
+        border-radius: 4px !important;
+        color: #fff !important;
+        font-size: 0.8rem !important;
         font-weight: 600 !important;
-        padding: 6px 8px !important;
+        padding: 7px 8px !important;
         font-family: 'Segoe UI', sans-serif !important;
-        transition: all 0.15s;
+        transition: background 0.15s;
       }
       .stButton > button:hover {
-        background: rgba(0,120,212,0.25) !important;
-        border-color: #0078D4 !important;
+        background: #106EBE !important;
       }
       /* Divider */
       .or-sep {
         display: flex; align-items: center; gap: 10px;
-        margin: 8px 0 8px; color: rgba(255,255,255,0.2);
-        font-size: 0.7rem;
+        margin: 10px 0; color: #a0a0a0;
+        font-size: 0.72rem;
       }
       .or-sep::before, .or-sep::after {
         content: ''; flex: 1; height: 1px;
-        background: rgba(255,255,255,0.08);
+        background: #E1DFDD;
       }
       /* Radio role selector */
       div[data-testid="stRadio"] label,
       div[data-testid="stRadio"] [role="radiogroup"] label {
-        background: rgba(255,255,255,0.04) !important;
-        border: 1px solid rgba(255,255,255,0.10) !important;
-        border-radius: 8px !important;
+        background: #FAFAFA !important;
+        border: 1px solid #E1DFDD !important;
+        border-radius: 4px !important;
         padding: 9px 14px !important;
         transition: all 0.2s ease; cursor: pointer;
         margin-bottom: 2px !important;
       }
       div[data-testid="stRadio"] label:hover {
-        background: rgba(0,120,212,0.10) !important;
-        border-color: rgba(0,120,212,0.30) !important;
+        background: #EFF6FF !important;
+        border-color: #0078D4 !important;
       }
       /* Force ALL radio label text visible */
       div[data-testid="stRadio"] label *,
@@ -224,83 +220,78 @@ if not st.session_state["authenticated"]:
       div[data-testid="stRadio"] [role="radiogroup"] label *,
       div[data-testid="stHorizontalRadio"] label *,
       div[data-testid="stHorizontalRadio"] label {
-        color: #CBD5E1 !important;
+        color: #1B1B1B !important;
         font-size: 0.85rem !important;
         font-weight: 600 !important;
         font-family: 'Segoe UI', sans-serif !important;
       }
       /* Selected radio */
       div[data-testid="stRadio"] label:has(input:checked) {
-        background: rgba(0,120,212,0.18) !important;
+        background: #EFF6FF !important;
         border-color: #0078D4 !important;
       }
       div[data-testid="stRadio"] label:has(input:checked) *,
       div[data-testid="stRadio"] label:has(input:checked) span,
       div[data-testid="stRadio"] label:has(input:checked) p {
-        color: #50E6FF !important;
+        color: #0078D4 !important;
       }
       div[data-testid="stHorizontalRadio"] label:has(input:checked) {
-        background: rgba(0,120,212,0.18) !important;
+        background: #EFF6FF !important;
         border-color: #0078D4 !important;
       }
       div[data-testid="stHorizontalRadio"] label:has(input:checked) * {
-        color: #50E6FF !important;
+        color: #0078D4 !important;
       }
       /* Text inputs */
       .stTextInput input {
-        background: rgba(255,255,255,0.05) !important;
-        border: 1px solid rgba(255,255,255,0.10) !important;
-        border-radius: 8px !important;
-        color: #fff !important; padding: 10px 14px !important;
+        background: #fff !important;
+        border: 1px solid #E1DFDD !important;
+        border-radius: 4px !important;
+        color: #1B1B1B !important; padding: 10px 14px !important;
         font-family: 'Segoe UI', sans-serif !important;
       }
       .stTextInput input:focus {
         border-color: #0078D4 !important;
-        box-shadow: 0 0 0 2px rgba(0,120,212,0.2) !important;
+        box-shadow: 0 0 0 1px #0078D4 !important;
       }
-      .stTextInput input::placeholder { color: rgba(255,255,255,0.28) !important; }
+      .stTextInput input::placeholder { color: #a0a0a0 !important; }
       /* Submit button — Microsoft blue */
       .stFormSubmitButton button {
         background: #0078D4 !important;
-        border: none !important; border-radius: 8px !important;
+        border: none !important; border-radius: 4px !important;
         padding: 11px !important; font-size: 0.95rem !important;
         font-weight: 600 !important; color: #fff !important;
         font-family: 'Segoe UI', sans-serif !important;
-        transition: background 0.15s ease, box-shadow 0.15s ease;
+        transition: background 0.15s ease;
       }
       .stFormSubmitButton button:hover {
         background: #106EBE !important;
-        box-shadow: 0 4px 14px rgba(0,120,212,0.35) !important;
       }
       .role-desc {
-        text-align: center; color: rgba(255,255,255,0.38);
-        font-size: 0.74rem; margin: 4px 0 8px;
+        text-align: center; color: #616161;
+        font-size: 0.76rem; margin: 4px 0 8px;
         min-height: 24px;
       }
     </style>
     """, unsafe_allow_html=True)
 
+    # ── Blue top banner ──────────────────────────────────────────────────────
+    st.markdown("""
+    <div class="ms-top-bar">
+      <div class="ms-logo">
+        <svg width="21" height="21" viewBox="0 0 23 23"><rect width="11" height="11" fill="#f25022"/><rect x="12" width="11" height="11" fill="#7fba00"/><rect y="12" width="11" height="11" fill="#00a4ef"/><rect x="12" y="12" width="11" height="11" fill="#ffb900"/></svg>
+        <span style="color:#fff;font-size:1rem;font-weight:600;">Microsoft Learn</span>
+      </div>
+      <h1>Certification Preparation</h1>
+      <p>Six AI agents profile your skills, build a study plan, quiz you, and tell you when you're ready.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
     # ── Two-panel layout ─────────────────────────────────────────────────────
     _left, _spacer, _right = st.columns([1.2, 0.08, 0.72])
 
-    # ── LEFT: Hero + benefits ──────────────────────────────────────────────
+    # ── LEFT: Benefits + stats ─────────────────────────────────────────────
     with _left:
-        st.markdown("""
-        <span class="ms-badge">
-          <svg width="16" height="16" viewBox="0 0 23 23"><rect width="11" height="11" fill="#f25022"/><rect x="12" width="11" height="11" fill="#7fba00"/><rect y="12" width="11" height="11" fill="#00a4ef"/><rect x="12" y="12" width="11" height="11" fill="#ffb900"/></svg>
-          Agents League · Battle #2
-        </span>
-        <h1 class="ms-heading">
-          Your AI-Powered<br/>
-          <span class="grad">Certification Coach</span>
-        </h1>
-        <p class="ms-sub">
-          Six specialised AI agents profile your skills, build a personalised
-          study plan, quiz you on weak areas, and tell you exactly when
-          you're ready to book your exam.
-        </p>
-        """, unsafe_allow_html=True)
-
         st.markdown("""
         <div class="ben-grid">
           <div class="ben-card">
@@ -337,11 +328,6 @@ if not st.session_state["authenticated"]:
 
     # ── RIGHT: Sign-in form ────────────────────────────────────────────────
     with _right:
-        st.markdown("""
-        <div style="text-align:center;margin-bottom:4px;">
-          <div style="font-size:1.8rem;">🎓</div>
-        </div>
-        """, unsafe_allow_html=True)
         st.markdown('<div class="signin-title">Sign In</div>', unsafe_allow_html=True)
         st.markdown('<div class="signin-sub">Pick a demo account or sign in manually</div>', unsafe_allow_html=True)
 
@@ -415,21 +401,21 @@ if not st.session_state["authenticated"]:
                 user_name = st.text_input("Username", placeholder="admin", label_visibility="collapsed")
                 credential = st.text_input("Password", type="password", placeholder="Enter password", label_visibility="collapsed")
             else:
-                user_name = st.text_input("Your name", placeholder="👤  Enter your name", label_visibility="collapsed")
-                credential = st.text_input("PIN", type="password", placeholder="🔑  PIN: 1234", label_visibility="collapsed")
+                user_name = st.text_input("Your name", placeholder="Enter your name", label_visibility="collapsed")
+                credential = st.text_input("PIN", type="password", placeholder="PIN: 1234", label_visibility="collapsed")
 
             login_btn = st.form_submit_button("Sign In →", type="primary", use_container_width=True)
 
         if _is_admin_login:
             st.markdown(
-                "<p style='text-align:center;color:rgba(255,255,255,0.28);font-size:0.68rem;'>"
-                "Credentials: <code style='color:#50E6FF'>admin</code> / "
-                "<code style='color:#50E6FF'>agents2026</code></p>",
+                "<p style='text-align:center;color:#a0a0a0;font-size:0.7rem;'>"
+                "Credentials: <code style='color:#0078D4'>admin</code> / "
+                "<code style='color:#0078D4'>agents2026</code></p>",
                 unsafe_allow_html=True,
             )
 
         st.markdown(
-            "<p style='text-align:center;color:rgba(255,255,255,0.16);font-size:0.62rem;margin-top:12px;'>"
+            "<p style='text-align:center;color:#a0a0a0;font-size:0.65rem;margin-top:12px;'>"
             "Built with Azure AI Foundry · Streamlit · Azure OpenAI</p>",
             unsafe_allow_html=True,
         )
@@ -456,17 +442,28 @@ if not st.session_state["authenticated"]:
 
     st.stop()
 
-# ─── Colour palette (matches architecture diagram) ───────────────────────────
-PURPLE      = "#5C2D91"
-PURPLE_LITE = "#F5F0FF"
-PINK        = "#B4009E"
-PINK_LITE   = "#FDE7F3"
-GREEN       = "#107C10"
-GREEN_LITE  = "#E9F7EE"
-GOLD        = "#8A6D00"
-GOLD_LITE   = "#FFF4CE"
-BLUE        = "#0F6CBD"
-BLUE_LITE   = "#EEF6FF"
+# ─── Colour palette (Microsoft Learn light theme) ─────────────────────────────
+BLUE        = "#0078D4"      # Primary accent (links, actions)
+BLUE_LITE   = "#EFF6FF"      # Note callout background
+PURPLE      = "#5C2D91"      # Important accent
+PURPLE_LITE = "#F5F0FF"      # Important callout background
+CYAN        = "#0078D4"      # Mapped to primary blue
+TEAL        = "#00B7C3"      # Secondary accent
+PINK        = "#CA5010"      # Warning / attention (prereq gaps)
+GREEN       = "#107C10"      # Success / tip
+GREEN_LITE  = "#F0FFF4"      # Success background
+ORANGE      = "#CA5010"      # Warning
+ORANGE_LITE = "#FFF8F0"      # Warning background
+RED         = "#D13438"      # Critical / caution
+RED_LITE    = "#FFF0F0"      # Caution background
+GOLD        = "#8A6D00"      # Moderate status
+GOLD_LITE   = "#FFF8E0"      # Gold background
+BG_DARK     = "#F5F5F5"      # Page content background
+BG_CARD     = "#FFFFFF"      # Card / panel background
+BG_SIDEBAR  = "#FAFAFA"      # Sidebar background
+TEXT_PRIMARY = "#1B1B1B"     # Primary text
+TEXT_MUTED   = "#616161"     # Muted text
+BORDER       = "#E1DFDD"     # Borders
 
 LEVEL_COLOUR = {
     "unknown":  "#d13438",
@@ -520,34 +517,108 @@ AZURE_CERTS = [
 
 DEFAULT_CERT = "AI-102 – Azure AI Engineer Associate"
 
-# ─── Custom CSS ──────────────────────────────────────────────────────────────
+# ─── Custom CSS (Microsoft Learn light theme) ──────────────────────────────
 st.markdown(f"""
 <style>
-  /* Header bar */
-  .hero {{
-    background: linear-gradient(135deg, {PURPLE} 0%, {PINK} 100%);
-    color: white;
-    padding: 1.4rem 2rem;
-    border-radius: 12px;
-    margin-bottom: 1.5rem;
+  /* ─ Microsoft Learn Light Theme ─ */
+  [data-testid="stAppViewContainer"] {{
+    background: {BG_DARK};
+    font-family: 'Segoe UI', -apple-system, system-ui, sans-serif;
   }}
-  .hero h1 {{ margin: 0; font-size: 1.9rem; }}
-  .hero p  {{ margin: 0.3rem 0 0; opacity: 0.85; font-size: 1rem; }}
+  [data-testid="stHeader"] {{
+    background: #fff !important;
+    border-bottom: 1px solid {BORDER};
+  }}
 
-  /* Section cards */
-  .card {{
-    background: white;
-    border-radius: 10px;
-    padding: 1.2rem 1.5rem;
-    border: 1px solid #e0e0e0;
-    margin-bottom: 1rem;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  /* Hide Streamlit default page-nav labels */
+  [data-testid="stSidebarNav"] {{ display: none; }}
+
+  /* Sidebar – MS Learn light */
+  section[data-testid="stSidebar"] {{
+    background: {BG_SIDEBAR} !important;
+    border-right: 1px solid {BORDER};
   }}
-  .card-purple {{ border-left: 5px solid {PURPLE}; }}
-  .card-green  {{ border-left: 5px solid {GREEN};  }}
-  .card-gold   {{ border-left: 5px solid {GOLD};   }}
-  .card-pink   {{ border-left: 5px solid {PINK};   }}
-  .card-blue   {{ border-left: 5px solid {BLUE};   }}
+  section[data-testid="stSidebar"] * {{
+    font-family: 'Segoe UI', -apple-system, sans-serif;
+  }}
+  section[data-testid="stSidebar"] .stMarkdown p,
+  section[data-testid="stSidebar"] .stMarkdown li,
+  section[data-testid="stSidebar"] label,
+  section[data-testid="stSidebar"] .stSelectbox div,
+  section[data-testid="stSidebar"] small {{
+    color: {TEXT_MUTED} !important;
+  }}
+  section[data-testid="stSidebar"] h3,
+  section[data-testid="stSidebar"] h4 {{
+    color: {TEXT_PRIMARY} !important;
+  }}
+  section[data-testid="stSidebar"] .stButton > button {{
+    background: {BLUE} !important;
+    border: none !important;
+    color: #fff !important;
+    border-radius: 4px !important;
+    font-weight: 600 !important;
+    font-size: 0.85rem !important;
+  }}
+  section[data-testid="stSidebar"] .stButton > button:hover {{
+    background: #106EBE !important;
+  }}
+  section[data-testid="stSidebar"] hr {{
+    border-color: {BORDER} !important;
+  }}
+  section[data-testid="stSidebar"] .stTextInput input {{
+    background: #fff !important;
+    border: 1px solid {BORDER} !important;
+    color: {TEXT_PRIMARY} !important;
+    border-radius: 4px !important;
+  }}
+
+  /* Hero banner – MS Learn module header */
+  .hero {{
+    background: linear-gradient(135deg, #0078D4 0%, #005A9E 100%);
+    color: #fff;
+    padding: 2rem 2.5rem;
+    border-radius: 0;
+    margin: -1rem -1rem 1.5rem -1rem;
+    border-bottom: 3px solid #005A9E;
+  }}
+  .hero h1 {{ margin: 0; font-size: 1.7rem; color: #fff !important;
+              font-family: 'Segoe UI', sans-serif; font-weight: 600; }}
+  .hero p  {{ margin: 0.4rem 0 0; color: rgba(255,255,255,0.85); font-size: 0.95rem; }}
+
+  /* Section cards – MS Learn white */
+  .card {{
+    background: {BG_CARD};
+    border-radius: 4px;
+    padding: 1.2rem 1.5rem;
+    border: 1px solid {BORDER};
+    margin-bottom: 1rem;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    color: {TEXT_PRIMARY};
+  }}
+  .card-purple {{ border-left: 4px solid {PURPLE}; }}
+  .card-green  {{ border-left: 4px solid {GREEN}; }}
+  .card-gold   {{ border-left: 4px solid {GOLD}; }}
+  .card-pink   {{ border-left: 4px solid {ORANGE}; }}
+  .card-blue   {{ border-left: 4px solid {BLUE}; }}
+
+  /* MS Learn callout styles */
+  .callout-note {{
+    background: #EFF6FF; border-left: 4px solid #0078D4;
+    border-radius: 4px; padding: 12px 16px; margin-bottom: 12px; color: #1B1B1B;
+  }}
+  .callout-tip {{
+    background: #F0FFF4; border-left: 4px solid #107C10;
+    border-radius: 4px; padding: 12px 16px; margin-bottom: 12px; color: #1B1B1B;
+  }}
+  .callout-warning {{
+    background: #FFF8F0; border-left: 4px solid #CA5010;
+    border-radius: 4px; padding: 12px 16px; margin-bottom: 12px; color: #1B1B1B;
+  }}
+  .callout-important {{
+    background: #F5F0FF; border-left: 4px solid #5C2D91;
+    border-radius: 4px; padding: 12px 16px; margin-bottom: 12px; color: #1B1B1B;
+  }}
 
   /* Domain badge pills */
   .badge-unknown  {{ background:{LEVEL_COLOUR["unknown"]};  color:white; padding:2px 10px; border-radius:12px; font-size:0.78rem; font-weight:600; }}
@@ -555,32 +626,122 @@ st.markdown(f"""
   .badge-moderate {{ background:{LEVEL_COLOUR["moderate"]}; color:white; padding:2px 10px; border-radius:12px; font-size:0.78rem; font-weight:600; }}
   .badge-strong   {{ background:{LEVEL_COLOUR["strong"]};   color:white; padding:2px 10px; border-radius:12px; font-size:0.78rem; font-weight:600; }}
 
-  /* Ready / not-ready decision box */
-  .decision-ready     {{ background:{GREEN_LITE};  border:2px solid {GREEN};  border-radius:10px; padding:1rem 1.5rem; }}
-  .decision-not-ready {{ background:{PINK_LITE};   border:2px solid {PINK};   border-radius:10px; padding:1rem 1.5rem; }}
+  /* Ready / not-ready */
+  .decision-ready     {{ background:{GREEN_LITE}; border:2px solid {GREEN}; border-radius:4px; padding:1rem 1.5rem; color:{TEXT_PRIMARY}; }}
+  .decision-not-ready {{ background:{RED_LITE};   border:2px solid {RED};   border-radius:4px; padding:1rem 1.5rem; color:{TEXT_PRIMARY}; }}
 
-  /* Progress bar override */
-  div[data-testid="stProgress"] > div {{ background-color: {PURPLE}; }}
+  /* Progress bar */
+  div[data-testid="stProgress"] > div {{ background-color: {BLUE}; }}
 
-  /* Sidebar */
-  section[data-testid="stSidebar"] {{ background: {PURPLE_LITE}; }}
+  /* Tab styling – MS Learn blue */
+  .stTabs [data-baseweb="tab-highlight"] {{ background-color: {BLUE} !important; }}
+  .stTabs [aria-selected="true"] {{ color: {BLUE} !important; font-weight: 600 !important; }}
+  .stTabs [data-baseweb="tab"] {{ color: {TEXT_MUTED} !important; }}
 
-  /* Tab underline */
-  .stTabs [data-baseweb="tab-highlight"] {{ background-color: {PURPLE} !important; }}
-  .stTabs [aria-selected="true"] {{ color: {PURPLE} !important; font-weight: 700 !important; }}
+  /* Global text */
+  h1, h2, h3, h4, h5 {{ color: {TEXT_PRIMARY} !important; font-family: 'Segoe UI', -apple-system, sans-serif; }}
+  .stMarkdown p, .stMarkdown li {{ color: #323130; }}
+  .stCaption {{ color: {TEXT_MUTED} !important; }}
+
+  /* Form elements */
+  .stSelectbox div[data-baseweb="select"] > div {{
+    background: #fff !important;
+    border: 1px solid {BORDER} !important;
+    color: {TEXT_PRIMARY} !important;
+    border-radius: 4px !important;
+  }}
+  .stTextInput input, .stTextArea textarea {{
+    background: #fff !important;
+    border: 1px solid {BORDER} !important;
+    color: {TEXT_PRIMARY} !important;
+    border-radius: 4px !important;
+  }}
+  .stTextInput input:focus, .stTextArea textarea:focus {{
+    border-color: {BLUE} !important;
+    box-shadow: 0 0 0 1px {BLUE} !important;
+  }}
+  .stNumberInput input {{
+    background: #fff !important;
+    border: 1px solid {BORDER} !important;
+    color: {TEXT_PRIMARY} !important;
+  }}
+
+  /* Radio/checkbox */
+  div[data-testid="stRadio"] label *,
+  div[data-testid="stRadio"] label span {{
+    color: {TEXT_PRIMARY} !important;
+  }}
+  div[data-testid="stRadio"] label:has(input:checked) * {{
+    color: {BLUE} !important;
+  }}
+
+  /* Expander */
+  .stExpander details {{
+    background: {BG_CARD} !important;
+    border: 1px solid {BORDER} !important;
+    border-radius: 4px;
+  }}
+  .stExpander summary {{ color: {TEXT_PRIMARY} !important; }}
+
+  /* Metric */
+  div[data-testid="stMetricValue"] {{ color: {BLUE} !important; }}
+  div[data-testid="stMetricLabel"] {{ color: {TEXT_MUTED} !important; }}
+
+  /* Table */
+  div[data-testid="stTable"] {{ background: {BG_CARD}; border-radius: 4px; border: 1px solid {BORDER}; }}
+
+  /* Buttons (post-login) */
+  .stButton > button {{
+    background: {BLUE} !important;
+    border: none !important;
+    color: #fff !important;
+    border-radius: 4px !important;
+    font-weight: 600 !important;
+    font-family: 'Segoe UI', sans-serif !important;
+  }}
+  .stButton > button:hover {{
+    background: #106EBE !important;
+  }}
+  .stFormSubmitButton button {{
+    background: {BLUE} !important;
+    border: none !important;
+    color: #fff !important;
+    border-radius: 4px !important;
+    font-weight: 600 !important;
+  }}
+  .stFormSubmitButton button:hover {{
+    background: #106EBE !important;
+  }}
 </style>
 """, unsafe_allow_html=True)
 
 
 # ─── Sidebar – mode + optional credentials ───────────────────────────────────
 with st.sidebar:
-    st.image("https://img-prod-cms-rt-microsoft-com.akamaized.net/cms/api/am/imageFileData/RE1Mu3b?ver=5c31", width=140)
+    # ── Branding & user info ─────────────────────────────────────────────────
+    st.markdown("""
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+      <svg width="20" height="20" viewBox="0 0 23 23">
+        <rect width="11" height="11" fill="#f25022"/>
+        <rect x="12" width="11" height="11" fill="#7fba00"/>
+        <rect y="12" width="11" height="11" fill="#00a4ef"/>
+        <rect x="12" y="12" width="11" height="11" fill="#ffb900"/>
+      </svg>
+      <span style="color:#e8edf3;font-size:0.95rem;font-weight:700;
+                   font-family:'Segoe UI',sans-serif;">Cert Prep Coach</span>
+    </div>
+    """, unsafe_allow_html=True)
 
-    # Greeting & sign-out
     _login_name = st.session_state.get("login_name", "Learner")
-    _user_type_label = "Returning" if st.session_state.get("user_type") == "existing" else "New"
-    st.markdown(f"👋 **{_login_name}** ({_user_type_label})")
-    if st.button("🚪 Sign Out", use_container_width=True):
+    _utype = st.session_state.get("user_type", "new")
+    _user_type_label = {"existing": "Returning Learner", "admin": "Admin", "new": "New Learner"}.get(_utype, "Learner")
+    st.markdown(
+        f'<div style="color:#8b949e;font-size:0.82rem;margin:2px 0 8px;">'
+        f'👋 <span style="color:#e8edf3;font-weight:600;">{_login_name}</span>'
+        f' · {_user_type_label}</div>',
+        unsafe_allow_html=True,
+    )
+    if st.button("← Sign Out", use_container_width=True, key="sidebar_signout"):
         for k in list(st.session_state.keys()):
             del st.session_state[k]
         st.rerun()
@@ -645,8 +806,8 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown(
-        "<small>Part of the **Agents League** competition submission.<br/>"
-        "Block 1: Learner Intake & Profiling</small>",
+        '<div style="color:#a0a0a0;font-size:0.65rem;line-height:1.4;">'
+        'Microsoft Agents League<br/>Battle #2 Submission</div>',
         unsafe_allow_html=True,
     )
 
@@ -693,23 +854,28 @@ if is_returning and "profile" in st.session_state:
     _rp: LearnerProfile = st.session_state["profile"]
     st.markdown(f"""
     <div class="hero">
-      <h1>👋 Welcome Back, {_rp.student_name}!</h1>
-      <p>Returning Learner &nbsp;|&nbsp; {_rp.exam_target} Prep
-         &nbsp;|&nbsp; Head to the <b>📈 My Progress</b> tab to log today's study session.</p>
+      <p style="color:rgba(255,255,255,0.8);font-size:0.78rem;text-transform:uppercase;
+         letter-spacing:0.06em;margin-bottom:4px;">CERTIFICATION PREPARATION</p>
+      <h1>Welcome Back, {_rp.student_name}</h1>
+      <p>{_rp.exam_target} Prep &nbsp;·&nbsp; Head to the <b>📈 My Progress</b> tab to log today's session.</p>
     </div>
     """, unsafe_allow_html=True)
 elif is_returning and "profile" not in st.session_state:
     st.markdown("""
     <div class="hero">
-      <h1>🔄 Returning Learner</h1>
-      <p>No saved profile found. Please complete the intake form below first to create your plan.</p>
+      <p style="color:rgba(255,255,255,0.8);font-size:0.78rem;text-transform:uppercase;
+         letter-spacing:0.06em;margin-bottom:4px;">CERTIFICATION PREPARATION</p>
+      <h1>Returning Learner</h1>
+      <p>No saved profile found — complete the intake form below to create your personalised plan.</p>
     </div>
     """, unsafe_allow_html=True)
 else:
     st.markdown("""
     <div class="hero">
-      <h1>🎓 Microsoft Certification Prep — Learner Profiler</h1>
-      <p>Block 1: Learner Intake &amp; Profiling &nbsp;|&nbsp; Microsoft Agents League Multi-Agent System</p>
+      <p style="color:rgba(255,255,255,0.8);font-size:0.78rem;text-transform:uppercase;
+         letter-spacing:0.06em;margin-bottom:4px;">CERTIFICATION PREPARATION</p>
+      <h1>Your AI-Powered Certification Coach</h1>
+      <p>Multi-Agent Reasoning System &nbsp;·&nbsp; Personalised Exam Readiness</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1042,8 +1208,8 @@ if "profile" in st.session_state:
             theta=labels + [labels[0]],
             fill="toself",
             name="Student confidence",
-            line=dict(color=PURPLE, width=2),
-            fillcolor="rgba(92,45,145,0.18)",
+            line=dict(color=BLUE, width=2),
+            fillcolor="rgba(0,120,212,0.15)",
         ))
         fig.add_trace(go.Scatterpolar(
             r=threshold + [threshold[0]],

@@ -25,16 +25,16 @@ st.set_page_config(
     layout="wide",
 )
 
-# ─── Theme constants (match main app palette) ─────────────────────────────────
-BG        = "#0e1117"
-CARD_BG   = "#1e2a3a"
-BLUE      = "#4a9eff"
-PURPLE    = "#a78bfa"
-GREEN     = "#34d399"
-ORANGE    = "#fb923c"
-RED       = "#f87171"
-YELLOW    = "#fbbf24"
-GREY      = "#8899aa"
+# ─── Theme constants (Microsoft Learn light theme) ────────────────────────────
+BG        = "#F5F5F5"
+CARD_BG   = "#FFFFFF"
+BLUE      = "#0078D4"
+PURPLE    = "#5C2D91"
+GREEN     = "#107C10"
+ORANGE    = "#CA5010"
+RED       = "#D13438"
+YELLOW    = "#8A6D00"
+GREY      = "#616161"
 
 AGENT_COLORS = {
     "safety":     RED,
@@ -42,19 +42,28 @@ AGENT_COLORS = {
     "profiling":  PURPLE,
     "scorer":     GREEN,
     "gate":       ORANGE,
-    "analogy":    YELLOW,
-    "engagement": "#06b6d4",
+    "analogy":    "#00B7C3",
+    "engagement": "#0078D4",
 }
 
-# ─── Minimal page CSS ─────────────────────────────────────────────────────────
+# ─── Minimal page CSS (MS Learn light) ────────────────────────────────────────
 st.markdown("""
 <style>
-  [data-testid="stAppViewContainer"] { background: #0e1117; }
-  [data-testid="stSidebar"]          { background: #141c27; }
-  h1, h2, h3, h4                     { color: #e8edf3 !important; }
-  .stExpander details                 { background: #1e2a3a; border-radius: 8px; border: 1px solid #2a3a50 !important; }
-  .stExpander summary                 { color: #e8edf3 !important; }
-  div[data-testid="stTable"]          { background: #1e2a3a; border-radius: 8px; }
+  [data-testid="stAppViewContainer"] { background: #F5F5F5; }
+  [data-testid="stSidebar"]          { background: #FAFAFA; border-right: 1px solid #E1DFDD; }
+  [data-testid="stHeader"]           { background: #fff !important; border-bottom: 1px solid #E1DFDD; }
+  [data-testid="stSidebarNav"]       { display: none; }
+  h1, h2, h3, h4                     { color: #1B1B1B !important; font-family: 'Segoe UI', sans-serif; }
+  .stMarkdown p, .stMarkdown li      { color: #323130; }
+  .stExpander details                 { background: #FFFFFF; border-radius: 4px; border: 1px solid #E1DFDD !important; }
+  .stExpander summary                 { color: #1B1B1B !important; }
+  div[data-testid="stTable"]          { background: #FFFFFF; border-radius: 4px; border: 1px solid #E1DFDD; }
+  .stButton > button {
+    background: #0078D4 !important; border: none !important; color: #fff !important;
+    border-radius: 4px !important; font-weight: 600 !important;
+  }
+  .stButton > button:hover { background: #106EBE !important; }
+  .stCaption { color: #616161 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -63,18 +72,19 @@ st.markdown("""
 def _card(label: str, value: str, color: str = BLUE, wide: bool = False) -> str:
     w = "100%" if wide else "auto"
     return f"""
-    <div style="background:{CARD_BG};border-left:4px solid {color};border-radius:8px;
+    <div style="background:{CARD_BG};border-left:4px solid {color};border-radius:4px;
                 padding:10px 16px;display:inline-block;min-width:160px;width:{w};
-                margin-bottom:8px;box-sizing:border-box;">
+                margin-bottom:8px;box-sizing:border-box;border:1px solid #E1DFDD;
+                box-shadow:0 1px 2px rgba(0,0,0,0.04);">
       <div style="color:{GREY};font-size:0.7rem;font-weight:600;text-transform:uppercase;
                   letter-spacing:.06em;margin-bottom:3px;">{label}</div>
-      <div style="color:#e8edf3;font-size:1rem;font-weight:700;">{value}</div>
+      <div style="color:#1B1B1B;font-size:1rem;font-weight:700;">{value}</div>
     </div>"""
 
 
 def _section_header(title: str, icon: str = "") -> None:
     st.markdown(
-        f"""<h3 style="color:#e8edf3;border-bottom:1px solid #2a3a50;
+        f"""<h3 style="color:#1B1B1B;border-bottom:1px solid #E1DFDD;
                         padding-bottom:6px;margin-top:28px;">{icon} {title}</h3>""",
         unsafe_allow_html=True,
     )
@@ -82,7 +92,7 @@ def _section_header(title: str, icon: str = "") -> None:
 
 def _badge(text: str, color: str) -> str:
     return (
-        f'<span style="background:{color}22;color:{color};border:1px solid {color}55;'
+        f'<span style="background:{color}15;color:{color};border:1px solid {color}40;'
         f'border-radius:12px;padding:1px 10px;font-size:0.78rem;font-weight:600;">{text}</span>'
     )
 
@@ -112,8 +122,8 @@ def _show_login() -> None:
     <div style="max-width:400px;margin:80px auto 0;">
       <div style="text-align:center;margin-bottom:32px;">
         <span style="font-size:3rem;">🔐</span>
-        <h2 style="color:#e8edf3;margin-top:8px;">Admin Access</h2>
-        <p style="color:#8899aa;font-size:0.9rem;">
+        <h2 style="color:#1B1B1B;margin-top:8px;">Admin Access</h2>
+        <p style="color:#616161;font-size:0.9rem;">
           This dashboard is restricted to administrators.<br/>
           Enter your credentials to continue.
         </p>
@@ -136,7 +146,7 @@ def _show_login() -> None:
                 st.error("Invalid credentials. Please try again.")
 
         st.markdown(
-            "<p style='text-align:center;color:#8899aa;font-size:0.78rem;"
+            "<p style='text-align:center;color:#a0a0a0;font-size:0.78rem;"
             "margin-top:16px;'>Hint: username&nbsp;=&nbsp;<code>admin</code> &nbsp;|&nbsp; "
             "password&nbsp;=&nbsp;<code>agents2026</code></p>",
             unsafe_allow_html=True,
@@ -150,9 +160,21 @@ if not st.session_state["admin_logged_in"]:
 
 # ─── Authenticated: sidebar logout ────────────────────────────────────────────
 with st.sidebar:
+    st.markdown("""
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 0 12px;">
+      <svg width="20" height="20" viewBox="0 0 23 23">
+        <rect width="11" height="11" fill="#f25022"/>
+        <rect x="12" width="11" height="11" fill="#7fba00"/>
+        <rect y="12" width="11" height="11" fill="#00a4ef"/>
+        <rect x="12" y="12" width="11" height="11" fill="#ffb900"/>
+      </svg>
+      <span style="color:#1B1B1B;font-size:0.95rem;font-weight:600;
+                   font-family:'Segoe UI',sans-serif;">Microsoft Learn</span>
+    </div>
+    """, unsafe_allow_html=True)
     st.markdown("### 🔐 Admin Panel")
     st.markdown(f"Signed in as **{MOCK_USER}**")
-    if st.button("🚪 Sign out", use_container_width=True):
+    if st.button("Sign Out", use_container_width=True):
         st.session_state["admin_logged_in"] = False
         st.rerun()
     st.markdown("---")
@@ -164,8 +186,8 @@ st.markdown("""
 <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
   <span style="font-size:2rem;">🤖</span>
   <div>
-    <h1 style="color:#e8edf3;margin:0;font-size:1.9rem;">Agent Interaction Dashboard</h1>
-    <p style="color:#8899aa;margin:0;font-size:0.9rem;">
+    <h1 style="color:#1B1B1B;margin:0;font-size:1.9rem;">Agent Interaction Dashboard</h1>
+    <p style="color:#616161;margin:0;font-size:0.9rem;">
       Real-time audit of how each AI agent contributed to the learner profile output.
     </p>
   </div>
@@ -270,12 +292,12 @@ with _j_col1:
         x=_stage_values,
         textinfo="value+percent initial",
         marker=dict(color=_stage_colors),
-        connector=dict(line=dict(color="#2a3a50", width=1)),
+        connector=dict(line=dict(color="#E1DFDD", width=1)),
     ))
     funnel_fig.update_layout(
         paper_bgcolor=CARD_BG,
         plot_bgcolor=CARD_BG,
-        font=dict(color="#e8edf3", size=11),
+        font=dict(color="#1B1B1B", size=11),
         height=340,
         margin=dict(l=10, r=10, t=10, b=10),
     )
@@ -299,13 +321,13 @@ with _j_col2:
     pie_fig.update_layout(
         paper_bgcolor=CARD_BG,
         plot_bgcolor=CARD_BG,
-        font=dict(color="#e8edf3", size=11),
+        font=dict(color="#1B1B1B", size=11),
         height=340,
         margin=dict(l=10, r=10, t=10, b=10),
         showlegend=False,
         annotations=[dict(
             text=f"<b>{trace.total_ms:.0f}<br>ms</b>",
-            x=0.5, y=0.5, font=dict(size=16, color="#e8edf3"),
+            x=0.5, y=0.5, font=dict(size=16, color="#1B1B1B"),
             showarrow=False,
         )],
     )
@@ -350,13 +372,14 @@ for _jc, _js in zip(_jcols, _journey_stages):
     with _jc:
         st.markdown(
             f"""<div style="background:{CARD_BG};border-top:3px solid {_js['color']};
-                 border-radius:8px;padding:14px 12px;text-align:center;min-height:180px;">
+                 border-radius:4px;padding:14px 12px;text-align:center;min-height:180px;
+                 border:1px solid #E1DFDD;box-shadow:0 1px 2px rgba(0,0,0,0.04);">
               <div style="font-size:1.8rem;">{_js['icon']}</div>
-              <div style="color:#e8edf3;font-weight:700;font-size:0.95rem;margin:6px 0 4px;">
+              <div style="color:#1B1B1B;font-weight:700;font-size:0.95rem;margin:6px 0 4px;">
                 {_js['title']}</div>
               <div style="color:{GREY};font-size:0.72rem;text-transform:uppercase;
                    letter-spacing:.04em;margin-bottom:6px;">{_js['agent']}</div>
-              <div style="color:#b0bec5;font-size:0.78rem;line-height:1.4;">{_js['desc']}</div>
+              <div style="color:#616161;font-size:0.78rem;line-height:1.4;">{_js['desc']}</div>
             </div>""",
             unsafe_allow_html=True,
         )
@@ -407,18 +430,18 @@ gantt_fig.update_layout(
     barmode      = "stack",
     paper_bgcolor= CARD_BG,
     plot_bgcolor = CARD_BG,
-    font         = dict(color="#e8edf3", size=11),
+    font         = dict(color="#1B1B1B", size=11),
     height       = max(220, len(trace.steps) * 52),
     margin       = dict(l=10, r=20, t=10, b=40),
     xaxis = dict(
         title      = "Time (ms from run start)",
         color      = GREY,
-        gridcolor  = "#2a3a50",
+        gridcolor  = "#E1DFDD",
         zeroline   = False,
     ),
     yaxis = dict(
-        color      = "#e8edf3",
-        gridcolor  = "#2a3a50",
+        color      = "#1B1B1B",
+        gridcolor  = "#E1DFDD",
         autorange  = "reversed",
     ),
 )
@@ -454,20 +477,20 @@ for step in trace.steps:
         with io_col:
             st.markdown(
                 f"""
-                <div style="background:#0e1117;border-left:3px solid {clr};
-                            border-radius:6px;padding:12px 14px;margin-bottom:10px;">
+                <div style="background:#F5F5F5;border-left:3px solid {clr};
+                            border-radius:4px;padding:12px 14px;margin-bottom:10px;">
                   <div style="color:{GREY};font-size:0.72rem;font-weight:600;
                               text-transform:uppercase;letter-spacing:.06em;
                               margin-bottom:4px;">📨 Input</div>
-                  <div style="color:#c9d5e0;font-size:0.87rem;
+                  <div style="color:#323130;font-size:0.87rem;
                               line-height:1.5;">{step.input_summary}</div>
                 </div>
-                <div style="background:#0e1117;border-left:3px solid {GREEN};
-                            border-radius:6px;padding:12px 14px;">
+                <div style="background:#F5F5F5;border-left:3px solid {GREEN};
+                            border-radius:4px;padding:12px 14px;">
                   <div style="color:{GREY};font-size:0.72rem;font-weight:600;
                               text-transform:uppercase;letter-spacing:.06em;
                               margin-bottom:4px;">📤 Output</div>
-                  <div style="color:#c9d5e0;font-size:0.87rem;
+                  <div style="color:#323130;font-size:0.87rem;
                               line-height:1.5;">{step.output_summary}</div>
                 </div>
                 """,
@@ -484,8 +507,8 @@ for step in trace.steps:
                 )
                 for d in step.decisions:
                     st.markdown(
-                        f'<div style="color:#c9d5e0;font-size:0.83rem;'
-                        f'padding:2px 0 2px 10px;border-left:2px solid {clr}22;">'
+                        f'<div style="color:#323130;font-size:0.83rem;'
+                        f'padding:2px 0 2px 10px;border-left:2px solid {clr}40;">'
                         f'• {d}</div>',
                         unsafe_allow_html=True,
                     )
@@ -546,9 +569,9 @@ if profile is not None:
             columnwidth = [180, 130, 100, 60, 60],
             header = dict(
                 values     = [f"<b>{h}</b>" for h in header_vals],
-                fill_color = "#2a3a50",
+                fill_color = "#EFF6FF",
                 align      = "left",
-                font       = dict(color="#e8edf3", size=12),
+                font       = dict(color="#1B1B1B", size=12),
                 height     = 32,
             ),
             cells = dict(
@@ -561,7 +584,7 @@ if profile is not None:
                     [CARD_BG] * len(audit_df),
                 ],
                 align      = ["left", "left", "center", "center", "center"],
-                font       = dict(color="#e8edf3", size=11),
+                font       = dict(color="#1B1B1B", size=11),
                 height     = 30,
             ),
         ))
@@ -585,18 +608,18 @@ if profile is not None:
         bar_fig.update_layout(
             paper_bgcolor = CARD_BG,
             plot_bgcolor  = CARD_BG,
-            font          = dict(color="#e8edf3", size=11),
+            font          = dict(color="#1B1B1B", size=11),
             height        = 280,
             margin        = dict(l=0, r=50, t=10, b=20),
             xaxis = dict(
                 range      = [0, 1.05],
-                gridcolor  = "#2a3a50",
+                gridcolor  = "#E1DFDD",
                 color      = GREY,
                 tickformat = ".0%",
             ),
-            yaxis = dict(color="#e8edf3", gridcolor="#2a3a50"),
+            yaxis = dict(color="#1B1B1B", gridcolor="#E1DFDD"),
         )
-        bar_fig.add_vline(x=0.50, line_dash="dash", line_color="rgba(255,255,255,0.27)",
+        bar_fig.add_vline(x=0.50, line_dash="dash", line_color="rgba(0,0,0,0.15)",
                           annotation_text="50% threshold",
                           annotation_font_color=GREY,
                           annotation_position="top right")
@@ -662,7 +685,7 @@ else:
 # ─── Footer ───────────────────────────────────────────────────────────────────
 st.markdown("---")
 st.markdown(
-    "<p style='text-align:center;color:#4a5568;font-size:0.78rem;'>"
+    "<p style='text-align:center;color:#a0a0a0;font-size:0.78rem;'>"
     "🔐 Admin Dashboard · Microsoft Agents League · For authorised users only"
     "</p>",
     unsafe_allow_html=True,
