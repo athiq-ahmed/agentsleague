@@ -1549,9 +1549,8 @@ _PREFILL_SCENARIOS = {
 prefill = {}
 
 # ─── Live / Mock mode toggle (main page) ─────────────────────────────────────
-_tgl_c1, _tgl_c2, _tgl_c3 = st.columns([1.2, 4, 6.8])
+_tgl_c1, _tgl_c2, _tgl_c3 = st.columns([1.1, 5, 5.9])
 with _tgl_c1:
-    # st.toggle returns the new value AND updates st.session_state["live_mode_toggle"]
     _tog_val = st.toggle(
         "Live Mode",
         key="live_mode_toggle",
@@ -1560,88 +1559,110 @@ with _tgl_c1:
 with _tgl_c2:
     if use_live:
         st.markdown(
-            f'<span style="font-size:0.82rem;font-weight:700;color:{GREEN};">☁️ Live Azure Mode</span>'
-            f'<span style="font-size:0.72rem;color:{TEXT_MUTED};margin-left:8px;">Real Azure OpenAI calls</span>',
+            f'''<div style="display:inline-flex;align-items:center;gap:8px;
+                  background:linear-gradient(135deg,#e8f5e9 0%,#f0fff4 100%);
+                  border:1px solid #a5d6a7;border-radius:20px;
+                  padding:5px 14px;margin-top:4px;">
+              <span style="width:8px;height:8px;border-radius:50%;
+                    background:{GREEN};display:inline-block;
+                    box-shadow:0 0 0 2px #a5d6a7;"></span>
+              <span style="font-size:0.8rem;font-weight:700;color:{GREEN};letter-spacing:0.01em;">Live Azure Mode</span>
+              <span style="font-size:0.72rem;color:{TEXT_MUTED};">Real OpenAI calls</span>
+            </div>''',
             unsafe_allow_html=True,
         )
     else:
         st.markdown(
-            f'<span style="font-size:0.82rem;font-weight:700;color:{TEXT_MUTED};">🧪 Mock Mode</span>'
-            f'<span style="font-size:0.72rem;color:{TEXT_MUTED};margin-left:8px;">No credentials required</span>',
+            f'''<div style="display:inline-flex;align-items:center;gap:8px;
+                  background:#f5f5f5;border:1px solid #e0e0e0;border-radius:20px;
+                  padding:5px 14px;margin-top:4px;">
+              <span style="width:8px;height:8px;border-radius:50%;
+                    background:#9e9e9e;display:inline-block;"></span>
+              <span style="font-size:0.8rem;font-weight:600;color:{TEXT_MUTED};letter-spacing:0.01em;">Mock Mode</span>
+              <span style="font-size:0.72rem;color:#bdbdbd;">No credentials needed</span>
+            </div>''',
             unsafe_allow_html=True,
         )
 
-# ── Azure Services Status notification panel ──────────────────────────────────
+# ── Azure Services Status panel ───────────────────────────────────────────────
 if use_live and _missing_svcs:
-    # Build service rows
-    _rows_html = ""
-    for _svc_name, _svc_env in _configured_svcs:
-        _rows_html += (
-            f'<tr><td style="padding:3px 10px 3px 4px;font-size:0.78rem;color:#107C41;font-weight:600;">'
-            f'✅ {_svc_name}</td>'
-            f'<td style="padding:3px 4px;font-size:0.72rem;color:{TEXT_MUTED};font-family:Consolas,monospace">Configured</td></tr>'
+    _has_required_missing = any(n == "Azure OpenAI" for n, _ in _missing_svcs)
+    _accent   = "#D32F2F" if _has_required_missing else "#F57C00"
+    _bg       = "#FFF5F5" if _has_required_missing else "#FFFDE7"
+    _badge_bg = "#FFEBEE" if _has_required_missing else "#FFF8E1"
+
+    # Build service chips
+    _chips_ok = ""
+    for _cn, _ in _configured_svcs:
+        _chips_ok += (
+            f'<span style="display:inline-flex;align-items:center;gap:5px;'
+            f'background:#E8F5E9;border:1px solid #A5D6A7;border-radius:16px;'
+            f'padding:3px 10px;font-size:0.72rem;font-weight:600;color:#2E7D32;margin:3px 4px 3px 0;">'
+            f'<span style="width:6px;height:6px;border-radius:50%;background:#43A047;'
+            f'display:inline-block;"></span>{_cn}</span>'
         )
-    for _svc_name, _svc_env in _missing_svcs:
-        _is_req = _svc_name == "Azure OpenAI"
-        _icon   = "🔴" if _is_req else "🟡"
-        _req_lbl = "REQUIRED" if _is_req else "optional"
-        _rows_html += (
-            f'<tr><td style="padding:3px 10px 3px 4px;font-size:0.78rem;color:{"#CA5010" if _is_req else "#8C6E00"};font-weight:600;">'
-            f'{_icon} {_svc_name}</td>'
-            f'<td style="padding:3px 4px;font-size:0.72rem;color:{TEXT_MUTED};font-family:Consolas,monospace">{_svc_env}</td>'
-            f'<td style="padding:3px 4px;font-size:0.7rem;color:{"#CA5010" if _is_req else "#8C6E00"};">[{_req_lbl}]</td></tr>'
+    _chips_miss = ""
+    for _mn, _ in _missing_svcs:
+        _is_req_svc = _mn == "Azure OpenAI"
+        _cbg  = "#FFEBEE" if _is_req_svc else "#FFF9C4"
+        _cbd  = "#EF9A9A" if _is_req_svc else "#F9E26A"
+        _ctxt = "#C62828" if _is_req_svc else "#E65100"
+        _cdot = "#EF5350" if _is_req_svc else "#FFA726"
+        _req_lbl = '&nbsp;<span style="font-size:0.65rem;opacity:0.7;">[required]</span>' if _is_req_svc else ""
+        _chips_miss += (
+            f'<span style="display:inline-flex;align-items:center;gap:5px;'
+            f'background:{_cbg};border:1px solid {_cbd};border-radius:16px;'
+            f'padding:3px 10px;font-size:0.72rem;font-weight:600;'
+            f'color:{_ctxt};margin:3px 4px 3px 0;">'
+            f'<span style="width:6px;height:6px;border-radius:50%;background:{_cdot};'
+            f'display:inline-block;"></span>{_mn}{_req_lbl}</span>'
         )
 
-    _has_required_missing = any(n == "Azure OpenAI" for n, _ in _missing_svcs)
-    _title_color = "#CA5010" if _has_required_missing else "#8C6E00"
-    _title_icon  = "🔴" if _has_required_missing else "⚠️"
-    _title_text  = "Live mode is ON — required credentials missing" if _has_required_missing else "Live mode is ON — some optional services not configured"
-    _footer_text = (
-        "Azure OpenAI credentials are required for live mode. App will fall back to Mock mode until configured."
-        if _has_required_missing else
-        "App is running in live mode. Missing optional services will degrade gracefully."
-    )
-    _footer_bg   = "#FFF3CD" if not _has_required_missing else "#FFE8E0"
+    _headline = "Required credentials missing — Live mode unavailable" if _has_required_missing else "Live mode active — optional services not configured"
+    _sub      = "Set <code style='font-family:Consolas,monospace;font-size:0.7rem;background:#0001;padding:1px 4px;border-radius:3px;'>AZURE_OPENAI_ENDPOINT</code> + <code style='font-family:Consolas,monospace;font-size:0.7rem;background:#0001;padding:1px 4px;border-radius:3px;'>AZURE_OPENAI_API_KEY</code> in <code style='font-family:Consolas,monospace;font-size:0.7rem;background:#0001;padding:1px 4px;border-radius:3px;'>.env</code> and restart." if _has_required_missing else "Missing optional services will degrade gracefully — no action required."
 
     st.markdown(f"""
 <div style="
-  border:2px solid {_title_color};border-radius:4px;
-  font-family:'Segoe UI',Arial,sans-serif;
-  margin:6px 0 10px;overflow:hidden;box-shadow:2px 2px 6px rgba(0,0,0,0.12);
-  max-width:780px;
+  border-left:4px solid {_accent};border-radius:6px;
+  background:{_bg};padding:12px 16px 10px;
+  margin:8px 0 12px;font-family:'Segoe UI',Arial,sans-serif;
+  box-shadow:0 1px 4px rgba(0,0,0,0.06);
 ">
-  <!-- Title bar (VB-style) -->
-  <div style="
-    background:{_title_color};color:#fff;
-    padding:5px 12px;display:flex;align-items:center;gap:8px;
-  ">
-    <span style="font-size:0.95rem;">{_title_icon}</span>
-    <span style="font-size:0.8rem;font-weight:700;letter-spacing:0.02em;">Azure Services Status</span>
-    <span style="margin-left:auto;font-size:0.65rem;opacity:0.85;">CertPrep AI — Configuration Check</span>
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;">
+    <div>
+      <span style="font-size:0.82rem;font-weight:700;color:{_accent};">{_headline}</span><br>
+      <span style="font-size:0.72rem;color:{TEXT_MUTED};line-height:1.6;">{_sub}</span>
+    </div>
+    <span style="font-size:0.65rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;
+          color:{_accent};background:{_badge_bg};border:1px solid {_accent}44;
+          border-radius:12px;padding:2px 8px;white-space:nowrap;margin-left:12px;margin-top:1px;">
+      Azure Services
+    </span>
   </div>
-  <!-- Body -->
-  <div style="background:#fff;padding:10px 14px 6px;">
-    <p style="margin:0 0 8px;font-size:0.78rem;color:{TEXT_PRIMARY};">{_title_text}</p>
-    <table style="border-collapse:collapse;width:100%">
-      {_rows_html}
-    </table>
-  </div>
-  <!-- Footer -->
-  <div style="background:{_footer_bg};padding:6px 14px;border-top:1px solid {_title_color}33;">
-    <span style="font-size:0.72rem;color:{TEXT_PRIMARY};">{_footer_text}
-      Edit <code style="font-size:0.7rem;background:#0001;padding:1px 3px;border-radius:2px;">.env</code>
-      and restart the app to apply changes.</span>
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:0;">
+    {_chips_ok}{_chips_miss}
   </div>
 </div>
     """, unsafe_allow_html=True)
 
 elif use_live and not _missing_svcs:
-    st.markdown(
-        f'<div style="background:{GREEN_LITE};border:1px solid {GREEN};border-radius:4px;'
-        f'padding:7px 14px;font-size:0.78rem;color:{GREEN};font-weight:600;margin:6px 0 10px;max-width:780px;">'
-        f'✅ All Azure services configured — running in full Live mode.</div>',
-        unsafe_allow_html=True,
-    )
+    st.markdown(f"""
+<div style="
+  display:inline-flex;align-items:center;gap:10px;
+  background:linear-gradient(135deg,#e8f5e9 0%,#f1f8e9 100%);
+  border:1px solid #a5d6a7;border-left:4px solid {GREEN};border-radius:6px;
+  padding:9px 16px;margin:8px 0 12px;
+  font-family:'Segoe UI',Arial,sans-serif;
+  box-shadow:0 1px 4px rgba(16,124,65,0.08);
+">
+  <span style="width:10px;height:10px;border-radius:50%;background:{GREEN};
+        box-shadow:0 0 0 3px #c8e6c9;display:inline-block;flex-shrink:0;"></span>
+  <div>
+    <span style="font-size:0.82rem;font-weight:700;color:{GREEN};">All services configured</span>
+    <span style="font-size:0.75rem;color:{TEXT_MUTED};margin-left:8px;">Running in full Live mode with Azure OpenAI</span>
+  </div>
+</div>
+    """, unsafe_allow_html=True)
 
 # ─── Dashboard welcome / Hero header ──────────────────────────────────────────
 if is_returning:
