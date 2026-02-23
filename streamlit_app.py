@@ -943,6 +943,59 @@ st.markdown(f"""
   [data-testid="stSidebarCollapseButton"],
   [data-testid="collapsedControl"] {{ display: none !important; }}
 
+  /* Toggle label — no wrap */
+  [data-testid="stToggle"] label p {{ white-space: nowrap !important; }}
+
+  /* Sidebar scenario cards */
+  .sb-sc-card {{
+    background: rgba(235,244,255,0.97);
+    border: 1.5px solid rgba(168,207,238,0.9);
+    border-radius: 8px;
+    padding: 0 12px;
+    height: 50px;
+    display: flex; flex-direction: row; align-items: center; gap: 9px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.18);
+    pointer-events: none;
+    user-select: none;
+    margin-bottom: 4px;
+    box-sizing: border-box;
+  }}
+  .sb-sc-card.active {{
+    background: rgba(0,90,180,0.88);
+    border-color: rgba(255,255,255,0.5);
+  }}
+  .sb-sc-card .sbc-icon {{ font-size: 1.1rem; flex-shrink: 0; }}
+  .sb-sc-card .sbc-body {{ display: flex; flex-direction: column; min-width: 0; }}
+  .sb-sc-card .sbc-title {{ font-size: 0.76rem; font-weight: 700; color: #0C3C78; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+  .sb-sc-card.active .sbc-title {{ color: #fff; }}
+  .sb-sc-card .sbc-badge {{
+    display: inline-block; font-size: 0.62rem; font-weight: 700;
+    color: #0063B1; background: rgba(0,120,212,0.1);
+    border: 1px solid rgba(0,120,212,0.22);
+    border-radius: 10px; padding: 1px 7px; margin-top: 2px;
+    white-space: nowrap;
+  }}
+  .sb-sc-card.active .sbc-badge {{ color: rgba(255,255,255,0.9); background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.3); }}
+  div.element-container:has(.sb-sc-card) + div.element-container {{
+    height: 0 !important; min-height: 0 !important;
+    overflow: visible !important; margin: 0 !important; padding: 0 !important;
+  }}
+  div.element-container:has(.sb-sc-card) + div.element-container .stButton > button {{
+    height: 50px !important; margin-top: -50px !important;
+    background: transparent !important; border: none !important;
+    box-shadow: none !important; opacity: 0 !important;
+    cursor: pointer !important; position: relative !important;
+    z-index: 10 !important; width: 100% !important;
+  }}
+  div.element-container:has(.sb-sc-card:not(.active)):has(+ div.element-container .stButton > button:hover) .sb-sc-card {{
+    background: rgba(204,228,248,0.98);
+    border-color: #0078D4;
+    box-shadow: 0 3px 10px rgba(0,120,212,0.22);
+    transform: translateY(-1px);
+  }}
+
   /* Intake form card sections */
   .intake-card {{
     background: #fff;
@@ -1464,23 +1517,31 @@ with st.sidebar:
         _active_prefill = st.session_state.get("sidebar_prefill")
         _alex_active    = _active_prefill == "alex"
         _jordan_active  = _active_prefill == "priyanka"
-        if st.button(
-            "🌱 AI Beginner · AI-102",
-            key="sb_sc_alex",
-            use_container_width=True,
-            disabled=_jordan_active,
-            type="primary" if _alex_active else "secondary",
-        ):
+
+        _alex_cls = "sb-sc-card active" if _alex_active else "sb-sc-card"
+        st.markdown(f'''
+        <div class="{_alex_cls}">
+          <span class="sbc-icon">🌱</span>
+          <div class="sbc-body">
+            <span class="sbc-title">AI Beginner</span>
+            <span class="sbc-badge">AI-102</span>
+          </div>
+        </div>''', unsafe_allow_html=True)
+        if st.button("\u200b", key="sb_sc_alex", use_container_width=True, disabled=_jordan_active):
             if not _alex_active:
                 st.session_state["sidebar_prefill"] = "alex"
                 st.rerun()
-        if st.button(
-            "📊 Data Professional · DP-100",
-            key="sb_sc_jordan",
-            use_container_width=True,
-            disabled=_alex_active,
-            type="primary" if _jordan_active else "secondary",
-        ):
+
+        _jordan_cls = "sb-sc-card active" if _jordan_active else "sb-sc-card"
+        st.markdown(f'''
+        <div class="{_jordan_cls}">
+          <span class="sbc-icon">📊</span>
+          <div class="sbc-body">
+            <span class="sbc-title">Data Professional</span>
+            <span class="sbc-badge">DP-100</span>
+          </div>
+        </div>''', unsafe_allow_html=True)
+        if st.button("\u200b", key="sb_sc_jordan", use_container_width=True, disabled=_alex_active):
             if not _jordan_active:
                 st.session_state["sidebar_prefill"] = "priyanka"
                 st.rerun()
@@ -1561,7 +1622,7 @@ _PREFILL_SCENARIOS = {
 prefill = {}
 
 # ─── Live / Mock mode toggle (main page) ─────────────────────────────────────
-_tgl_c1, _tgl_c2, _tgl_c3 = st.columns([1.1, 5, 5.9])
+_tgl_c1, _tgl_c2, _tgl_c3 = st.columns([1.6, 4.5, 5.9])
 with _tgl_c1:
     _tog_val = st.toggle(
         "Live Mode",
