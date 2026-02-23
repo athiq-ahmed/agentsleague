@@ -145,6 +145,18 @@ def _learning_path_from_dict(d: dict) -> LearningPath:
     }
     return LearningPath(**d)
 
+
+def _raw_from_dict(d: dict) -> RawStudentInput:
+    """Load RawStudentInput from a dict, tolerating extra/missing keys.
+    Extra keys from future schema versions are silently dropped.
+    Missing keys use dataclass defaults (email defaults to '').
+    """
+    import dataclasses as _dcs
+    _known = {f.name for f in _dcs.fields(RawStudentInput)}
+    _filtered = {k: v for k, v in d.items() if k in _known}
+    return RawStudentInput(**_filtered)
+
+
 from cert_prep.b3_cert_recommendation_agent import (
     CertificationRecommendationAgent, CertRecommendation,
 )
@@ -705,7 +717,7 @@ if not st.session_state["authenticated"]:
                 if _db_p and _db_p.get("profile_json"):
                     import json as _json_ql
                     st.session_state["profile"] = LearnerProfile.model_validate_json(_db_p["profile_json"])
-                    st.session_state["raw"]     = RawStudentInput(**_json_ql.loads(_db_p["raw_input_json"]))
+                    st.session_state["raw"]     = _raw_from_dict(_json_ql.loads(_db_p["raw_input_json"]))
                     if _db_p.get("plan_json"):
                         st.session_state["plan"] = _study_plan_from_dict(_json_ql.loads(_db_p["plan_json"]))
                     if _db_p.get("learning_path_json"):
@@ -797,7 +809,7 @@ if not st.session_state["authenticated"]:
                     import json as _json
                     from cert_prep.models import LearnerProfile, RawStudentInput
                     st.session_state["profile"] = LearnerProfile.model_validate_json(_db_student["profile_json"])
-                    st.session_state["raw"] = RawStudentInput(**_json.loads(_db_student["raw_input_json"]))
+                    st.session_state["raw"] = _raw_from_dict(_json.loads(_db_student["raw_input_json"]))
                     st.session_state["badge"] = _db_student.get("badge", "🧪 Mock mode")
                     if _db_student.get("plan_json"):
                         st.session_state["plan"] = _study_plan_from_dict(_json_mod.loads(_db_student["plan_json"]))
@@ -1370,10 +1382,34 @@ _force_mock     = os.getenv("FORCE_MOCK_MODE", "false").lower() in ("1", "true",
 
 _env_live = _is_real_value(_env_endpoint) and _is_real_value(_env_api_key) and not _force_mock
 
-use_live     = _env_live
-az_endpoint  = _env_endpoint  if _env_live else ""
-az_key       = _env_api_key   if _env_live else ""
-az_deployment= _env_deployment if _env_live else ""
+# ── Per-service configuration status (for the notification panel) ────────────
+_svc_checks = [
+    ("Azure OpenAI",        _is_real_value(_env_endpoint) and _is_real_value(_env_api_key),
+     "AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY", True),   # required for live mode
+    ("Azure AI Foundry",    _is_real_value(os.getenv("AZURE_AI_PROJECT_CONNECTION_STRING", "")),
+     "AZURE_AI_PROJECT_CONNECTION_STRING", False),
+    ("Azure Content Safety", _is_real_value(os.getenv("AZURE_CONTENT_SAFETY_ENDPOINT", "")),
+     "AZURE_CONTENT_SAFETY_ENDPOINT", False),
+    ("Azure Comm Services", _is_real_value(os.getenv("AZURE_COMM_CONNECTION_STRING", "")),
+     "AZURE_COMM_CONNECTION_STRING", False),
+    ("MS Learn MCP",        _is_real_value(os.getenv("MCP_MSLEARN_URL", "")),
+     "MCP_MSLEARN_URL", False),
+]
+_missing_svcs     = [(n, env) for n, ok, env, _ in _svc_checks if not ok]
+_configured_svcs  = [(n, env) for n, ok, env, _ in _svc_checks if ok]
+
+# ── Session-state toggle (user can override auto-detected mode) ───────────────
+if "live_mode_toggle" not in st.session_state:
+    st.session_state["live_mode_toggle"] = _env_live
+
+# Respect FORCE_MOCK_MODE env var — never allow live if it's set
+if _force_mock:
+    st.session_state["live_mode_toggle"] = False
+
+use_live     = st.session_state["live_mode_toggle"]
+az_endpoint  = _env_endpoint   if use_live and _env_live else ""
+az_key       = _env_api_key    if use_live and _env_live else ""
+az_deployment= _env_deployment if use_live else ""
 
 # ─── Sidebar navigation (blue panel) ───────────────────────────────────────
 with st.sidebar:
@@ -1461,7 +1497,7 @@ with st.sidebar:
 
     # ── Azure services mode badge ─────────────────────────────────────────
     st.markdown("---")
-    if _env_live:
+    if use_live:
         _badge_col = "#22c55e"   # green
         _badge_icon = "☁️"
         _badge_text = "Live Azure Mode"
@@ -1470,7 +1506,7 @@ with st.sidebar:
         _badge_col = "#94a3b8"   # grey
         _badge_icon = "🧪"
         _badge_text = "Mock Mode"
-        _badge_sub  = "Fill .env to switch to live"
+        _badge_sub  = "Fill .env + toggle ON to switch" if not _env_live else "Toggle ON to go live"
     st.markdown(f"""
     <div style="background:rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;margin-top:4px;">
       <div style="display:flex;align-items:center;gap:6px;">
@@ -1512,6 +1548,100 @@ _PREFILL_SCENARIOS = {
 }
 prefill = {}
 
+# ─── Live / Mock mode toggle (main page) ─────────────────────────────────────
+_tgl_c1, _tgl_c2, _tgl_c3 = st.columns([1.2, 4, 6.8])
+with _tgl_c1:
+    # st.toggle returns the new value AND updates st.session_state["live_mode_toggle"]
+    _tog_val = st.toggle(
+        "Live Mode",
+        key="live_mode_toggle",
+        help="Switch between Live Azure (real OpenAI) and Mock mode (no credentials needed)",
+    )
+with _tgl_c2:
+    if use_live:
+        st.markdown(
+            f'<span style="font-size:0.82rem;font-weight:700;color:{GREEN};">☁️ Live Azure Mode</span>'
+            f'<span style="font-size:0.72rem;color:{TEXT_MUTED};margin-left:8px;">Real Azure OpenAI calls</span>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            f'<span style="font-size:0.82rem;font-weight:700;color:{TEXT_MUTED};">🧪 Mock Mode</span>'
+            f'<span style="font-size:0.72rem;color:{TEXT_MUTED};margin-left:8px;">No credentials required</span>',
+            unsafe_allow_html=True,
+        )
+
+# ── Azure Services Status notification panel ──────────────────────────────────
+if use_live and _missing_svcs:
+    # Build service rows
+    _rows_html = ""
+    for _svc_name, _svc_env in _configured_svcs:
+        _rows_html += (
+            f'<tr><td style="padding:3px 10px 3px 4px;font-size:0.78rem;color:#107C41;font-weight:600;">'
+            f'✅ {_svc_name}</td>'
+            f'<td style="padding:3px 4px;font-size:0.72rem;color:{TEXT_MUTED};font-family:Consolas,monospace">Configured</td></tr>'
+        )
+    for _svc_name, _svc_env in _missing_svcs:
+        _is_req = _svc_name == "Azure OpenAI"
+        _icon   = "🔴" if _is_req else "🟡"
+        _req_lbl = "REQUIRED" if _is_req else "optional"
+        _rows_html += (
+            f'<tr><td style="padding:3px 10px 3px 4px;font-size:0.78rem;color:{"#CA5010" if _is_req else "#8C6E00"};font-weight:600;">'
+            f'{_icon} {_svc_name}</td>'
+            f'<td style="padding:3px 4px;font-size:0.72rem;color:{TEXT_MUTED};font-family:Consolas,monospace">{_svc_env}</td>'
+            f'<td style="padding:3px 4px;font-size:0.7rem;color:{"#CA5010" if _is_req else "#8C6E00"};">[{_req_lbl}]</td></tr>'
+        )
+
+    _has_required_missing = any(n == "Azure OpenAI" for n, _ in _missing_svcs)
+    _title_color = "#CA5010" if _has_required_missing else "#8C6E00"
+    _title_icon  = "🔴" if _has_required_missing else "⚠️"
+    _title_text  = "Live mode is ON — required credentials missing" if _has_required_missing else "Live mode is ON — some optional services not configured"
+    _footer_text = (
+        "Azure OpenAI credentials are required for live mode. App will fall back to Mock mode until configured."
+        if _has_required_missing else
+        "App is running in live mode. Missing optional services will degrade gracefully."
+    )
+    _footer_bg   = "#FFF3CD" if not _has_required_missing else "#FFE8E0"
+
+    st.markdown(f"""
+<div style="
+  border:2px solid {_title_color};border-radius:4px;
+  font-family:'Segoe UI',Arial,sans-serif;
+  margin:6px 0 10px;overflow:hidden;box-shadow:2px 2px 6px rgba(0,0,0,0.12);
+  max-width:780px;
+">
+  <!-- Title bar (VB-style) -->
+  <div style="
+    background:{_title_color};color:#fff;
+    padding:5px 12px;display:flex;align-items:center;gap:8px;
+  ">
+    <span style="font-size:0.95rem;">{_title_icon}</span>
+    <span style="font-size:0.8rem;font-weight:700;letter-spacing:0.02em;">Azure Services Status</span>
+    <span style="margin-left:auto;font-size:0.65rem;opacity:0.85;">CertPrep AI — Configuration Check</span>
+  </div>
+  <!-- Body -->
+  <div style="background:#fff;padding:10px 14px 6px;">
+    <p style="margin:0 0 8px;font-size:0.78rem;color:{TEXT_PRIMARY};">{_title_text}</p>
+    <table style="border-collapse:collapse;width:100%">
+      {_rows_html}
+    </table>
+  </div>
+  <!-- Footer -->
+  <div style="background:{_footer_bg};padding:6px 14px;border-top:1px solid {_title_color}33;">
+    <span style="font-size:0.72rem;color:{TEXT_PRIMARY};">{_footer_text}
+      Edit <code style="font-size:0.7rem;background:#0001;padding:1px 3px;border-radius:2px;">.env</code>
+      and restart the app to apply changes.</span>
+  </div>
+</div>
+    """, unsafe_allow_html=True)
+
+elif use_live and not _missing_svcs:
+    st.markdown(
+        f'<div style="background:{GREEN_LITE};border:1px solid {GREEN};border-radius:4px;'
+        f'padding:7px 14px;font-size:0.78rem;color:{GREEN};font-weight:600;margin:6px 0 10px;max-width:780px;">'
+        f'✅ All Azure services configured — running in full Live mode.</div>',
+        unsafe_allow_html=True,
+    )
 
 # ─── Dashboard welcome / Hero header ──────────────────────────────────────────
 if is_returning:

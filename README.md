@@ -315,30 +315,55 @@ AZURE_OPENAI_API_VERSION=2024-12-01-preview
 
 ```
 agentsleague/
-├── streamlit_app.py                      # Orchestrator + 7-tab UI (~3400 lines)
-├── pages/1_Admin_Dashboard.py            # Agent audit dashboard + guardrail log
-├── src/cert_prep/
-│   ├── models.py                         # Data contracts + EXAM_DOMAIN_REGISTRY (9 certs)
-│   ├── config.py                         # Azure OpenAI config loader
-│   ├── guardrails.py                     # GuardrailsPipeline — 17 exam-agnostic rules
-│   ├── agent_trace.py                    # AgentStep / RunTrace observability
-│   ├── b0_intake_agent.py                # Intake + Profiling agents
-│   ├── b1_mock_profiler.py               # Rule-based profiler (no LLM required)
-│   ├── b1_1_learning_path_curator.py     # MS Learn module curator (parallel)
-│   ├── b1_1_study_plan_agent.py          # Gantt study plan generator (parallel)
-│   ├── b1_2_progress_agent.py            # Readiness tracker + formula
-│   ├── b2_assessment_agent.py            # Quiz builder + scorer
-│   ├── b3_cert_recommendation_agent.py   # Next-cert recommender
-│   └── database.py                       # SQLite persistence
+├── streamlit_app.py                      # Orchestrator + full 8-tab UI (main entry point)
+├── .env                                  # ⚠️ NOT committed — real secrets here (gitignored)
+├── .env.example                          # ✅ Committed template — copy to .env, fill in values
+├── requirements.txt                      # pip dependencies
+│
+├── pages/
+│   └── 1_Admin_Dashboard.py             # Agent audit dashboard + per-agent guardrail log
+│
+├── src/
+│   └── cert_prep/
+│       ├── __init__.py
+│       ├── models.py                     # Data contracts + EXAM_DOMAIN_REGISTRY (9 certs)
+│       ├── config.py                     # Settings dataclass: OpenAI, Foundry, ContentSafety,
+│       │                                 #   CommServices, MCP, App — auto live-mode detection
+│       ├── guardrails.py                 # GuardrailsPipeline — 17 rules with real PII patterns
+│       ├── agent_trace.py                # AgentStep / RunTrace observability structs
+│       ├── database.py                   # SQLite persistence (learner profiles + traces)
+│       ├── b0_intake_agent.py            # Intake + LearnerProfilingAgent (live Azure OpenAI)
+│       ├── b1_mock_profiler.py           # Rule-based profiler (zero-credential mock mode)
+│       ├── b1_1_study_plan_agent.py      # Gantt study plan generator (parallel fan-out)
+│       ├── b1_1_learning_path_curator.py # MS Learn module curator (parallel fan-out)
+│       ├── b1_2_progress_agent.py        # Readiness tracker + email digest
+│       ├── b2_assessment_agent.py        # Quiz builder + scorer
+│       └── b3_cert_recommendation_agent.py  # Next-cert path recommender
+│
+├── tests/                                # Smoke test suite (pytest)
+│   ├── __init__.py
+│   ├── test_guardrails.py               # 14 tests — G-16 PII patterns + harmful blocker
+│   ├── test_config.py                   # 7 tests — settings loading, placeholder detection
+│   └── test_agents.py                   # 4 tests — mock profiler outputs
+│
 ├── docs/
-│   ├── architecture.md                   # Technical deep-dive
-│   ├── technical_documentation.md        # Comprehensive engineering reference
-│   ├── user_flow.md                      # All user journey scenarios
-│   ├── judge_playbook.md                 # Hackathon judging Q&A
-│   ├── demo_guide.md                     # Step-by-step demo script
-│   └── generated/                        # Generated PDFs and reports
-└── requirements.txt
+│   ├── architecture.md                  # System design + agent pipeline diagrams
+│   ├── user_flow.md                     # All 8 user journey scenarios (S1–S8 incl. PII)
+│   ├── judge_playbook.md               # Hackathon judging Q&A
+│   ├── TODO.md                          # Task tracker (completed + pending items)
+│   └── CertPrep_MultiAgent_Architecture.drawio  # Architecture diagram source
+│
+└── archive/                             # Old planning files (not in production path)
 ```
+
+### Why two `.env` files?
+
+| File | Committed? | Purpose |
+|------|-----------|---------|
+| `.env` | ❌ Never (gitignored) | Your real secrets — Azure keys, endpoints, passwords |
+| `.env.example` | ✅ Yes | Safe template listing every required variable with placeholders — copy to `.env` and fill in |
+
+**To go Live:** copy `.env.example` → `.env`, fill real Azure values, restart app. The toggle switches automatically.
 
 ---
 
