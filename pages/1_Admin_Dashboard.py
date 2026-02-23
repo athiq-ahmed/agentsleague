@@ -204,10 +204,9 @@ with st.sidebar:
     st.markdown("### 🔐 Admin Panel")
     st.markdown(f"Signed in as **{MOCK_USER}**")
     if st.button("Sign Out", use_container_width=True):
-        st.session_state["admin_logged_in"] = False
         for k in list(st.session_state.keys()):
             del st.session_state[k]
-        st.rerun()
+        st.switch_page("streamlit_app.py")
     st.markdown("---")
     st.markdown(
         "<a href='/' target='_self' style='color:#0078D4;font-weight:600;"
