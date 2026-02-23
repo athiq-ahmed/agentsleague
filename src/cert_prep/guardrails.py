@@ -184,7 +184,7 @@ class InputGuardrails:
             violations.append(GuardrailViolation(
                 code="G-04", level=GuardrailLevel.WARN,
                 field="exam_target",
-                message=f"Exam code '{code}' not in recognised catalogue. Proceeding, but content may default to AI-102.",
+                message=f"Exam code '{code}' not in recognised catalogue. Proceeding, but content may default to the primary registered exam.",
             ))
 
         # G-05 PII notice (info only)

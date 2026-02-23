@@ -1,7 +1,7 @@
 """
 learning_path_curator.py – Learning Path Curator Agent (Block 1.1)
 ===================================================================
-Maps each AI-102 domain in a LearnerProfile to curated Microsoft Learn
+Maps exam domains in a LearnerProfile to curated Microsoft Learn
 modules, producing a personalised reading list ordered by study priority.
 
 Architecture role:

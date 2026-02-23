@@ -51,7 +51,7 @@ class LearnerIntakeAgent:
     the CLI feels polished.
     """
 
-    BANNER = "[bold magenta]AI-102 Certification Prep — Learner Intake[/bold magenta]"
+    BANNER = "[bold magenta]Microsoft Certification Prep — Learner Intake[/bold magenta]"
 
     def run(self) -> RawStudentInput:
         console.print()
