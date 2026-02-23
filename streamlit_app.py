@@ -361,10 +361,18 @@ if not st.session_state["authenticated"]:
       .demo-card .dc-icon { font-size: 1.35rem; line-height: 1; margin-bottom: 5px; }
       .demo-card .dc-title { font-size: 0.82rem; font-weight: 700; color: #0C3C78; line-height: 1.3; }
       .demo-card .dc-sub { font-size: 0.68rem; color: #1A56A0; margin-top: 3px; }
-      /* Invisible button sits directly after the card markup; overlay it */
+      /* Collapse the element-container holding the invisible button so it adds no height */
+      div.element-container:has(.demo-card) + div.element-container {
+        height: 0 !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      /* Invisible button overlays the card above */
       div.element-container:has(.demo-card) + div.element-container .stButton > button {
         height: 90px !important;
-        margin-top: -94px !important;
+        margin-top: -90px !important;
         background: transparent !important;
         border: none !important;
         box-shadow: none !important;
@@ -399,11 +407,9 @@ if not st.session_state["authenticated"]:
       /* Divider */
       .or-sep {
         display: flex; align-items: center; gap: 8px;
-        margin: 2px 0 4px; color: #a0a0a0;
+        margin: 4px 0; color: #a0a0a0;
         font-size: 0.65rem;
       }
-      /* Remove default Streamlit gap above the or-sep divider */
-      div.element-container:has(.or-sep) { margin-top: -8px !important; }
       .or-sep::before, .or-sep::after {
         content: ''; flex: 1; height: 1px;
         background: #E1DFDD;
