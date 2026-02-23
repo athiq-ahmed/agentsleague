@@ -716,8 +716,9 @@ if not st.session_state["authenticated"]:
                 _db_p = get_student("Priyanka Sharma")
                 if _db_p and _db_p.get("profile_json"):
                     import json as _json_ql
-                    st.session_state["profile"] = LearnerProfile.model_validate_json(_db_p["profile_json"])
-                    st.session_state["raw"]     = _raw_from_dict(_json_ql.loads(_db_p["raw_input_json"]))
+                    st.session_state["profile"]          = LearnerProfile.model_validate_json(_db_p["profile_json"])
+                    st.session_state["intake_submitted"] = True
+                    st.session_state["raw"]              = _raw_from_dict(_json_ql.loads(_db_p["raw_input_json"]))
                     if _db_p.get("plan_json"):
                         st.session_state["plan"] = _study_plan_from_dict(_json_ql.loads(_db_p["plan_json"]))
                     if _db_p.get("learning_path_json"):
@@ -808,8 +809,9 @@ if not st.session_state["authenticated"]:
                 if _db_student and _db_student.get("profile_json"):
                     import json as _json
                     from cert_prep.models import LearnerProfile, RawStudentInput
-                    st.session_state["profile"] = LearnerProfile.model_validate_json(_db_student["profile_json"])
-                    st.session_state["raw"] = _raw_from_dict(_json.loads(_db_student["raw_input_json"]))
+                    st.session_state["profile"]          = LearnerProfile.model_validate_json(_db_student["profile_json"])
+                    st.session_state["intake_submitted"] = True
+                    st.session_state["raw"]              = _raw_from_dict(_json.loads(_db_student["raw_input_json"]))
                     st.session_state["badge"] = _db_student.get("badge", "🧪 Mock mode")
                     if _db_student.get("plan_json"):
                         st.session_state["plan"] = _study_plan_from_dict(_json_mod.loads(_db_student["plan_json"]))
@@ -950,6 +952,7 @@ st.markdown(f"""
     user-select: none;
     margin-bottom: 5px;
     box-sizing: border-box;
+    overflow: hidden;
   }}
   .sb-sc-card.active {{
     background: rgba(255,255,255,0.22);
@@ -957,8 +960,8 @@ st.markdown(f"""
     box-shadow: 0 2px 8px rgba(0,0,0,0.18);
   }}
   .sb-sc-card .sbc-icon {{ font-size: 1.1rem; flex-shrink: 0; line-height: 1; }}
-  .sb-sc-card .sbc-body {{ display: flex; flex-direction: row; align-items: center; gap: 6px; min-width: 0; flex: 1; }}
-  .sb-sc-card .sbc-title {{ font-size: 0.78rem; font-weight: 600; color: rgba(255,255,255,0.92); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }}
+  .sb-sc-card .sbc-body {{ display: flex; flex-direction: row; align-items: center; gap: 6px; min-width: 0; flex: 1; overflow: hidden; }}
+  .sb-sc-card .sbc-title {{ display: block; font-size: 0.78rem; font-weight: 600; color: rgba(255,255,255,0.92); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }}
   .sb-sc-card.active .sbc-title {{ color: #fff; font-weight: 700; }}
   .sb-sc-card .sbc-badge {{
     display: inline-block; font-size: 0.6rem; font-weight: 700;
@@ -1495,7 +1498,9 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     # Navigation section — DEMO SCENARIOS for new users only
-    _is_returning_user = "profile" in st.session_state
+    # Use intake_submitted flag (set only after form run or DB profile load at login)
+    # so that Reset Scenario never hides the section — it only clears the selection.
+    _is_returning_user = st.session_state.get("intake_submitted", False)
 
     if not _is_returning_user:
         st.markdown(
@@ -2061,6 +2066,7 @@ if submitted:
         st.warning("Profile has critical issues; results may be unreliable.")
 
     st.session_state["profile"]           = profile
+    st.session_state["intake_submitted"]   = True
     st.session_state["raw"]               = raw
     st.session_state["badge"]             = mode_badge
     st.session_state.pop("editing_profile", None)  # exit edit mode after save
