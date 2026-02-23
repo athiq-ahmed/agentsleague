@@ -958,7 +958,7 @@ st.markdown(f"""
   }}
   .sb-sc-card .sbc-icon {{ font-size: 1.1rem; flex-shrink: 0; line-height: 1; }}
   .sb-sc-card .sbc-body {{ display: flex; flex-direction: row; align-items: center; gap: 6px; min-width: 0; flex: 1; }}
-  .sb-sc-card .sbc-title {{ font-size: 0.78rem; font-weight: 600; color: rgba(255,255,255,0.92); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+  .sb-sc-card .sbc-title {{ font-size: 0.78rem; font-weight: 600; color: rgba(255,255,255,0.92); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }}
   .sb-sc-card.active .sbc-title {{ color: #fff; font-weight: 700; }}
   .sb-sc-card .sbc-badge {{
     display: inline-block; font-size: 0.6rem; font-weight: 700;
@@ -972,15 +972,15 @@ st.markdown(f"""
     margin-bottom: 0 !important; padding-bottom: 0 !important;
   }}
   div.element-container:has(.sb-sc-card) + div.element-container {{
-    height: 0 !important; min-height: 0 !important;
-    overflow: visible !important; margin: 0 !important; padding: 0 !important;
+    margin-top: -46px !important;
+    position: relative !important; z-index: 5 !important;
+    margin-bottom: 5px !important;
   }}
   div.element-container:has(.sb-sc-card) + div.element-container .stButton > button {{
-    height: 54px !important; margin-top: -54px !important;
+    height: 42px !important;
     background: transparent !important; border: none !important;
     box-shadow: none !important; opacity: 0 !important;
-    cursor: pointer !important; position: relative !important;
-    z-index: 10 !important; width: 100% !important;
+    cursor: pointer !important; width: 100% !important;
   }}
   div.element-container:has(.sb-sc-card:not(.active)):has(+ div.element-container .stButton > button:hover) .sb-sc-card {{
     background: rgba(255,255,255,0.22);
