@@ -932,7 +932,9 @@ st.markdown(f"""
   [data-testid="collapsedControl"] {{ display: none !important; }}
 
   /* Toggle label — no wrap */
-  [data-testid="stToggle"] label p {{ white-space: nowrap !important; }}
+  [data-testid="stToggle"] label p,
+  [data-testid="stToggle"] label span,
+  [data-testid="stToggle"] p {{ white-space: nowrap !important; min-width: max-content; }}
 
   /* Sidebar scenario cards */
   .sb-sc-card {{
@@ -1610,7 +1612,7 @@ _PREFILL_SCENARIOS = {
 prefill = {}
 
 # ─── Live / Mock mode toggle (main page) ─────────────────────────────────────
-_tgl_c1, _tgl_c2, _tgl_c3 = st.columns([1.6, 4.5, 5.9])
+_tgl_c1, _tgl_c2, _tgl_c3 = st.columns([2.2, 4.0, 5.8])
 with _tgl_c1:
     _tog_val = st.toggle(
         "Live Mode",
