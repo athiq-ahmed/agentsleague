@@ -938,52 +938,51 @@ st.markdown(f"""
 
   /* Sidebar scenario cards */
   .sb-sc-card {{
-    background: rgba(235,244,255,0.97);
-    border: 1.5px solid rgba(168,207,238,0.9);
+    background: rgba(255,255,255,0.13);
+    border: 1px solid rgba(255,255,255,0.25);
     border-radius: 8px;
-    padding: 0 12px;
-    height: 50px;
-    display: flex; flex-direction: row; align-items: center; gap: 9px;
+    padding: 0 10px;
+    height: 42px;
+    display: flex; flex-direction: row; align-items: center; gap: 8px;
     cursor: pointer;
-    transition: all 0.15s ease;
-    box-shadow: 0 1px 5px rgba(0,0,0,0.18);
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
     pointer-events: none;
     user-select: none;
-    margin-bottom: 4px;
+    margin-bottom: 5px;
     box-sizing: border-box;
   }}
   .sb-sc-card.active {{
-    background: rgba(0,90,180,0.88);
-    border-color: rgba(255,255,255,0.5);
+    background: rgba(255,255,255,0.22);
+    border-color: rgba(255,255,255,0.55);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
   }}
-  .sb-sc-card .sbc-icon {{ font-size: 1.1rem; flex-shrink: 0; }}
-  .sb-sc-card .sbc-body {{ display: flex; flex-direction: column; min-width: 0; }}
-  .sb-sc-card .sbc-title {{ font-size: 0.76rem; font-weight: 700; color: #0C3C78; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
-  .sb-sc-card.active .sbc-title {{ color: #fff; }}
+  .sb-sc-card .sbc-icon {{ font-size: 1.1rem; flex-shrink: 0; line-height: 1; }}
+  .sb-sc-card .sbc-body {{ display: flex; flex-direction: row; align-items: center; gap: 6px; min-width: 0; flex: 1; }}
+  .sb-sc-card .sbc-title {{ font-size: 0.78rem; font-weight: 600; color: rgba(255,255,255,0.92); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+  .sb-sc-card.active .sbc-title {{ color: #fff; font-weight: 700; }}
   .sb-sc-card .sbc-badge {{
-    display: inline-block; font-size: 0.62rem; font-weight: 700;
-    color: #0063B1; background: rgba(0,120,212,0.1);
-    border: 1px solid rgba(0,120,212,0.22);
-    border-radius: 10px; padding: 1px 7px; margin-top: 2px;
-    white-space: nowrap;
+    display: inline-block; font-size: 0.6rem; font-weight: 700;
+    color: rgba(255,255,255,0.75); background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 10px; padding: 1px 6px;
+    white-space: nowrap; flex-shrink: 0; letter-spacing: 0.02em;
   }}
-  .sb-sc-card.active .sbc-badge {{ color: rgba(255,255,255,0.9); background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.3); }}
+  .sb-sc-card.active .sbc-badge {{ color: #fff; background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.4); }}
   div.element-container:has(.sb-sc-card) + div.element-container {{
     height: 0 !important; min-height: 0 !important;
     overflow: visible !important; margin: 0 !important; padding: 0 !important;
   }}
   div.element-container:has(.sb-sc-card) + div.element-container .stButton > button {{
-    height: 50px !important; margin-top: -50px !important;
+    height: 42px !important; margin-top: -42px !important;
     background: transparent !important; border: none !important;
     box-shadow: none !important; opacity: 0 !important;
     cursor: pointer !important; position: relative !important;
     z-index: 10 !important; width: 100% !important;
   }}
   div.element-container:has(.sb-sc-card:not(.active)):has(+ div.element-container .stButton > button:hover) .sb-sc-card {{
-    background: rgba(204,228,248,0.98);
-    border-color: #0078D4;
-    box-shadow: 0 3px 10px rgba(0,120,212,0.22);
-    transform: translateY(-1px);
+    background: rgba(255,255,255,0.22);
+    border-color: rgba(255,255,255,0.45);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
   }}
 
   /* Intake form card sections */
