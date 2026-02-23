@@ -55,6 +55,13 @@ import os
 import concurrent.futures
 import time
 
+# Load .env into os.environ before any Azure SDK or config imports
+try:
+    from dotenv import load_dotenv as _load_dotenv
+    _load_dotenv(override=False)  # env vars set externally (e.g. Streamlit Cloud secrets) take priority
+except ImportError:
+    pass  # python-dotenv is optional; env vars may already be set
+
 # Color constants
 BG_DARK = "#F5F5F5"
 BG_CARD = "#FFFFFF"
@@ -1348,9 +1355,25 @@ _login_name = st.session_state.get("login_name", "Learner")
 _utype = st.session_state.get("user_type", "learner")
 is_returning = "profile" in st.session_state
 
-# Profiling mode (default mock)
-use_live = False
-az_endpoint = az_key = az_deployment = ""
+# ─── Auto-detect live mode from environment variables ───────────────────────
+# Live mode activates automatically when both AZURE_OPENAI_ENDPOINT and
+# AZURE_OPENAI_API_KEY are set with real (non-placeholder) values in .env.
+# Override with FORCE_MOCK_MODE=true to stay in mock mode regardless.
+def _is_real_value(v: str) -> bool:
+    return bool(v) and "<" not in v and not v.startswith("your-")
+
+_env_endpoint   = os.getenv("AZURE_OPENAI_ENDPOINT",   "").rstrip("/")
+_env_api_key    = os.getenv("AZURE_OPENAI_API_KEY",     "")
+_env_deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT",  "gpt-4o")
+_env_version    = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
+_force_mock     = os.getenv("FORCE_MOCK_MODE", "false").lower() in ("1", "true", "yes")
+
+_env_live = _is_real_value(_env_endpoint) and _is_real_value(_env_api_key) and not _force_mock
+
+use_live     = _env_live
+az_endpoint  = _env_endpoint  if _env_live else ""
+az_key       = _env_api_key   if _env_live else ""
+az_deployment= _env_deployment if _env_live else ""
 
 # ─── Sidebar navigation (blue panel) ───────────────────────────────────────
 with st.sidebar:
@@ -1435,6 +1458,30 @@ with st.sidebar:
         for k in list(st.session_state.keys()):
             del st.session_state[k]
         st.rerun()
+
+    # ── Azure services mode badge ─────────────────────────────────────────
+    st.markdown("---")
+    if _env_live:
+        _badge_col = "#22c55e"   # green
+        _badge_icon = "☁️"
+        _badge_text = "Live Azure Mode"
+        _badge_sub  = "OpenAI + guardrails active"
+    else:
+        _badge_col = "#94a3b8"   # grey
+        _badge_icon = "🧪"
+        _badge_text = "Mock Mode"
+        _badge_sub  = "Fill .env to switch to live"
+    st.markdown(f"""
+    <div style="background:rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;margin-top:4px;">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="font-size:1rem;">{_badge_icon}</span>
+        <div>
+          <div style="color:#fff;font-size:0.75rem;font-weight:600;">{_badge_text}</div>
+          <div style="color:{_badge_col};font-size:0.62rem;">{_badge_sub}</div>
+        </div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 # ─── Pre-fill values per scenario ────────────────────────────────────────────
@@ -1765,10 +1812,10 @@ if submitted:
     # ── Profile generation ────────────────────────────────────────────────────
     if use_live:
         try:
-            import os
             os.environ["AZURE_OPENAI_ENDPOINT"]    = az_endpoint
             os.environ["AZURE_OPENAI_API_KEY"]     = az_key
             os.environ["AZURE_OPENAI_DEPLOYMENT"]  = az_deployment
+            os.environ["AZURE_OPENAI_API_VERSION"] = _env_version
 
             from cert_prep.b0_intake_agent import LearnerProfilingAgent
             with st.spinner("☁️ Calling Azure OpenAI — analysing profile…"):
@@ -1778,7 +1825,8 @@ if submitted:
         except Exception as e:
             st.error(f"Azure OpenAI call failed: {e}")
             st.info("Falling back to mock profiler.")
-            profile = run_mock_profiling(raw)
+            profile, trace = run_mock_profiling_with_trace(raw)
+            st.session_state["trace"] = trace
             mode_badge = "🧪 Mock (fallback)"
     else:
         with st.spinner("🧪 Running rule-based profiler…"):

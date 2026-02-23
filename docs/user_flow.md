@@ -7,7 +7,8 @@
 ## Navigation Map
 
 | Scenario | User Type | Mode | Entry Point |
-|---|---|---|---|
+|---|---|---|-
+--|
 | [S1 — New Learner, AI-102](#s1--new-learner-ai-102-from-scratch) | First-time user | Mock | Login → Intake Form → Full pipeline |
 | [S2 — Returning Learner, DP-100](#s2--returning-learner-dp-100-profile-on-file) | Returning user | Mock | Login → Restore → Progress → Quiz |
 | [S3 — Live Azure OpenAI Mode](#s3--live-azure-openai-mode) | New user with Azure credentials | Live GPT-4o | Login → Intake → Azure profiling |
@@ -15,6 +16,7 @@
 | [S5 — Remediation Loop](#s5--remediation-loop-score--70) | Any learner | Mock/Live | After quiz — score < 70% |
 | [S6 — Edit Profile](#s6--returning-user-edits-profile) | Returning user | Mock/Live | Profile card → Edit |
 | [S7 — Guardrail BLOCK](#s7--guardrail-block-scenarios) | Any user | Any | Various — invalid inputs |
+| [S8 — PII in Background Text](#s8--pii-personally-identifiable-information-in-background-text) | Any user | Any | Intake form — G-16 PII scan |
 
 ---
 
@@ -489,6 +491,149 @@ st.session_state = {
 | `st.stop()` | G-01..G-05 BLOCK | Invalid form input | User corrects form and resubmits |
 | `st.stop()` | G-06..G-08 BLOCK | Invalid profiler output | Switch to live mode or report bug |
 | `st.stop()` | G-16 BLOCK | Harmful content in background | User rewrites background text |
+| `st.warning()` | G-16 WARN | PII detected in background text | User removes personal data; pipeline continues |
 | `st.warning()` | G-09..G-10 WARN | Plan hours slightly over budget | Pipeline continues with caution banner |
 | `st.warning()` | G-17 WARN | Unverified URL in path | URL removed; rest of path delivered |
 | Auto-fallback | Azure error | Network / quota / auth failure | Mock profiler used transparently |
+
+---
+
+## S8 — PII (Personally Identifiable Information) in Background Text
+
+**Persona:** Any user who inadvertently pastes personal data into the "Tell us about your background" field.  
+**Trigger:** G-16 PII scan runs on `background_text` and `goal_text` before the profiler agent executes.  
+**Guardrail level:** WARN (pipeline continues, user is notified) — unless harmful keywords are also present (BLOCK).
+
+---
+
+### Sub-scenario A — SSN in Background Text
+
+```
+User types in the background text field:
+  "I have 15 years of Python experience. My SSN is 123-45-6789 and I want..."
+
+[InputGuardrails.check() — G-16 PII scan]
+  _PII_PATTERNS check on background_text:
+    Pattern: SSN  →  r"\b\d{3}[-\s]\d{2}[-\s]\d{4}\b"
+    Match:  '123-45-6789'  ✓ FOUND
+
+  GuardrailViolation(
+    code    = "G-16",
+    level   = GuardrailLevel.WARN,   ← WARN, not BLOCK
+    field   = "background_text",
+    message = "[PII Detected — SSN] Social Security Number detected. "
+              "Please remove personal data from your text before submitting."
+  )
+
+[Orchestrator renders WARN banner]
+  st.warning(
+    "⚠️ [G-16] [PII Detected — SSN] Social Security Number detected. "
+    "Please remove personal data from your text before submitting."
+  )
+
+[Pipeline continues]
+  The learner profiler still runs — study plan is generated.
+  The SSN is NOT stored in the agent input that goes to Azure OpenAI.
+  → mock mode: profiler only uses semantic patterns; SSN is ignored by rule engine
+  → live mode: G-16 banner is shown BEFORE the OpenAI call is made,
+               giving the user a chance to edit; if ignored, the text is sent
+               but Azure OpenAI itself will not act on an SSN in a background bio
+```
+
+### Sub-scenario B — Credit Card Number
+
+```
+User background text:
+  "I'm a developer. Card: 4111 1111 1111 1111 — ignore this."
+
+[G-16 PII scan]
+  Pattern: Credit card  →  Visa prefix 4xxx + 16-digit check
+  Match: '4111 1111 1111 1111'  ✓ FOUND
+
+  WARN: "[PII Detected — Credit card] Credit card number pattern detected.
+          Please remove personal data from your text before submitting."
+
+  Pipeline continues. Credit card number is not stored in learning path or quiz data.
+```
+
+### Sub-scenario C — Email Address in Background Field
+
+```
+User background text:
+  "I'm jane.doe@company.com, senior engineer with 8 years experience."
+
+[G-16 PII scan]
+  Pattern: Email in bio  →  r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"
+  Match: 'jane.doe@company.com'  ✓ FOUND
+
+  WARN: "[PII Detected — Email in bio] Email address detected in background text —
+          consider removing personal contact details."
+
+  Note: This is a WARN not a BLOCK because some users legitimately include
+  their work email when describing their context. The user is informed and
+  can choose to remove it.
+```
+
+### Sub-scenario D — Harmful Keyword (BLOCK)
+
+```
+User background text:
+  "I want to bomb this exam."
+
+[G-16 harmful scan]
+  _HARMFUL_PATTERN match: 'bomb'
+
+  GuardrailViolation(
+    code  = "G-16",
+    level = GuardrailLevel.BLOCK,
+    message = "Potentially harmful content detected — pipeline halted."
+  )
+
+  st.error("🚫 Guardrail [G-16]: Potentially harmful content detected — pipeline halted.")
+  st.stop()  ← pipeline halts; no agent runs
+
+  User must edit the background text before resubmitting.
+  Note: common exam idioms like "ace", "pass", "crush" are NOT in the blocklist.
+```
+
+### What Data is Retained After a G-16 WARN?
+
+| Data | Stored? | Notes |
+|------|---------|-------|
+| Full `background_text` including PII | SQLite `raw_inputs` table | Yes — stored as submitted (user was warned) |
+| PII → Azure OpenAI | No (mock mode) | Rule engine ignores non-semantic tokens |
+| PII → Azure OpenAI | Possible (live mode, user ignored warning) | G-16 fires before spinner; user sees warning |
+| `guardrail_violations` table | Yes — violation logged with `field=background_text`, code G-16 | Visible in Admin Dashboard |
+
+### Production Upgrade: Azure AI Content Safety
+
+In production (Phase 2), G-16 is upgraded from heuristic regex to the **Azure AI Content Safety API**:
+
+```python
+from azure.ai.contentsafety import ContentSafetyClient
+from azure.core.credentials import AzureKeyCredential
+from cert_prep.config import get_settings
+
+def check_content_safety(text: str) -> list[str]:
+    cfg = get_settings().content_safety
+    if not cfg.is_configured:
+        return []   # graceful degradation to regex fallback
+
+    client = ContentSafetyClient(
+        endpoint=cfg.endpoint,
+        credential=AzureKeyCredential(cfg.api_key)
+    )
+    response = client.analyze_text({"text": text})
+    flagged = []
+    for cat in response.categories_analysis:
+        if cat.severity >= cfg.threshold:   # default: 2 = medium+
+            flagged.append(f"{cat.category} (severity {cat.severity})")
+    return flagged
+```
+
+This replaces regex with Microsoft's managed multi-lingual content moderation model, covering:
+- Hate speech and violence
+- Sexual content
+- Self-harm language
+- Professional language norms
+- PII via Azure Purview integration (roadmap)

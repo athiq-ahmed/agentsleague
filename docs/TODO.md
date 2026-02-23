@@ -4,7 +4,7 @@
 > **Project:** Microsoft Certification Prep Multi-Agent System  
 > **Track:** Reasoning Agents with Microsoft Foundry  
 > **Subscription:** Pay-As-You-Go (recommended) or MSDN/Visual Studio  
-> **Last updated:** 2026-02-22
+> **Last updated:** 2026-07-10
 
 ---
 
@@ -40,7 +40,7 @@
 
 - [ ] Resource created
 - [ ] Model deployed
-- [ ] `.env` updated & tested
+- [x] `.env` template created & auto live-mode wired in `streamlit_app.py`
 
 ---
 
@@ -66,8 +66,8 @@
 
 - [ ] Hub + Project created
 - [ ] OpenAI resource connected
-- [ ] Connection string in `.env`
-- [ ] SDK installed
+- [x] Connection string placeholder in `.env` (`AZURE_AI_PROJECT_CONNECTION_STRING`)
+- [ ] SDK installed (`pip install azure-ai-projects azure-ai-agents`)
 
 ---
 
@@ -90,7 +90,9 @@
 4. Used by `guardrails.py` for PII filtering and content moderation
 
 - [ ] Resource created
-- [ ] Integrated into guardrails pipeline
+- [x] Placeholder in `.env` (`AZURE_CONTENT_SAFETY_ENDPOINT/KEY/THRESHOLD`)
+- [x] Regex-based G-16 heuristic active (7 PII patterns + 14 harmful keywords)
+- [ ] Upgrade G-16 to use Azure Content Safety API (`check_content_safety()` stub ready in `docs/user_flow.md`)
 
 ---
 
@@ -112,6 +114,7 @@
 4. Used by `progress_agent.py` → `attempt_send_email()` for weekly summaries
 
 - [ ] Resource created (optional — app works without it)
+- [x] Placeholders in `.env` (`AZURE_COMM_CONNECTION_STRING`, `AZURE_COMM_SENDER_EMAIL`)
 
 ---
 
@@ -131,6 +134,7 @@
 
 - [ ] Node.js 18+ installed
 - [ ] MCP server running
+- [x] Placeholder in `.env` (`MCP_MSLEARN_URL=http://localhost:3001`)
 - [ ] Integrated into Learning Path Curator agent
 
 ---
@@ -152,16 +156,20 @@
   - Add Foundry's built-in evaluation for each agent
   - Track: latency, token usage, answer relevance, factual accuracy
   - Create rubric for grading agent reasoning quality
+- [ ] **Create Azure resource group** `rg-agentsleague` and provision OpenAI resource
+- [ ] **Deploy gpt-4o model** in Azure OpenAI Studio (30K TPM quota)
+- [ ] **Fill real values** in `.env` — app auto-switches to live mode once done
 
 ### 🟡 Should Do (Strengthens Submission)
 
 - [ ] **MCP integration** — real MS Learn content instead of static mock data
-- [ ] **Content Safety** — wire guardrails to Azure AI Content Safety API
-- [ ] **Email engagement** — wire `attempt_send_email()` to Azure Communication Services
+- [ ] **Content Safety API** — upgrade G-16 from regex to `azure-ai-contentsafety` SDK
+- [ ] **Wire `attempt_send_email()`** — connect `AzureCommConfig` in `b1_2_progress_agent.py`
 - [ ] **Record demo video** (3–5 min) showing:
   - New learner flow → profile generation → study plan → quiz
   - Returning learner → progress tracking → readiness assessment
   - Admin dashboard → agent trace inspection
+  - G-16 PII scenario (S8) — user types SSN, sees WARN banner, pipeline continues
 
 ### 🟢 Nice to Have
 
@@ -208,6 +216,16 @@
 - [x] Agent orchestration patterns documented (Sequential Pipeline, Typed Handoff, HITL Gates, Conditional Routing)
 - [x] Judge playbook created (`docs/judge_playbook.md`)
 - [x] Guardrails documented across README, architecture, and judge playbook
+- [x] `.env` updated — all 15 Azure service fields across 6 sections
+- [x] `.env.example` created — safe committed template (placeholders only)
+- [x] `config.py` expanded — `Settings` dataclass covering OpenAI + Foundry + Content Safety + Comm + MCP + App
+- [x] Auto live-mode detection in `streamlit_app.py` — switches when real Azure creds present
+- [x] `load_dotenv()` wired into app startup
+- [x] Sidebar Azure mode badge (green = live / grey = mock)
+- [x] G-16 upgraded — real 14-keyword harmful pattern + 7 PII regex patterns (SSN, CC, passport, UK NI, email, phone, IP)
+- [x] G-16 PII scan added to `InputGuardrails.check()` — fires before any agent runs
+- [x] S8 PII scenario documented in `docs/user_flow.md` (sub-scenarios A–D + production upgrade path)
+- [x] `tests/` folder created with `test_guardrails.py`, `test_config.py`, `test_agents.py`
 
 ---
 

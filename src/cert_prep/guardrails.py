@@ -109,9 +109,55 @@ VALID_DOMAIN_IDS = {
 }
 
 _HARMFUL_PATTERN = re.compile(
-    r"\b(profanity_placeholder|harmful_content_placeholder)\b",
+    r"\b(fuck|shit|bitch|cunt|asshole|bastard|damn|hell|crap"
+    r"|kill\s+myself|suicide|self.harm"
+    r"|bomb|terrorist|weapon|explosive"
+    r"|hack|exploit|malware|ransomware|phishing"
+    r"|profanity_placeholder|harmful_content_placeholder)\b",
     re.IGNORECASE,
 )
+
+# PII detection — catches real identity data in free-text fields
+# Fires G-16 WARN (not BLOCK) so the user is alerted and can remove it,
+# but the study pipeline still continues.
+_PII_PATTERNS: list[tuple[str, str, re.Pattern]] = [
+    # (guardrail_label, description, compiled_pattern)
+    (
+        "SSN",
+        "Social Security Number detected",
+        re.compile(r"\b\d{3}[-\s]\d{2}[-\s]\d{4}\b"),
+    ),
+    (
+        "Credit card",
+        "Credit card number pattern detected",
+        re.compile(r"\b(?:4\d{3}|5[1-5]\d{2}|6011|3[47]\d{2})[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4}\b"),
+    ),
+    (
+        "Passport",
+        "Passport number pattern detected",
+        re.compile(r"\b[A-Z]{1,2}\d{6,9}\b"),
+    ),
+    (
+        "UK NI number",
+        "UK National Insurance number detected",
+        re.compile(r"\b[A-CEGHJ-PR-TW-Z]{2}\s?\d{2}\s?\d{2}\s?\d{2}\s?[A-D]\b", re.IGNORECASE),
+    ),
+    (
+        "Email in bio",
+        "Email address detected in background text — consider removing personal contact details",
+        re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b"),
+    ),
+    (
+        "Phone number",
+        "Phone number detected in background text",
+        re.compile(r"\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b"),
+    ),
+    (
+        "IP address",
+        "IP address detected in background text",
+        re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"),
+    ),
+]
 
 TRUSTED_URL_PREFIXES = (
     "https://learn.microsoft.com",
@@ -196,6 +242,15 @@ class InputGuardrails:
                 "not transmitted to external services in mock mode."
             ),
         ))
+
+        # G-16 PII scan on free-text fields (background_text, goal_text)
+        _content_guard = OutputContentGuardrails()
+        for _field, _val in [
+            ("background_text", raw_input.background_text),
+            ("goal_text",       getattr(raw_input, "goal_text", "")),
+        ]:
+            _text_result = _content_guard.check_text(_val, _field)
+            violations.extend(_text_result.violations)
 
         return GuardrailResult(
             passed=not any(v.level == GuardrailLevel.BLOCK for v in violations),
@@ -344,14 +399,27 @@ class OutputContentGuardrails:
     """G-16 – G-17: Validates free-text and URL fields in all agent outputs."""
 
     def check_text(self, text: str, field_name: str = "") -> GuardrailResult:
-        """G-16 – Heuristic harmful content check on a text field."""
+        """G-16 – Check for harmful content (BLOCK) and PII patterns (WARN)."""
         violations: list[GuardrailViolation] = []
+
+        # BLOCK: harmful/profanity/dangerous keywords
         if _HARMFUL_PATTERN.search(text):
             violations.append(GuardrailViolation(
                 code="G-16", level=GuardrailLevel.BLOCK,
                 field=field_name,
-                message="Potentially harmful content detected in output text.",
+                message="Potentially harmful content detected — pipeline halted.",
             ))
+
+        # WARN: PII patterns — alert the user but don't block the pipeline
+        for label, description, pattern in _PII_PATTERNS:
+            if pattern.search(text):
+                violations.append(GuardrailViolation(
+                    code="G-16", level=GuardrailLevel.WARN,
+                    field=field_name,
+                    message=f"[PII Detected — {label}] {description}. "
+                            "Please remove personal data from your text before submitting.",
+                ))
+
         return GuardrailResult(
             passed=not any(v.level == GuardrailLevel.BLOCK for v in violations),
             violations=violations,
