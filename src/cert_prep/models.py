@@ -319,6 +319,7 @@ class RawStudentInput:
     concern_topics:    list[str]              # e.g. ["Azure OpenAI", "Bot Service"]
     preferred_style:   str                    # free-text learning preference
     goal_text:         str                    # why they want to pass
+    email:             str = ""              # optional contact email (used for weekly digest)
 
 
 # ─── Block 1 Output Models ───────────────────────────────────────────────────

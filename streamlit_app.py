@@ -1442,7 +1442,8 @@ _PREFILL_SCENARIOS = {
     "Blank — start from scratch": {},
     "Alex Chen — complete beginner, AI-102": {
         "exam": "AI-102 – Azure AI Engineer Associate",
-        "name": "Alex Chen", "background": "Recent computer science graduate, basic Python skills, no cloud or Azure experience at all.",
+        "name": "Alex Chen", "email": "alex.chen@demo.com",
+        "background": "Recent computer science graduate, basic Python skills, no cloud or Azure experience at all.",
         "certs": "", "style": "Hands-on labs and step-by-step tutorials",
         "hpw": 12.0, "weeks": 10, "concerns": "Azure Cognitive Services, Azure OpenAI, Bot Service",
         "goal": "Break into AI engineering as a first job after graduation",
@@ -1452,7 +1453,8 @@ _PREFILL_SCENARIOS = {
     },
     "Priyanka Sharma — data scientist, DP-100": {
       "exam": "DP-100 – Azure Data Scientist Associate",
-      "name": "Priyanka Sharma", "background": "5 years in data analytics with Python and SQL. Experienced with scikit-learn, Jupyter notebooks and Azure ML experiments. Looking to formalise ML skills on Azure.",
+      "name": "Priyanka Sharma", "email": "priyanka.sharma@demo.com",
+      "background": "5 years in data analytics with Python and SQL. Experienced with scikit-learn, Jupyter notebooks and Azure ML experiments. Looking to formalise ML skills on Azure.",
       "certs": "AZ-900, AI-900", "style": "Video tutorials and hands-on labs",
       "hpw": 8.0, "weeks": 6, "concerns": "Azure Machine Learning, hyperparameter tuning, model deployment, MLflow, data drift",
       "goal": "Earn DP-100 to move into an Azure ML Engineer role",
@@ -1520,6 +1522,8 @@ if is_returning and not st.session_state.get("editing_profile", False):
 
     _fv1, _fv2, _fv3 = st.columns(3)
     with _fv1:
+        _email_disp = getattr(_raw_r, "email", "") or st.session_state.get("user_email", "")
+        _email_row = f'<div style="color:{TEXT_MUTED};font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-top:10px;margin-bottom:4px;">📧 Email</div><div style="font-size:0.82rem;color:{TEXT_PRIMARY};">{_email_disp if _email_disp else "—"}</div>' if True else ""
         st.markdown(f"""
         <div class="intake-card">
           <div style="color:{TEXT_MUTED};font-size:0.68rem;font-weight:700;text-transform:uppercase;
@@ -1530,6 +1534,7 @@ if is_returning and not st.session_state.get("editing_profile", False):
           <div style="font-size:0.87rem;font-weight:600;color:{TEXT_PRIMARY};">
             {_raw_r.hours_per_week} hr/wk &middot; {_raw_r.weeks_available} weeks
           </div>
+          {_email_row}
         </div>""", unsafe_allow_html=True)
     with _fv2:
         _certs_disp   = ", ".join(_raw_r.existing_certs) if _raw_r.existing_certs else "None yet"
@@ -1565,6 +1570,7 @@ else:
         _raw_r = st.session_state["raw"]
         prefill = {
             "name":       _raw_r.student_name,
+            "email":      getattr(_raw_r, "email", st.session_state.get("user_email", "")),
             "exam":       next((c for c in AZURE_CERTS if c.startswith(_raw_r.exam_target)), DEFAULT_CERT),
             "background": _raw_r.background_text,
             "certs":      ", ".join(_raw_r.existing_certs),
@@ -1685,6 +1691,12 @@ else:
                 _role_default = _role_options.index(_prefill_role)
             current_role = st.selectbox("What's your current role?", options=_role_options, index=_role_default)
 
+            email_input = st.text_input(
+                "📧 Email address (optional — for weekly digest)",
+                value=prefill.get("email", st.session_state.get("user_email", "")),
+                placeholder="e.g. you@example.com",
+            )
+
             _common_certs = ["None yet", "AZ-900", "AZ-104", "AZ-204", "AZ-305", "AI-900", "AI-102", "DP-900", "DP-100", "SC-900"]
             _prefill_certs = [c.strip() for c in prefill.get("certs", "").split(",") if c.strip()]
             _cert_defaults = _prefill_certs if _prefill_certs else ["None yet"]
@@ -1706,6 +1718,9 @@ else:
         student_name = prefill.get("name", _login_name)
         concern_topics_raw = concern_topics_raw_ui if concern_topics_list else prefill.get("concerns", "")
         goal_text = ", ".join(_selected_motiv) if _selected_motiv else prefill.get("goal", "")
+        # email_input is bound inside the form; provide a fallback for read-only mode
+        if "email_input" not in dir():
+            email_input = prefill.get("email", st.session_state.get("user_email", ""))
 
         _submit_label = "💾 Save & Regenerate Plan" if is_returning else "🎯 Create My AI Study Plan"
         submitted = st.form_submit_button(
@@ -1732,7 +1747,9 @@ if submitted:
         concern_topics  = [t.strip() for t in concern_topics_raw.split(",") if t.strip()],
         preferred_style = preferred_style.strip(),
         goal_text       = goal_text.strip(),
+        email           = email_input.strip() if email_input else "",
     )
+    st.session_state["user_email"] = raw.email
 
     # ── Guardrail: validate raw input ────────────────────────────────────────
     _guardrails = GuardrailsPipeline()
