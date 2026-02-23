@@ -399,9 +399,11 @@ if not st.session_state["authenticated"]:
       /* Divider */
       .or-sep {
         display: flex; align-items: center; gap: 8px;
-        margin: 4px 0; color: #a0a0a0;
+        margin: 2px 0 4px; color: #a0a0a0;
         font-size: 0.65rem;
       }
+      /* Remove default Streamlit gap above the or-sep divider */
+      div.element-container:has(.or-sep) { margin-top: -8px !important; }
       .or-sep::before, .or-sep::after {
         content: ''; flex: 1; height: 1px;
         background: #E1DFDD;
