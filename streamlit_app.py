@@ -342,32 +342,32 @@ if not st.session_state["authenticated"]:
         text-align: center; color: #616161;
         font-size: 0.7rem; margin-bottom: 6px;
       }
-      /* Demo cards — visual card + visible Select button below */
-      .dcg { margin-bottom: 4px; }
+      /* Demo persona cards — each st.button IS the card */
+      .dcg { margin-bottom: 6px; }
       .dcg [data-testid="column"] { padding: 0 3px !important; }
-      .demo-grid { display: flex; gap: 6px; }
-      .demo-card {
-        background: #EFF6FF;
-        border: 1px solid #BFD4EF;
-        border-radius: 6px 6px 0 0; padding: 10px 6px 8px;
-        text-align: center; transition: all 0.2s;
-      }
-      .demo-card:hover { background: #DCEAFE; border-color: #0078D4; }
-      .demo-card .dm-ic { margin-bottom: 4px; display: flex; justify-content: center; }
-      .demo-card .dm-nm { color: #1B1B1B; font-size: 0.7rem; font-weight: 700; margin-bottom: 2px; }
-      .demo-card .dm-rl { color: #616161; font-size: 0.6rem; }
-      /* Select button sits flush below the card */
       .dcg .stButton > button {
-        border-radius: 0 0 6px 6px !important;
-        margin-top: 0 !important;
-        padding: 3px 6px !important;
-        font-size: 0.65rem !important;
+        background: linear-gradient(160deg,#EFF6FF 0%,#DCEAFE 100%) !important;
+        border: 1.5px solid #BFD4EF !important;
+        border-radius: 10px !important;
+        color: #0C3C78 !important;
+        font-size: 0.78rem !important;
+        font-weight: 700 !important;
+        padding: 14px 6px !important;
+        min-height: 78px !important;
         width: 100% !important;
-        background: #0078D4 !important;
-        border: 1px solid #BFD4EF !important;
-        border-top: none !important;
+        box-shadow: 0 1px 4px rgba(0,120,212,0.07) !important;
+        transition: all 0.18s ease !important;
+        line-height: 1.45 !important;
+        white-space: pre-wrap !important;
       }
-      .dcg .stButton > button:hover { background: #106EBE !important; }
+      .dcg .stButton > button:hover {
+        background: linear-gradient(160deg,#DCEAFE 0%,#BDD7F5 100%) !important;
+        border-color: #0078D4 !important;
+        box-shadow: 0 5px 16px rgba(0,120,212,0.18) !important;
+        transform: translateY(-2px) !important;
+        color: #0078D4 !important;
+      }
+      .dcg .stButton > button:active { transform: translateY(0px) !important; }
       /* Quick-login Streamlit buttons */
       .stButton > button {
         background: #0078D4 !important;
@@ -643,36 +643,14 @@ if not st.session_state["authenticated"]:
         st.markdown('<div class="dcg">', unsafe_allow_html=True)
         _d1, _d2, _d3 = st.columns(3)
         with _d1:
-            st.markdown("""
-            <div class="demo-card">
-              <div class="dm-ic"><svg viewBox="0 0 24 24" width="26" height="26" fill="none">
-                <path d="M12 3L2 8.5L12 14L22 8.5L12 3Z" fill="#0078D4"/>
-                <path d="M6 11.3V16.5C6 16.5 8.5 19 12 19C15.5 19 18 16.5 18 16.5V11.3L12 14.3L6 11.3Z" fill="#0078D4" opacity="0.55"/>
-                <path d="M22 8.5V13.5" stroke="#0078D4" stroke-width="1.5" stroke-linecap="round"/>
-                <circle cx="22" cy="15" r="1" fill="#0078D4"/>
-              </svg></div>
-              <div class="dm-nm">AI Beginner</div>
-              <div class="dm-rl">First-time &middot; AI-102</div>
-            </div>""", unsafe_allow_html=True)
-            if st.button("Select \u2192", key="demo_new", use_container_width=True):
+            if st.button("🌱\nAI Beginner\nFirst-time · AI-102", key="demo_new", use_container_width=True):
                 upsert_student("Alex Chen", "1234", "learner")
                 st.session_state["authenticated"] = True
                 st.session_state["login_name"] = "Alex Chen"
                 st.session_state["user_type"] = "learner"
                 st.rerun()
         with _d2:
-            st.markdown("""
-            <div class="demo-card">
-              <div class="dm-ic"><svg viewBox="0 0 24 24" width="26" height="26" fill="none">
-                <rect x="3" y="11" width="4" height="9" rx="1" fill="#0078D4"/>
-                <rect x="10" y="7" width="4" height="13" rx="1" fill="#0078D4" opacity="0.7"/>
-                <rect x="17" y="3" width="4" height="17" rx="1" fill="#0078D4" opacity="0.45"/>
-                <path d="M2 21H22" stroke="#0078D4" stroke-width="1.5" stroke-linecap="round"/>
-              </svg></div>
-              <div class="dm-nm">Data Professional</div>
-              <div class="dm-rl">Returning &middot; DP-100</div>
-            </div>""", unsafe_allow_html=True)
-            if st.button("Select \u2192", key="demo_jordan", use_container_width=True):
+            if st.button("📊\nData Professional\nReturning · DP-100", key="demo_jordan", use_container_width=True):
                 upsert_student("Priyanka Sharma", "1234", "learner")
                 st.session_state["authenticated"] = True
                 st.session_state["login_name"] = "Priyanka Sharma"
@@ -689,20 +667,7 @@ if not st.session_state["authenticated"]:
                         st.session_state["learning_path"] = _learning_path_from_dict(_json_ql.loads(_db_p["learning_path_json"]))
                 st.rerun()
         with _d3:
-            st.markdown("""
-            <div class="demo-card">
-              <div class="dm-ic"><svg viewBox="0 0 24 24" width="26" height="26" fill="none">
-                <path d="M12 2L4 6V12C4 16.4 7.4 20.5 12 22C16.6 20.5 20 16.4 20 12V6L12 2Z"
-                  fill="#0078D4" opacity="0.2"/>
-                <path d="M12 2L4 6V12C4 16.4 7.4 20.5 12 22C16.6 20.5 20 16.4 20 12V6L12 2Z"
-                  stroke="#0078D4" stroke-width="1.5" stroke-linejoin="round"/>
-                <path d="M8.5 12L11 14.5L15.5 9.5" stroke="#0078D4" stroke-width="1.8"
-                  stroke-linecap="round" stroke-linejoin="round"/>
-              </svg></div>
-              <div class="dm-nm">Admin</div>
-              <div class="dm-rl">Dashboard &amp; Traces</div>
-            </div>""", unsafe_allow_html=True)
-            if st.button("Select \u2192", key="demo_admin", use_container_width=True):
+            if st.button("🔐\nAdmin\nDashboard & Traces", key="demo_admin", use_container_width=True):
                 st.session_state["authenticated"] = True
                 st.session_state["login_name"] = "Admin"
                 st.session_state["user_type"] = "admin"
