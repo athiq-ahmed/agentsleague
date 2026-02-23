@@ -1636,12 +1636,14 @@ with _tgl_c2:
     else:
         st.markdown(
             f'''<div style="display:inline-flex;align-items:center;gap:8px;
-                  background:#f5f5f5;border:1px solid #e0e0e0;border-radius:20px;
+                  background:linear-gradient(135deg,#FFF8E1 0%,#FFFDE7 100%);
+                  border:1px solid #FFD54F;border-radius:20px;
                   padding:5px 14px;margin-top:4px;">
               <span style="width:8px;height:8px;border-radius:50%;
-                    background:#9e9e9e;display:inline-block;"></span>
-              <span style="font-size:0.8rem;font-weight:600;color:{TEXT_MUTED};letter-spacing:0.01em;">Mock Mode</span>
-              <span style="font-size:0.72rem;color:#bdbdbd;">No credentials needed</span>
+                    background:#FB8C00;display:inline-block;
+                    box-shadow:0 0 0 2px #FFD54F;"></span>
+              <span style="font-size:0.8rem;font-weight:700;color:#E65100;letter-spacing:0.01em;">Mock Mode</span>
+              <span style="font-size:0.72rem;color:#BF360C;">No credentials needed</span>
             </div>''',
             unsafe_allow_html=True,
         )
