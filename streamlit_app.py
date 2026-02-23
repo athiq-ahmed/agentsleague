@@ -348,19 +348,21 @@ if not st.session_state["authenticated"]:
         background: linear-gradient(160deg,#EFF6FF 0%,#DCEAFE 100%);
         border: 1.5px solid #BFD4EF;
         border-radius: 10px;
-        padding: 16px 8px 14px;
+        padding: 0 8px;
         text-align: center;
-        min-height: 90px;
+        height: 100px;
         display: flex; flex-direction: column; align-items: center; justify-content: center;
         cursor: pointer;
         transition: box-shadow 0.18s ease, transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
         box-shadow: 0 1px 4px rgba(0,120,212,0.07);
         pointer-events: none;
         user-select: none;
+        overflow: hidden;
+        box-sizing: border-box;
       }
-      .demo-card .dc-icon { font-size: 1.35rem; line-height: 1; margin-bottom: 5px; }
-      .demo-card .dc-title { font-size: 0.82rem; font-weight: 700; color: #0C3C78; line-height: 1.3; }
-      .demo-card .dc-sub { font-size: 0.68rem; color: #1A56A0; margin-top: 3px; }
+      .demo-card .dc-icon { font-size: 1.35rem; line-height: 1; margin-bottom: 5px; flex-shrink: 0; }
+      .demo-card .dc-title { font-size: 0.8rem; font-weight: 700; color: #0C3C78; line-height: 1.2; white-space: nowrap; }
+      .demo-card .dc-sub { font-size: 0.67rem; color: #1A56A0; margin-top: 3px; white-space: nowrap; }
       /* Collapse the element-container holding the invisible button so it adds no height */
       div.element-container:has(.demo-card) + div.element-container {
         height: 0 !important;
@@ -371,8 +373,8 @@ if not st.session_state["authenticated"]:
       }
       /* Invisible button overlays the card above */
       div.element-container:has(.demo-card) + div.element-container .stButton > button {
-        height: 90px !important;
-        margin-top: -90px !important;
+        height: 100px !important;
+        margin-top: -100px !important;
         background: transparent !important;
         border: none !important;
         box-shadow: none !important;
