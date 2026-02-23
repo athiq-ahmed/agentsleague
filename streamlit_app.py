@@ -366,30 +366,24 @@ if not st.session_state["authenticated"]:
       /* Demo persona cards — HTML card visual + invisible button overlay */
       .dcg [data-testid="column"] { padding: 0 3px !important; }
       .demo-card {
-        background: linear-gradient(135deg,#EBF4FF 0%,#CCE4F8 100%);
-        border: 1.5px solid #A8CFEE;
+        background: linear-gradient(160deg,#EFF6FF 0%,#DCEAFE 100%);
+        border: 1.5px solid #BFD4EF;
         border-radius: 10px;
-        padding: 0 12px;
-        height: 62px;
-        display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 10px;
+        padding: 0 8px;
+        text-align: center;
+        height: 100px;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
         cursor: pointer;
         transition: box-shadow 0.18s ease, transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
-        box-shadow: 0 1px 5px rgba(0,120,212,0.09);
+        box-shadow: 0 1px 4px rgba(0,120,212,0.07);
         pointer-events: none;
         user-select: none;
         overflow: hidden;
         box-sizing: border-box;
       }
-      .demo-card .dc-icon { font-size: 1.25rem; line-height: 1; flex-shrink: 0; }
-      .demo-card .dc-body { display: flex; flex-direction: column; min-width: 0; }
-      .demo-card .dc-title { font-size: 0.78rem; font-weight: 700; color: #0C3C78; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
-      .demo-card .dc-badge {
-        display: inline-block; font-size: 0.62rem; font-weight: 700;
-        color: #0063B1; background: rgba(0,120,212,0.1);
-        border: 1px solid rgba(0,120,212,0.22);
-        border-radius: 10px; padding: 1px 7px; margin-top: 3px;
-        white-space: nowrap; letter-spacing: 0.02em;
-      }
+      .demo-card .dc-icon { font-size: 1.35rem; line-height: 1; margin-bottom: 5px; flex-shrink: 0; }
+      .demo-card .dc-title { font-size: 0.8rem; font-weight: 700; color: #0C3C78; line-height: 1.2; white-space: nowrap; }
+      .demo-card .dc-sub { font-size: 0.67rem; color: #1A56A0; margin-top: 3px; white-space: nowrap; }
       /* Collapse the element-container holding the invisible button so it adds no height */
       div.element-container:has(.demo-card) + div.element-container {
         height: 0 !important;
@@ -400,8 +394,8 @@ if not st.session_state["authenticated"]:
       }
       /* Invisible button overlays the card above */
       div.element-container:has(.demo-card) + div.element-container .stButton > button {
-        height: 62px !important;
-        margin-top: -62px !important;
+        height: 100px !important;
+        margin-top: -100px !important;
         background: transparent !important;
         border: none !important;
         box-shadow: none !important;
@@ -413,9 +407,9 @@ if not st.session_state["authenticated"]:
       }
       /* Hover: animate the card when the invisible button above it is hovered */
       div.element-container:has(.demo-card):has(+ div.element-container .stButton > button:hover) .demo-card {
-        background: linear-gradient(135deg,#D6EAFC 0%,#B3D4F5 100%);
+        background: linear-gradient(160deg,#DCEAFE 0%,#BDD7F5 100%);
         border-color: #0078D4;
-        box-shadow: 0 5px 16px rgba(0,120,212,0.2);
+        box-shadow: 0 5px 16px rgba(0,120,212,0.18);
         transform: translateY(-2px);
       }
       /* Quick-login Streamlit buttons */
@@ -694,11 +688,9 @@ if not st.session_state["authenticated"]:
         with _d1:
             st.markdown('''
             <div class="demo-card">
-              <span class="dc-icon">🌱</span>
-              <div class="dc-body">
-                <span class="dc-title">AI Beginner</span>
-                <span class="dc-badge">AI-102</span>
-              </div>
+              <div class="dc-icon">🌱</div>
+              <div class="dc-title">AI Beginner</div>
+              <div class="dc-sub">First-time · AI-102</div>
             </div>
             ''', unsafe_allow_html=True)
             if st.button("​", key="demo_new", use_container_width=True):  # invisible overlay
@@ -710,11 +702,9 @@ if not st.session_state["authenticated"]:
         with _d2:
             st.markdown('''
             <div class="demo-card">
-              <span class="dc-icon">📊</span>
-              <div class="dc-body">
-                <span class="dc-title">Data Professional</span>
-                <span class="dc-badge">DP-100</span>
-              </div>
+              <div class="dc-icon">📊</div>
+              <div class="dc-title">Data Professional</div>
+              <div class="dc-sub">Returning · DP-100</div>
             </div>
             ''', unsafe_allow_html=True)
             if st.button("​", key="demo_jordan", use_container_width=True):  # invisible overlay
@@ -736,11 +726,9 @@ if not st.session_state["authenticated"]:
         with _d3:
             st.markdown('''
             <div class="demo-card">
-              <span class="dc-icon">🔐</span>
-              <div class="dc-body">
-                <span class="dc-title">Admin</span>
-                <span class="dc-badge">Dashboard</span>
-              </div>
+              <div class="dc-icon">🔐</div>
+              <div class="dc-title">Admin</div>
+              <div class="dc-sub">Dashboard &amp; Traces</div>
             </div>
             ''', unsafe_allow_html=True)
             if st.button("​", key="demo_admin", use_container_width=True):  # invisible overlay
