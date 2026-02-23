@@ -870,7 +870,10 @@ st.markdown(f"""
   }}
   [data-testid="stSidebar"] [data-testid="stSidebarContent"] {{
     background: transparent !important;
-    padding-top: 0.2rem;
+    padding-top: 0 !important;
+  }}
+  [data-testid="stSidebar"] [data-testid="stSidebarHeader"] {{
+    display: none !important;
   }}
   [data-testid="stSidebar"] .stMarkdown p,
   [data-testid="stSidebar"] .stMarkdown li,
@@ -1349,9 +1352,9 @@ az_endpoint = az_key = az_deployment = ""
 with st.sidebar:
     # Brand / Logo area
     st.markdown("""
-    <div style="text-align:center;padding:8px 0 16px;">
-      <div style="font-size:1.8rem;">🎓</div>
-      <div style="color:#fff;font-size:1.1rem;font-weight:700;letter-spacing:-0.02em;">CertPrep AI</div>
+    <div style="text-align:center;padding:12px 0 12px;">
+      <div style="font-size:1.8rem;line-height:1;">🎓</div>
+      <div style="color:#fff;font-size:1.1rem;font-weight:700;letter-spacing:-0.02em;margin-top:6px;">CertPrep AI</div>
       <div style="color:rgba(255,255,255,0.6);font-size:0.7rem;margin-top:2px;">Agents League</div>
     </div>
     """, unsafe_allow_html=True)
