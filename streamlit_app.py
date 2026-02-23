@@ -342,32 +342,45 @@ if not st.session_state["authenticated"]:
         text-align: center; color: #616161;
         font-size: 0.7rem; margin-bottom: 6px;
       }
-      /* Demo persona cards — each st.button IS the card */
-      .dcg { margin-bottom: 6px; }
+      /* Demo persona cards — HTML card visual + invisible button overlay */
       .dcg [data-testid="column"] { padding: 0 3px !important; }
-      .dcg .stButton > button {
-        background: linear-gradient(160deg,#EFF6FF 0%,#DCEAFE 100%) !important;
-        border: 1.5px solid #BFD4EF !important;
-        border-radius: 10px !important;
-        color: #0C3C78 !important;
-        font-size: 0.78rem !important;
-        font-weight: 700 !important;
-        padding: 14px 6px !important;
-        min-height: 78px !important;
+      .demo-card {
+        background: linear-gradient(160deg,#EFF6FF 0%,#DCEAFE 100%);
+        border: 1.5px solid #BFD4EF;
+        border-radius: 10px;
+        padding: 16px 8px 14px;
+        text-align: center;
+        min-height: 90px;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        cursor: pointer;
+        transition: box-shadow 0.18s ease, transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+        box-shadow: 0 1px 4px rgba(0,120,212,0.07);
+        pointer-events: none;
+        user-select: none;
+      }
+      .demo-card .dc-icon { font-size: 1.35rem; line-height: 1; margin-bottom: 5px; }
+      .demo-card .dc-title { font-size: 0.82rem; font-weight: 700; color: #0C3C78; line-height: 1.3; }
+      .demo-card .dc-sub { font-size: 0.68rem; color: #1A56A0; margin-top: 3px; }
+      /* Invisible button sits directly after the card markup; overlay it */
+      div.element-container:has(.demo-card) + div.element-container .stButton > button {
+        height: 90px !important;
+        margin-top: -94px !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        opacity: 0 !important;
+        cursor: pointer !important;
+        position: relative !important;
+        z-index: 10 !important;
         width: 100% !important;
-        box-shadow: 0 1px 4px rgba(0,120,212,0.07) !important;
-        transition: all 0.18s ease !important;
-        line-height: 1.45 !important;
-        white-space: pre-wrap !important;
       }
-      .dcg .stButton > button:hover {
-        background: linear-gradient(160deg,#DCEAFE 0%,#BDD7F5 100%) !important;
-        border-color: #0078D4 !important;
-        box-shadow: 0 5px 16px rgba(0,120,212,0.18) !important;
-        transform: translateY(-2px) !important;
-        color: #0078D4 !important;
+      /* Hover: animate the card when the invisible button above it is hovered */
+      div.element-container:has(.demo-card):has(+ div.element-container .stButton > button:hover) .demo-card {
+        background: linear-gradient(160deg,#DCEAFE 0%,#BDD7F5 100%);
+        border-color: #0078D4;
+        box-shadow: 0 5px 16px rgba(0,120,212,0.18);
+        transform: translateY(-2px);
       }
-      .dcg .stButton > button:active { transform: translateY(0px) !important; }
       /* Quick-login Streamlit buttons */
       .stButton > button {
         background: #0078D4 !important;
@@ -639,18 +652,31 @@ if not st.session_state["authenticated"]:
         st.markdown('<div class="signin-title">Sign In</div>', unsafe_allow_html=True)
         st.markdown('<div class="signin-sub">Pick a demo account or sign in manually</div>', unsafe_allow_html=True)
 
-        # Quick-login: HTML card (visual) + visible "Select →" button below it
-        st.markdown('<div class="dcg">', unsafe_allow_html=True)
-        _d1, _d2, _d3 = st.columns(3)
+        # Quick-login: HTML card (visual) + invisible overlay button for click handling
+        _d1, _d2, _d3 = st.columns(3, gap="small")
         with _d1:
-            if st.button("🌱\nAI Beginner\nFirst-time · AI-102", key="demo_new", use_container_width=True):
+            st.markdown('''
+            <div class="demo-card">
+              <div class="dc-icon">🌱</div>
+              <div class="dc-title">AI Beginner</div>
+              <div class="dc-sub">First-time · AI-102</div>
+            </div>
+            ''', unsafe_allow_html=True)
+            if st.button("​", key="demo_new", use_container_width=True):  # invisible overlay
                 upsert_student("Alex Chen", "1234", "learner")
                 st.session_state["authenticated"] = True
                 st.session_state["login_name"] = "Alex Chen"
                 st.session_state["user_type"] = "learner"
                 st.rerun()
         with _d2:
-            if st.button("📊\nData Professional\nReturning · DP-100", key="demo_jordan", use_container_width=True):
+            st.markdown('''
+            <div class="demo-card">
+              <div class="dc-icon">📊</div>
+              <div class="dc-title">Data Professional</div>
+              <div class="dc-sub">Returning · DP-100</div>
+            </div>
+            ''', unsafe_allow_html=True)
+            if st.button("​", key="demo_jordan", use_container_width=True):  # invisible overlay
                 upsert_student("Priyanka Sharma", "1234", "learner")
                 st.session_state["authenticated"] = True
                 st.session_state["login_name"] = "Priyanka Sharma"
@@ -667,13 +693,19 @@ if not st.session_state["authenticated"]:
                         st.session_state["learning_path"] = _learning_path_from_dict(_json_ql.loads(_db_p["learning_path_json"]))
                 st.rerun()
         with _d3:
-            if st.button("🔐\nAdmin\nDashboard & Traces", key="demo_admin", use_container_width=True):
+            st.markdown('''
+            <div class="demo-card">
+              <div class="dc-icon">🔐</div>
+              <div class="dc-title">Admin</div>
+              <div class="dc-sub">Dashboard &amp; Traces</div>
+            </div>
+            ''', unsafe_allow_html=True)
+            if st.button("​", key="demo_admin", use_container_width=True):  # invisible overlay
                 st.session_state["authenticated"] = True
                 st.session_state["login_name"] = "Admin"
                 st.session_state["user_type"] = "admin"
                 st.session_state["admin_logged_in"] = True
                 st.switch_page("pages/1_Admin_Dashboard.py")
-        st.markdown('</div>', unsafe_allow_html=True)
         st.markdown('<div class="or-sep">or sign in manually</div>', unsafe_allow_html=True)
 
         # Manual login form (unified — no role selector)
