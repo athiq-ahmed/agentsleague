@@ -968,12 +968,15 @@ st.markdown(f"""
     white-space: nowrap; flex-shrink: 0; letter-spacing: 0.02em;
   }}
   .sb-sc-card.active .sbc-badge {{ color: #fff; background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.4); }}
+  div.element-container:has(.sb-sc-card) {{
+    margin-bottom: 0 !important; padding-bottom: 0 !important;
+  }}
   div.element-container:has(.sb-sc-card) + div.element-container {{
     height: 0 !important; min-height: 0 !important;
     overflow: visible !important; margin: 0 !important; padding: 0 !important;
   }}
   div.element-container:has(.sb-sc-card) + div.element-container .stButton > button {{
-    height: 42px !important; margin-top: -42px !important;
+    height: 54px !important; margin-top: -54px !important;
     background: transparent !important; border: none !important;
     box-shadow: none !important; opacity: 0 !important;
     cursor: pointer !important; position: relative !important;
