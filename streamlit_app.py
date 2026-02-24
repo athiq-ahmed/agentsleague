@@ -1668,84 +1668,121 @@ with _tgl_c2:
         )
 
 # ── Azure Services Status panel ───────────────────────────────────────────────
-if use_live and _missing_svcs:
+if use_live:
     _has_required_missing = any(n == "Azure OpenAI" for n, _ in _missing_svcs)
-    _accent   = "#D32F2F" if _has_required_missing else "#F57C00"
-    _bg       = "#FFF5F5" if _has_required_missing else "#FFFDE7"
-    _badge_bg = "#FFEBEE" if _has_required_missing else "#FFF8E1"
+    _all_ok               = len(_missing_svcs) == 0
 
-    # Build service chips
-    _chips_ok = ""
-    for _cn, _ in _configured_svcs:
-        _chips_ok += (
-            f'<span style="display:inline-flex;align-items:center;gap:5px;'
-            f'background:#E8F5E9;border:1px solid #A5D6A7;border-radius:16px;'
-            f'padding:3px 10px;font-size:0.72rem;font-weight:600;color:#2E7D32;margin:3px 4px 3px 0;">'
-            f'<span style="width:6px;height:6px;border-radius:50%;background:#43A047;'
-            f'display:inline-block;"></span>{_cn}</span>'
+    # Panel header colours
+    if _has_required_missing:
+        _panel_border = "#D32F2F"; _panel_bg = "#FFF5F5"; _header_col = "#D32F2F"
+        _status_text  = "Required credentials missing — Live mode unavailable"
+        _status_sub   = (
+            "Set <code style='font-size:0.7rem;background:#0001;padding:1px 4px;"
+            "border-radius:3px;font-family:Consolas,monospace;'>AZURE_OPENAI_ENDPOINT</code> + "
+            "<code style='font-size:0.7rem;background:#0001;padding:1px 4px;"
+            "border-radius:3px;font-family:Consolas,monospace;'>AZURE_OPENAI_API_KEY</code> "
+            "in <code style='font-size:0.7rem;background:#0001;padding:1px 4px;"
+            "border-radius:3px;font-family:Consolas,monospace;'>.env</code> and restart."
         )
-    _chips_miss = ""
-    for _mn, _ in _missing_svcs:
-        _is_req_svc = _mn == "Azure OpenAI"
-        _cbg  = "#FFEBEE" if _is_req_svc else "#FFF9C4"
-        _cbd  = "#EF9A9A" if _is_req_svc else "#F9E26A"
-        _ctxt = "#C62828" if _is_req_svc else "#E65100"
-        _cdot = "#EF5350" if _is_req_svc else "#FFA726"
-        _req_lbl = '&nbsp;<span style="font-size:0.65rem;opacity:0.7;">[required]</span>' if _is_req_svc else ""
-        _chips_miss += (
-            f'<span style="display:inline-flex;align-items:center;gap:5px;'
-            f'background:{_cbg};border:1px solid {_cbd};border-radius:16px;'
-            f'padding:3px 10px;font-size:0.72rem;font-weight:600;'
-            f'color:{_ctxt};margin:3px 4px 3px 0;">'
-            f'<span style="width:6px;height:6px;border-radius:50%;background:{_cdot};'
-            f'display:inline-block;"></span>{_mn}{_req_lbl}</span>'
-        )
+    elif _all_ok:
+        _panel_border = "#2E7D32"; _panel_bg = "#F1F8E9"; _header_col = "#2E7D32"
+        _status_text  = "All services configured — Full live mode active"
+        _status_sub   = "Every Azure service is connected. Running via Azure AI Foundry Agent Service SDK."
+    else:
+        _panel_border = "#F57C00"; _panel_bg = "#FFFDE7"; _header_col = "#E65100"
+        _status_text  = "Live mode active — optional services not yet configured"
+        _status_sub   = "Missing optional services will degrade gracefully — no action required."
 
-    _headline = "Required credentials missing — Live mode unavailable" if _has_required_missing else "Live mode active — optional services not configured"
-    _sub      = "Set <code style='font-family:Consolas,monospace;font-size:0.7rem;background:#0001;padding:1px 4px;border-radius:3px;'>AZURE_OPENAI_ENDPOINT</code> + <code style='font-family:Consolas,monospace;font-size:0.7rem;background:#0001;padding:1px 4px;border-radius:3px;'>AZURE_OPENAI_API_KEY</code> in <code style='font-family:Consolas,monospace;font-size:0.7rem;background:#0001;padding:1px 4px;border-radius:3px;'>.env</code> and restart." if _has_required_missing else "Missing optional services will degrade gracefully — no action required."
+    # ── Build checklist rows ──────────────────────────────────────────────
+    # (name, configured, required, description, env_hint)
+    _checklist = [
+        ("Azure OpenAI",         _is_real_value(_env_endpoint) and _is_real_value(_env_api_key),
+         True,  "LLM backbone — all agents",
+         "AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY"),
+        ("Azure AI Foundry",     _is_real_value(os.getenv("AZURE_AI_PROJECT_CONNECTION_STRING", "")),
+         False, "Managed agent + thread (Tier 1)",
+         "AZURE_AI_PROJECT_CONNECTION_STRING"),
+        ("Azure Content Safety", _is_real_value(os.getenv("AZURE_CONTENT_SAFETY_ENDPOINT", "")),
+         False, "G-16 content filter API upgrade",
+         "AZURE_CONTENT_SAFETY_ENDPOINT + AZURE_CONTENT_SAFETY_KEY"),
+        ("SMTP Email",           _is_real_value(os.getenv("SMTP_HOST", "")),
+         False, "Weekly progress email digests",
+         "SMTP_HOST + SMTP_PORT + SMTP_USER + SMTP_PASS"),
+        ("MS Learn MCP",         _is_real_value(os.getenv("MCP_MSLEARN_URL", "")),
+         False, "Live module catalogue (Node.js sidecar)",
+         "MCP_MSLEARN_URL"),
+    ]
+
+    _rows_html = ""
+    for _svc_name, _svc_ok, _svc_req, _svc_desc, _svc_env in _checklist:
+        if _svc_ok:
+            _icon     = "✅"
+            _name_col = "#1B5E20"
+            _row_bg   = "rgba(46,125,50,0.06)"
+            _row_bdr  = "1px solid rgba(46,125,50,0.15)"
+            _badge    = (
+                '<span style="font-size:0.62rem;font-weight:600;color:#2E7D32;'
+                'background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;'
+                'padding:1px 7px;">connected</span>'
+            )
+        else:
+            _icon     = "❌"
+            _name_col = "#C62828" if _svc_req else "#795548"
+            _row_bg   = "rgba(211,47,47,0.05)" if _svc_req else "rgba(0,0,0,0.03)"
+            _row_bdr  = "1px solid rgba(211,47,47,0.15)" if _svc_req else "1px solid rgba(0,0,0,0.08)"
+            _req_txt  = "required" if _svc_req else "optional"
+            _req_col  = "#C62828" if _svc_req else "#9E9E9E"
+            _req_bg   = "#FFEBEE" if _svc_req else "#F5F5F5"
+            _req_bdr  = "#EF9A9A" if _svc_req else "#BDBDBD"
+            _badge    = (
+                f'<span style="font-size:0.62rem;font-weight:600;color:{_req_col};'
+                f'background:{_req_bg};border:1px solid {_req_bdr};border-radius:10px;'
+                f'padding:1px 7px;">{_req_txt}</span>'
+            )
+
+        _env_chip = (
+            f'<code style="font-size:0.67rem;font-family:Consolas,monospace;'
+            f'background:rgba(0,0,0,0.05);border-radius:3px;padding:1px 5px;'
+            f'color:#455A64;">{_svc_env}</code>'
+        ) if not _svc_ok else ""
+
+        _rows_html += f"""
+        <div style="display:grid;grid-template-columns:28px 1fr auto;align-items:center;
+             gap:8px;padding:6px 10px;border-radius:6px;margin-bottom:4px;
+             background:{_row_bg};border:{_row_bdr};">
+          <span style="font-size:1rem;text-align:center;line-height:1;">{_icon}</span>
+          <div>
+            <span style="font-size:0.78rem;font-weight:600;color:{_name_col};">{_svc_name}</span>
+            <span style="font-size:0.68rem;color:#78909C;margin-left:6px;">{_svc_desc}</span>
+            {"<br>" + _env_chip if _env_chip else ""}
+          </div>
+          <div style="text-align:right;">{_badge}</div>
+        </div>"""
 
     st.markdown(f"""
 <div style="
-  border-left:4px solid {_accent};border-radius:6px;
-  background:{_bg};padding:12px 16px 10px;
-  margin:8px 0 12px;font-family:'Segoe UI',Arial,sans-serif;
-  box-shadow:0 1px 4px rgba(0,0,0,0.06);
+  border-left:4px solid {_panel_border};border-radius:8px;
+  background:{_panel_bg};padding:12px 16px 10px;
+  margin:8px 0 14px;font-family:'Segoe UI',Arial,sans-serif;
+  box-shadow:0 1px 6px rgba(0,0,0,0.06);
 ">
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;">
     <div>
-      <span style="font-size:0.82rem;font-weight:700;color:{_accent};">{_headline}</span><br>
-      <span style="font-size:0.72rem;color:{TEXT_MUTED};line-height:1.6;">{_sub}</span>
+      <span style="font-size:0.82rem;font-weight:700;color:{_header_col};">{_status_text}</span><br>
+      <span style="font-size:0.72rem;color:{TEXT_MUTED};line-height:1.6;">{_status_sub}</span>
     </div>
     <span style="font-size:0.65rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;
-          color:{_accent};background:{_badge_bg};border:1px solid {_accent}44;
+          color:{_panel_border};background:{'#E8F5E9' if _all_ok else ('#FFEBEE' if _has_required_missing else '#FFF8E1')};
+          border:1px solid {_panel_border}44;
           border-radius:12px;padding:2px 8px;white-space:nowrap;margin-left:12px;margin-top:1px;">
       Azure Services
     </span>
   </div>
-  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:0;">
-    {_chips_ok}{_chips_miss}
-  </div>
+  {_rows_html}
 </div>
     """, unsafe_allow_html=True)
 
-elif use_live and not _missing_svcs:
-    st.markdown(f"""
-<div style="
-  display:inline-flex;align-items:center;gap:10px;
-  background:linear-gradient(135deg,#e8f5e9 0%,#f1f8e9 100%);
-  border:1px solid #a5d6a7;border-left:4px solid {GREEN};border-radius:6px;
-  padding:9px 16px;margin:8px 0 12px;
-  font-family:'Segoe UI',Arial,sans-serif;
-  box-shadow:0 1px 4px rgba(16,124,65,0.08);
-">
-  <span style="width:10px;height:10px;border-radius:50%;background:{GREEN};
-        box-shadow:0 0 0 3px #c8e6c9;display:inline-block;flex-shrink:0;"></span>
-  <div>
-    <span style="font-size:0.82rem;font-weight:700;color:{GREEN};">All services configured</span>
-    <span style="font-size:0.75rem;color:{TEXT_MUTED};margin-left:8px;">Running via Azure AI Foundry Agent Service SDK</span>
-  </div>
-</div>
-    """, unsafe_allow_html=True)
+
 
 # ─── Dashboard welcome / Hero header ──────────────────────────────────────────
 if is_returning:
