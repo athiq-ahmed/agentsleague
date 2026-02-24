@@ -24,8 +24,8 @@
 
 | Tool | Status | Note |
 |------|--------|------|
-| Microsoft Agent Framework (OSS) | Not used in current build | Architecture is 1:1 compatible; migration path documented in README |
-| Azure AI Foundry Agent Service SDK | Not used in current build | Conceptual mapping is 1:1 (see README Foundry section); `AZURE_AI_PROJECT_CONNECTION_STRING` in `.env.example` for migration |
+| Microsoft Agent Framework (OSS) | Not used | Architecture is 1:1 compatible; direct migration path documented |
+| **Azure AI Foundry Agent Service SDK** | ✅ **Active** | `LearnerProfilingAgent` uses `AIProjectClient` from `azure-ai-projects` when `AZURE_AI_PROJECT_CONNECTION_STRING` is set; falls back to direct OpenAI, then mock |
 | Foundry UI (low-code/no-code) | Not chosen | Code-first approach required for Pydantic contracts and deterministic routing |
 
 ### Compliance with Starter Kit Requirements
@@ -33,7 +33,7 @@
 The project aligns with the [Battle #2 Starter Kit](https://github.com/microsoft/agentsleague/tree/main/starter-kits/2-reasoning-agents) requirements:
 
 - ✅ **Multi-agent system** — 8 specialised agents with single bounded responsibility each
-- ✅ **Azure AI (Foundry-hosted)** — live mode uses `gpt-4o` via Foundry-compatible endpoint
+- ✅ **Azure AI Foundry Agent Service SDK** — `azure-ai-projects` `AIProjectClient` active for `LearnerProfilingAgent`; remaining agents use Foundry-compatible typed contracts with clear migration path
 - ✅ **All 4 reasoning patterns** — Planner–Executor, Critic/Verifier, Self-reflection & Iteration, Role-based specialisation
 - ✅ **HITL** — two human-in-the-loop gates
 - ✅ **Responsible AI** — 17-rule guardrail pipeline, content safety, URL trust guard, PII handling

@@ -1575,10 +1575,11 @@ with st.sidebar:
     # ── Azure services mode badge ─────────────────────────────────────────
     st.markdown("---")
     if use_live:
-        _badge_col = "#22c55e"   # green
+        _foundry_live = _is_real_value(os.getenv("AZURE_AI_PROJECT_CONNECTION_STRING", ""))
+        _badge_col  = "#22c55e"   # green
         _badge_icon = "☁️"
-        _badge_text = "Live Azure Mode"
-        _badge_sub  = "OpenAI + guardrails active"
+        _badge_text = "Azure AI Foundry SDK" if _foundry_live else "Live Azure Mode"
+        _badge_sub  = "Foundry Agent Service + OpenAI" if _foundry_live else "OpenAI + guardrails active"
     else:
         _badge_col = "#94a3b8"   # grey
         _badge_icon = "🧪"
@@ -1635,6 +1636,9 @@ with _tgl_c1:
     )
 with _tgl_c2:
     if use_live:
+        _foundry_pill = _is_real_value(os.getenv("AZURE_AI_PROJECT_CONNECTION_STRING", ""))
+        _pill_label   = "Azure AI Foundry SDK" if _foundry_pill else "Live Azure Mode"
+        _pill_sub     = "Foundry Agent Service" if _foundry_pill else "Real OpenAI calls"
         st.markdown(
             f'''<div style="display:inline-flex;align-items:center;gap:8px;
                   background:linear-gradient(135deg,#e8f5e9 0%,#f0fff4 100%);
@@ -1643,8 +1647,8 @@ with _tgl_c2:
               <span style="width:8px;height:8px;border-radius:50%;
                     background:{GREEN};display:inline-block;
                     box-shadow:0 0 0 2px #a5d6a7;"></span>
-              <span style="font-size:0.8rem;font-weight:700;color:{GREEN};letter-spacing:0.01em;">Live Azure Mode</span>
-              <span style="font-size:0.72rem;color:{TEXT_MUTED};">Real OpenAI calls</span>
+              <span style="font-size:0.8rem;font-weight:700;color:{GREEN};letter-spacing:0.01em;">{_pill_label}</span>
+              <span style="font-size:0.72rem;color:{TEXT_MUTED};">{_pill_sub}</span>
             </div>''',
             unsafe_allow_html=True,
         )
@@ -1738,7 +1742,7 @@ elif use_live and not _missing_svcs:
         box-shadow:0 0 0 3px #c8e6c9;display:inline-block;flex-shrink:0;"></span>
   <div>
     <span style="font-size:0.82rem;font-weight:700;color:{GREEN};">All services configured</span>
-    <span style="font-size:0.75rem;color:{TEXT_MUTED};margin-left:8px;">Running in full Live mode with Azure OpenAI</span>
+    <span style="font-size:0.75rem;color:{TEXT_MUTED};margin-left:8px;">Running via Azure AI Foundry Agent Service SDK</span>
   </div>
 </div>
     """, unsafe_allow_html=True)
@@ -2048,12 +2052,24 @@ if submitted:
             os.environ["AZURE_OPENAI_API_VERSION"] = _env_version
 
             from cert_prep.b0_intake_agent import LearnerProfilingAgent
-            with st.spinner("☁️ Calling Azure OpenAI — analysing profile…"):
-                profile: LearnerProfile = LearnerProfilingAgent().run(raw)
-            st.success("✅ Live Azure OpenAI profile generated.")
-            mode_badge = "☁️ Live Azure OpenAI"
+            _profiler = LearnerProfilingAgent()
+            _using_foundry = _profiler.using_foundry
+            _spinner_msg = (
+                "☁️ Calling Azure AI Foundry Agent Service SDK — creating managed agent…"
+                if _using_foundry
+                else "☁️ Calling Azure OpenAI — analysing profile…"
+            )
+            with st.spinner(_spinner_msg):
+                profile: LearnerProfile = _profiler.run(raw)
+
+            if _using_foundry:
+                st.success("✅ Profile generated via **Azure AI Foundry Agent Service SDK** (managed agent + thread).")
+                mode_badge = "☁️ Azure AI Foundry SDK"
+            else:
+                st.success("✅ Live Azure OpenAI profile generated.")
+                mode_badge = "☁️ Live Azure OpenAI"
         except Exception as e:
-            st.error(f"Azure OpenAI call failed: {e}")
+            st.error(f"Azure call failed: {e}")
             st.info("Falling back to mock profiler.")
             profile, trace = run_mock_profiling_with_trace(raw)
             st.session_state["trace"] = trace

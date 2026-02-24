@@ -5,3 +5,6 @@ pydantic>=2.0.0
 reportlab>=4.0.0
 streamlit>=1.35.0
 plotly>=5.0.0
+# Azure AI Foundry Agent Service SDK (code-first approach)
+azure-ai-projects>=1.0.0b9
+azure-identity>=1.19.0

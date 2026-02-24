@@ -31,7 +31,7 @@ Per the [Agents League Starter Kit](https://github.com/microsoft/agentsleague/tr
 |----------|-------------|----------------------|
 | **Local development (code-first)** | Build and test custom agentic solution locally with the [OSS Microsoft Agent Framework](https://github.com/microsoft/agent-framework) in Visual Studio Code | ✅ **Chosen** — custom Python pipeline built and tested locally in VS Code with GitHub Copilot |
 | **Cloud-based (low-code/no-code)** | Use [Foundry UI](https://ai.azure.com/) to configure agents and workflows visually | ❌ Not chosen — code-first preferred for typed handoffs, deterministic algorithms, and unit-testable guardrails |
-| **Cloud-based (code-first Foundry SDK)** | Use the [Foundry Agent Service SDK](https://learn.microsoft.com/azure/ai-foundry/how-to/develop/sdk-overview) to build programmatically in the cloud | 🗺️ Roadmap — current architecture maps 1:1 to Foundry SDK; migration requires no redesign |
+| **Cloud-based (code-first Foundry SDK)** | Use the [Foundry Agent Service SDK](https://learn.microsoft.com/azure/ai-foundry/how-to/develop/sdk-overview) to build programmatically in the cloud | ✅ **Implemented** — `azure-ai-projects` SDK active for `LearnerProfilingAgent` when `AZURE_AI_PROJECT_CONNECTION_STRING` is set |
 
 ### What We Actually Use
 
@@ -39,14 +39,14 @@ Per the [Agents League Starter Kit](https://github.com/microsoft/agentsleague/tr
 |-----------|-----------|-------|
 | **IDE** | Visual Studio Code | Primary development environment throughout |
 | **AI-assisted development** | **GitHub Copilot** | Used extensively to accelerate code generation, refactoring, and test scaffolding |
-| **LLM — live mode** | `gpt-4o` via Azure OpenAI (Azure AI Foundry-hosted model deployment) | JSON-mode completions; accessed via `openai.AzureOpenAI` SDK |
-| **LLM — mock mode** | Rule-based Python engine | Fully deterministic, zero credentials, identical output contract as live mode |
-| **Agent orchestration** | Custom Python pipeline (`concurrent.futures.ThreadPoolExecutor` for fan-out) | Sequential typed pipeline; parallel fan-out for independent agents |
+| **Agent framework — Tier 1** | **`azure-ai-projects` SDK** (Azure AI Foundry Agent Service) | `LearnerProfilingAgent` uses `AIProjectClient.from_connection_string()` to create a managed Foundry agent + conversation thread; activated when `AZURE_AI_PROJECT_CONNECTION_STRING` is set |
+| **Agent framework — Tier 2** | `openai.AzureOpenAI` direct call | Fallback when only `AZURE_OPENAI_ENDPOINT` + `AZURE_OPENAI_API_KEY` are set; identical output contract |
+| **Agent framework — Tier 3** | Rule-based Python mock engine | Zero credentials needed; used for demo, testing, and offline development |
+| **Custom orchestration** | Python pipeline (`ThreadPoolExecutor` fan-out) | Sequential typed stages between Foundry/OpenAI calls; Pydantic contracts at every boundary |
 | **Data models / contracts** | Pydantic v2 `BaseModel` + `@dataclass` | Validated typed handoffs at every agent boundary |
 | **Persistence** | SQLite (Python stdlib `sqlite3`) | Zero-dependency local store; schema portable to Azure Cosmos DB |
 | **Hosting** | Streamlit Community Cloud | Auto-deploys from `git push`; secrets via environment variables |
 | **Microsoft Agent Framework (OSS)** | Not used in current implementation | Architecture is compatible; migration path documented |
-| **Foundry Agent Service SDK** | Not used in current implementation | Conceptual mapping is 1:1 (see section below) |
 
 ### Why Code-First Over Foundry UI?
 
@@ -57,33 +57,64 @@ The solution requires capabilities that are best expressed in code, not UI confi
 - **17-rule guardrail pipeline** — fully enumerable, unit-tested with 25 pytest tests, reproducible across runs
 - **Conditional state machine** — `score ≥ 70%` → CertRecommendation; else → remediation loop back to StudyPlanAgent
 
-### Azure AI Foundry Integration (Live Mode)
+### Azure AI Foundry Agent Service Integration
 
-In live mode, `LearnerProfilingAgent` calls an **Azure AI Foundry-hosted model deployment**:
+When `AZURE_AI_PROJECT_CONNECTION_STRING` is set, `LearnerProfilingAgent` uses the **`azure-ai-projects` SDK** to run as a proper Foundry-managed agent:
 
 ```python
-# src/cert_prep/b0_intake_agent.py — live mode path
-from openai import AzureOpenAI
-client = AzureOpenAI(
-    azure_endpoint=settings.openai_endpoint,   # Foundry project endpoint
-    api_key=settings.openai_api_key,           # Foundry project API key
-    api_version=settings.openai_api_version
+# src/cert_prep/b0_intake_agent.py — Tier 1 (Foundry SDK)
+from azure.ai.projects import AIProjectClient
+from azure.identity import DefaultAzureCredential
+
+client = AIProjectClient.from_connection_string(
+    conn_str=settings.foundry.connection_string,   # AZURE_AI_PROJECT_CONNECTION_STRING
+    credential=DefaultAzureCredential(),            # az login locally / SP vars in cloud
 )
-response = client.chat.completions.create(
-    model=settings.openai_deployment,          # gpt-4o deployment defined in Foundry project
-    messages=[{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": text}],
-    response_format={"type": "json_object"},   # JSON-mode guarantees structured output
+# Create a managed Foundry agent
+agent = client.agents.create_agent(
+    model=settings.openai.deployment,              # e.g. gpt-4o
+    name="LearnerProfilerAgent",
+    instructions=PROFILER_SYSTEM_PROMPT,
 )
+# Create conversation thread and run
+thread = client.agents.create_thread()
+client.agents.create_message(thread_id=thread.id, role="user", content=user_message)
+run = client.agents.create_and_process_run(thread_id=thread.id, agent_id=agent.id)
+# Extract structured JSON response
+messages = client.agents.list_messages(thread_id=thread.id)
+last_msg = messages.get_last_message_by_role("assistant")
+profile_json = json.loads(last_msg.content[0].text.value)
+# Cleanup — avoid accumulating ephemeral agents in Foundry project
+client.agents.delete_agent(agent.id)
 ```
 
-The `.env.example` includes `AZURE_AI_PROJECT_CONNECTION_STRING` — the Foundry SDK's native credential, making the migration path seamless.
+The agent automatically falls back to direct `AzureOpenAI` if Foundry credentials are absent, and to the rule-based mock if neither is configured — **all three tiers share the same Pydantic output contract**.
+
+### Setting Up Foundry Credentials
+
+```bash
+# 1. Create an Azure AI Foundry project (if you don't have one)
+az ml workspace create --kind hub -g <rg> -n <hub-name>
+az ml workspace create --kind project -g <rg> -n <project-name> --hub-name <hub-name>
+
+# 2. Get your connection string
+# Azure portal → your Foundry project → gear icon → Project properties → copy
+
+# 3. Authenticate locally
+az login
+
+# Or create a service principal for Streamlit Cloud:
+az ad sp create-for-rbac --name certprep-sp --role Contributor --scopes /subscriptions/<sub-id>
+# Set AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID from the output
+```
 
 ### Models Used
 
-| Mode | Model | Hosting |
-|------|-------|--------|
-| **Live** | `gpt-4o` (configurable via `AZURE_OPENAI_DEPLOYMENT`) | Azure AI Foundry-hosted (Azure OpenAI deployment) |
-| **Mock** | Deterministic rule engine | Locally hosted — zero cost, zero credentials needed |
+| Mode | LLM | Backend |
+|------|-----|---------|
+| **Foundry SDK** | `gpt-4o` (or any deployment) | Azure AI Foundry Agent Service — managed agent + thread |
+| **Direct OpenAI** | `gpt-4o` (configurable via `AZURE_OPENAI_DEPLOYMENT`) | Azure OpenAI API directly |
+| **Mock** | Rule-based engine | Locally hosted — zero cost, zero credentials |
 
 ---
 
@@ -92,7 +123,7 @@ The `.env.example` includes `AZURE_AI_PROJECT_CONNECTION_STRING` — the Foundry
 | Azure Service | Role in This System | Why We Use It | Key Benefit |
 |---|---|---|---|
 | **Azure OpenAI Service** (GPT-4o) | Powers `LearnerProfilingAgent` in live mode — converts free-text background into a structured `LearnerProfile` JSON via JSON-mode completion | Best-in-class reasoning for nuanced, multi-field extraction from unstructured learner text | JSON-mode guarantees valid structured output; enterprise SLA; no hallucinated schema |
-| **Azure AI Foundry** | Agent orchestration substrate; provides tool-calling, memory, and agent lifecycle management as the underlying runtime | Native support for multi-agent patterns (Planner–Executor, Fan-out, HITL) without reimplementing state machines | Managed agent runs, built-in logging, and conversation history that aligns with our `AgentStep` / `RunTrace` data model |
+| **Azure AI Foundry Agent Service** *(Tier 1 — active)* | `LearnerProfilingAgent` runs as a managed Foundry agent via `azure-ai-projects` SDK — `AIProjectClient` creates a persistent agent + thread, calls `create_and_process_run()`, extracts the response, then deletes the ephemeral agent | `AZURE_AI_PROJECT_CONNECTION_STRING` + Azure identity (DefaultAzureCredential / service principal) | Managed agent lifecycle, built-in conversation threads, Foundry portal telemetry |
 | **Azure App Service / Streamlit Cloud** | Hosts the Streamlit web application publicly at `agentsleague.streamlit.app` | Zero-config container deployment; auto-scales; secrets management via environment variables | Deploy in minutes; built-in HTTPS; direct GitHub CI/CD integration |
 | **Azure OpenAI Embeddings** *(roadmap)* | Semantic matching between learner background text and module catalogue entries | Vector search returns the most relevant MS Learn module for each weak domain | More accurate than keyword matching; enables personalised learning path beyond static lookup tables |
 | **Azure AI Search** *(roadmap)* | Index the full MS Learn module catalogue (~4 000 modules) and search by exam domain, skill level, content type | Replaces static dictionary in `LearningPathCuratorAgent` with live, up-to-date catalogue | Real-time catalogue; faceted filtering by certification, locale, duration |
@@ -105,9 +136,9 @@ The `.env.example` includes `AZURE_AI_PROJECT_CONNECTION_STRING` — the Foundry
 
 ## 🔮 Azure AI Foundry — Conceptual Mapping & Migration Target
 
-> **Note:** The code snippets in this section illustrate the **target architecture** when migrating to the Foundry Agent Service SDK (roadmap). The current implementation uses a custom Python pipeline with `AzureOpenAI` calls in live mode (see [Development Approach](#️-development-approach) above). The architectural mapping is 1:1 — no redesign required.
+> **Note:** The code in this section reflects the **actual running implementation** of `LearnerProfilingAgent` when `AZURE_AI_PROJECT_CONNECTION_STRING` is set. The rest of the pipeline (StudyPlanAgent, LearningPathCuratorAgent, ProgressAgent, AssessmentAgent, CertRecommendationAgent) uses the same typed output contract and is not yet Foundry-managed — this is the **near-term roadmap item** described below.
 
-Here is how every Foundry concept maps to our current custom orchestration — demonstrating a clean migration path:
+Here is how every Foundry concept maps to our current and planned architecture:
 
 ### 1 — Agent Definitions
 Each of the 8 agents is defined as an **AI Foundry Agent** with a system prompt, tool list, and output schema. The Foundry runtime manages the conversation thread and ensures agents receive only the data they are entitled to:
@@ -295,7 +326,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
 ## 🔮 Futuristic Vision
 
 ### Near Term (3–6 months)
-- **Azure AI Foundry native agents** — migrate from mock/ThreadPoolExecutor to full Foundry Agent SDK with tool calling, built-in memory, and Foundry-managed threads
+- **Extend Azure AI Foundry SDK to remaining agents** — `LearnerProfilingAgent` now uses `AIProjectClient` (Tier 1); next step is wrapping `StudyPlanAgent`, `LearningPathCuratorAgent`, `AssessmentAgent`, and `CertRecommendationAgent` with Foundry-managed agents for full platform observability and built-in thread memory
 - **Azure AI Search integration** — replace static MS Learn lookup table with live vector search across the full ~4 000 module catalogue; semantic matching between learner profile and module descriptions
 - **Email digest — upgrade from SMTP to Azure Communication Services** — the current implementation uses Python `smtplib` (works with Gmail/Outlook); the roadmap upgrade swaps this for the `azure-communication-email` SDK using a managed Azure sender domain (`DoNotReply@<guid>.azurecomm.net`); to set up today: create a **Communication Services** resource in the Azure portal, add an **Email Communication Service** sub-resource, then copy the connection string to `AZURE_COMM_CONNECTION_STRING`
 - **Adaptive quiz engine** — use GPT-4o to generate novel domain-specific questions dynamically rather than sampling from a static bank; item-response theory (IRT) for adaptive difficulty
@@ -473,7 +504,7 @@ Alignment with [Battle #2 submission requirements](https://github.com/microsoft/
 | Requirement | Status | Evidence |
 |-------------|--------|----------|
 | Multi-agent system aligned with cert prep scenario | ✅ | 8 specialised agents: Intake → Profiler → StudyPlan ∥ LearningPath → Progress → Assessment → CertRecommender |
-| Use Microsoft Foundry (UI/SDK) and/or Microsoft Agent Framework | ✅ Partial | Live mode uses Azure OpenAI via Azure AI Foundry-hosted endpoint; full Foundry Agent SDK migration is direct roadmap (1:1 architectural mapping documented) |
+| Use Microsoft Foundry (UI/SDK) and/or Microsoft Agent Framework | ✅ | `azure-ai-projects` SDK (`AIProjectClient`) active for `LearnerProfilingAgent` in Tier 1; Tier 2 falls back to direct OpenAI; remaining agents are custom Python with Foundry-compatible typed contracts |
 | Demonstrate reasoning and multi-step decision-making | ✅ | 8-agent sequential + parallel pipeline; conditional routing (score ≥ 70%); remediation loop; HITL gates |
 | Integrate with external tools/APIs/MCP servers | ✅ | Azure OpenAI (GPT-4o); MS Learn module catalogue (static + live roadmap); SQLite persistence; Optional: email digest via SMTP / Azure Communication Services |
 | Demoable with clear agent interaction explanation | ✅ | Live at `agentsleague.streamlit.app`; Admin Dashboard with per-agent reasoning trace; mock mode (zero credentials) |

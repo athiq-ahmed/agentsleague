@@ -27,7 +27,7 @@ from rich.prompt import Prompt, IntPrompt, FloatPrompt, Confirm
 from rich.table import Table
 from rich import box
 
-from cert_prep.config import get_config, AzureOpenAIConfig
+from cert_prep.config import get_config, get_settings, AzureOpenAIConfig
 from cert_prep.models import (
     EXAM_DOMAINS,
     DomainKnowledge,
@@ -203,19 +203,120 @@ _SYSTEM_PROMPT = textwrap.dedent("""
 
 class LearnerProfilingAgent:
     """
-    Sends RawStudentInput to Azure OpenAI and returns a validated LearnerProfile.
+    Sends RawStudentInput to an LLM and returns a validated LearnerProfile.
 
-    The LLM is instructed to return strict JSON matching _PROFILE_JSON_SCHEMA.
-    Pydantic validates and coerces the response so callers always get a typed object.
+    Three-tier execution strategy (chooses the highest available tier):
+      1. Azure AI Foundry Agent Service SDK  — when AZURE_AI_PROJECT_CONNECTION_STRING is set
+         Uses AIProjectClient to create a managed Foundry agent, thread, and run.
+      2. Direct Azure OpenAI                 — when AZURE_OPENAI_ENDPOINT + KEY are set
+         Uses AzureOpenAI client with JSON-mode completions (original approach).
+      3. Raise EnvironmentError              — neither configured (caller falls back to mock).
+
+    The output contract is identical across all tiers: a validated LearnerProfile.
     """
 
     def __init__(self, config: AzureOpenAIConfig | None = None) -> None:
-        self._cfg = config or get_config()
-        self._client = AzureOpenAI(
-            azure_endpoint=self._cfg.endpoint,
-            api_key=self._cfg.api_key,
-            api_version=self._cfg.api_version,
+        self._cfg      = config or get_config()
+        self._settings = get_settings()
+
+        # ── Tier 1 — Azure AI Foundry Agent Service SDK ──────────────────────
+        self._foundry_client = None
+        self.using_foundry   = False
+
+        if self._settings.foundry.is_configured:
+            try:
+                from azure.ai.projects import AIProjectClient  # type: ignore
+                from azure.identity import DefaultAzureCredential  # type: ignore
+                self._foundry_client = AIProjectClient.from_connection_string(
+                    conn_str=self._settings.foundry.connection_string,
+                    credential=DefaultAzureCredential(),
+                )
+                self.using_foundry = True
+            except Exception as _fe:
+                console.print(
+                    f"[yellow]⚠ Foundry SDK init failed ({_fe}); "
+                    "falling back to direct OpenAI.[/yellow]"
+                )
+
+        # ── Tier 2 — Direct Azure OpenAI ─────────────────────────────────────
+        self._openai_client = None
+        if self._cfg.is_configured:
+            self._openai_client = AzureOpenAI(
+                azure_endpoint=self._cfg.endpoint,
+                api_key=self._cfg.api_key,
+                api_version=self._cfg.api_version,
+            )
+
+    # ── Routing ──────────────────────────────────────────────────────────────
+
+    def _call_llm(self, user_message: str) -> dict[str, Any]:
+        """Dispatch to highest available tier."""
+        if self.using_foundry and self._foundry_client is not None:
+            return self._call_via_foundry(user_message)
+        if self._openai_client is not None:
+            return self._call_via_openai(user_message)
+        raise EnvironmentError(
+            "Neither Azure AI Foundry nor Azure OpenAI is configured. "
+            "Set AZURE_AI_PROJECT_CONNECTION_STRING (Foundry) or "
+            "AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY (direct)."
         )
+
+    # ── Tier 1 implementation ─────────────────────────────────────────────────
+
+    def _call_via_foundry(self, user_message: str) -> dict[str, Any]:
+        """
+        Create a managed Azure AI Foundry agent, run it on a new thread,
+        extract the assistant reply, then clean up.
+
+        Uses azure-ai-projects AIProjectClient — the official Foundry Agent Service SDK.
+        """
+        client = self._foundry_client
+        agent  = client.agents.create_agent(
+            model=self._cfg.deployment,
+            name="LearnerProfilerAgent",
+            instructions=_SYSTEM_PROMPT,
+        )
+        try:
+            thread = client.agents.create_thread()
+            client.agents.create_message(
+                thread_id=thread.id,
+                role="user",
+                content=user_message,
+            )
+            # create_and_process_run polls until the run completes
+            run = client.agents.create_and_process_run(
+                thread_id=thread.id,
+                agent_id=agent.id,
+            )
+            if run.status == "failed":
+                raise RuntimeError(
+                    f"Foundry agent run failed: {run.last_error}"
+                )
+            messages  = client.agents.list_messages(thread_id=thread.id)
+            last_msg  = messages.get_last_message_by_role("assistant")
+            text      = last_msg.content[0].text.value
+            return json.loads(text)
+        finally:
+            # Always clean up the ephemeral agent to avoid quota accumulation
+            client.agents.delete_agent(agent.id)
+
+    # ── Tier 2 implementation ─────────────────────────────────────────────────
+
+    def _call_via_openai(self, user_message: str) -> dict[str, Any]:
+        """Direct Azure OpenAI JSON-mode call (original implementation)."""
+        with console.status("[bold blue]Profiling agent: analysing background with Azure OpenAI…"):
+            response = self._openai_client.chat.completions.create(
+                model=self._cfg.deployment,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system",  "content": _SYSTEM_PROMPT},
+                    {"role": "user",    "content": user_message},
+                ],
+                temperature=0.2,
+                max_tokens=2000,
+            )
+        raw_json = response.choices[0].message.content
+        return json.loads(raw_json)
 
     # ── Internal helpers ─────────────────────────────────────────────────────
 
@@ -235,21 +336,6 @@ class LearnerProfilingAgent:
             Please produce the learner profile JSON.
         """).strip()
 
-    def _call_llm(self, user_message: str) -> dict[str, Any]:
-        with console.status("[bold blue]Profiling agent: analysing background with Azure OpenAI…"):
-            response = self._client.chat.completions.create(
-                model=self._cfg.deployment,
-                response_format={"type": "json_object"},
-                messages=[
-                    {"role": "system",  "content": _SYSTEM_PROMPT},
-                    {"role": "user",    "content": user_message},
-                ],
-                temperature=0.2,   # low for deterministic structured output
-                max_tokens=2000,
-            )
-        raw_json = response.choices[0].message.content
-        return json.loads(raw_json)
-
     # ── Public interface ──────────────────────────────────────────────────────
 
     def run(self, raw: RawStudentInput) -> LearnerProfile:
@@ -257,16 +343,16 @@ class LearnerProfilingAgent:
         Profile the student and return a validated LearnerProfile.
 
         Raises:
-            EnvironmentError  – Azure OpenAI credentials not configured.
-            ValidationError   – LLM returned JSON that doesn't match the schema.
-            json.JSONDecodeError – LLM response was not valid JSON (rare with json_object mode).
+            EnvironmentError   – Neither Foundry nor OpenAI credentials configured.
+            ValidationError    – LLM returned JSON that doesn't match the schema.
+            json.JSONDecodeError – LLM response was not valid JSON (rare).
         """
         user_msg = self._build_user_message(raw)
-        data = self._call_llm(user_msg)
+        data     = self._call_llm(user_msg)
 
-        # Patch passthrough fields that the LLM might not echo exactly
+        # Patch passthrough fields the LLM might not echo exactly
         data.setdefault("student_name", raw.student_name)
-        data.setdefault("exam_target", raw.exam_target)
+        data.setdefault("exam_target",  raw.exam_target)
         data.setdefault("hours_per_week", raw.hours_per_week)
         data.setdefault("weeks_available", raw.weeks_available)
         data.setdefault(
@@ -275,7 +361,8 @@ class LearnerProfilingAgent:
         )
 
         profile = LearnerProfile.model_validate(data)
-        console.print("[bold green]✓ Profiling complete.[/bold green]")
+        tier    = "Azure AI Foundry Agent SDK" if self.using_foundry else "Azure OpenAI"
+        console.print(f"[bold green]✓ Profiling complete.[/bold green] [dim](via {tier})[/dim]")
         return profile
 
 
