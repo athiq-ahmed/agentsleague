@@ -1,0 +1,63 @@
+# 📚 Lessons Learned — Self-Improvement Log
+
+> **Purpose:** After every correction, bug fix, or AI-assisted change, record the lesson here.  
+> This file is the **compounding intelligence layer** — the mistake rate drops over time because we actively learn from each incident.
+>
+> **When to update:** Any time a task is corrected, reverted, or required a non-obvious fix.  
+> **Format:** Add to the TOP of the log (newest first).
+
+---
+
+## Log
+
+### 2026-02-24 — Email service reference was wrong across multiple files
+
+| Field | Details |
+|-------|---------|
+| **What went wrong** | `docs/TODO.md` Section D and several README rows described Azure Communication Services (ACS) as the email implementation. The actual code in `b1_2_progress_agent.py` uses Python `smtplib` reading `SMTP_*` env vars. `AzureCommConfig` in `config.py` is dead code — never called by the email-sending function. |
+| **Root cause** | Initial scaffolding was planned with ACS, but the implementation used simpler SMTP. Documentation was not updated to reflect the actual build. |
+| **Fix applied** | `.env.example` section [4] rewritten with `SMTP_*` vars; ACS moved to `[4b]` marked "NOT used by current implementation". `docs/TODO.md` Section D rewritten with SMTP setup instructions. README Azure Services table split into "SMTP Email (current)" + "ACS (roadmap)" rows. |
+| **Prevention rule** | Before documenting any Azure service as active, grep for its config class / env var pattern in the actual service implementation files to confirm it is called. |
+
+---
+
+### 2026-02-24 — Azure AI Foundry config existed but was never called
+
+| Field | Details |
+|-------|---------|
+| **What went wrong** | `AzureFoundryConfig` and `AZURE_AI_PROJECT_CONNECTION_STRING` existed in `config.py` and `.env.example` but `LearnerProfilingAgent` only instantiated `AzureOpenAI` directly — Foundry SDK was never invoked. Documentation incorrectly described Foundry as active. |
+| **Root cause** | Config scaffolding was added speculatively but the implementation was never wired to it. |
+| **Fix applied** | `LearnerProfilingAgent` rebuilt with 3-tier execution: Tier 1 `AIProjectClient` (Foundry Agent Service SDK), Tier 2 direct `AzureOpenAI`, Tier 3 raise `EnvironmentError`. `using_foundry` flag exposed for UI reporting. `azure-ai-projects>=1.0.0b9` and `azure-identity>=1.19.0` added to `requirements.txt` and installed. |
+| **Prevention rule** | When a config class is added (`is_configured` property), immediately grep all agent files to verify it is actually referenced in the constructor or method. If not, mark it `[STUB — not wired]` in comments. |
+
+---
+
+### 2026-02-24 — Streamlit app crash loop (exit code 1) not diagnosed early enough
+
+| Field | Details |
+|-------|---------|
+| **What went wrong** | Multiple `streamlit run` cycles all exited with code 1 without clear error surfacing. |
+| **Root cause** | Process from previous run was still binding port 8501; additionally, an import error in a refactored agent file caused the crash. |
+| **Fix applied** | Added `taskkill` + `netstat` port-cleanup step before each launch; added `py_compile` syntax check as first verification step before any launch attempt. |
+| **Prevention rule** | **Verification order:** (1) `py_compile` first, (2) kill port 8501, (3) then launch. Never launch without step 1. |
+
+---
+
+### 2026-02-24 — README "What We Actually Use" table had stale Foundry status
+
+| Field | Details |
+|-------|---------|
+| **What went wrong** | After Foundry SDK integration was implemented in code, the README still showed the Foundry row as "🗺️ Roadmap". |
+| **Root cause** | Code and documentation were updated in separate passes; the README table was missed in the first multi-replace batch. |
+| **Fix applied** | Second `multi_replace_string_in_file` pass targeted the exact table row text. |
+| **Prevention rule** | When implementing a feature, do a `grep_search README.md` for the feature name immediately after the code change to find all stale documentation references in one pass. |
+
+---
+
+## Meta-Rules (Extracted from All Lessons)
+
+1. **Grep before doc** — before describing a service/library as "active", grep for its usage in actual implementation files.
+2. **py_compile first** — before any `streamlit run`, always run `py_compile` and confirm exit 0.
+3. **Kill port, then launch** — always clear port 8501 before starting a new Streamlit process.
+4. **Same-pass doc update** — when implementing a feature, update docs in the same commit, not a follow-up.
+5. **Config stub tagging** — stub config classes that are not yet wired to implementations must be tagged `# [STUB — not wired in production]` so they are not mistakenly documented as active.

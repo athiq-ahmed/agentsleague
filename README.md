@@ -323,6 +323,30 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
 
 ---
 
+## 🤝 Responsible AI Considerations
+
+This system is built with Microsoft's Responsible AI principles embedded in every agent transition:
+
+| Principle | Requirement | Implementation Status | Evidence |
+|-----------|-------------|----------------------|----------|
+| **Guardrails** | Validate inputs and outputs to prevent harmful content | ✅ **Implemented** | 17-rule `GuardrailsPipeline` (BLOCK/WARN/INFO); G-01..G-05 validate all user inputs; G-06..G-17 validate all agent outputs before the next stage proceeds |
+| **Content Filters** | Use Azure Content Safety to detect inappropriate content | ✅ **Heuristic active** / 🗺️ API roadmap | G-16: 14 harmful-keyword heuristic blocks profanity and harmful content on all free-text fields; `check_content_safety()` stub in `guardrails.py` ready for `azure-ai-contentsafety` SDK upgrade (see TODO.md §C) |
+| **Bias Evaluation** | Evaluate agent responses for fairness across scenarios | ✅ **Structural fairness** / 🗺️ Formal eval roadmap | All 9 exam families use the same domain registry and scoring logic; assessment questions are drawn from exam blueprints (factual/technical, not demographic-sensitive); formal LLM bias evaluation via Foundry Evaluation is a near-term roadmap item |
+| **Transparency** | Clearly indicate to users when interacting with AI | ✅ **Implemented** | Sidebar mode badge (☁️ Azure AI Foundry SDK / 🔌 Mock Mode); spinner messages name the exact tier called; `🤖 AI-generated` badges on study plans and recommendations; mock mode banner when no Azure creds; judge playbook documents all AI boundaries |
+| **Human Oversight** | Include human-in-the-loop patterns for critical decisions | ✅ **Implemented** | HITL Gate 1: learner manually submits study hours + self-ratings (agents cannot auto-advance); HITL Gate 2: learner manually answers the 30-question quiz; readiness gate blocks assessment until progress threshold met |
+| **Fallback & Graceful Degradation** | Prevent silent AI failures | ✅ **Implemented** | 3-tier execution strategy: Foundry SDK → Direct OpenAI → Mock; guardrail BLOCK calls `st.stop()` (never silently skipped); all agent errors surface in UI and agent trace |
+| **Privacy / PII** | Protect personally identifiable information | ✅ **Implemented** | G-05 PII notice: names stored locally only, never transmitted to external APIs; G-16 PII regex (7 patterns: SSN, credit card, passport, UK NI, email, phone, IP) BLOCKS submission if detected; demo data is synthetic only; `.env` is gitignored |
+
+### What Is NOT Yet Implemented (Honest Gaps)
+
+| Gap | Plan |
+|-----|------|
+| Azure Content Safety API (live call) | Upgrade G-16 from heuristic to `azure-ai-contentsafety` SDK when `AZURE_CONTENT_SAFETY_ENDPOINT/KEY` are set; stub + env vars already in place |
+| Formal LLM bias evaluation dataset | Create eval harness in Foundry Evaluation SDK with demographic parity + counterfactual tests |
+| Differential privacy metrics | Track token-level PII exposure rate across sessions via Azure Monitor |
+
+---
+
 ## 🔮 Futuristic Vision
 
 ### Near Term (3–6 months)
@@ -497,21 +521,59 @@ agentsleague/
 
 ---
 
+## 🏆 Submission Requirements Checklist
+
+Complete alignment with the [Battle #2 Submission Requirements](https://github.com/microsoft/agentsleague/tree/main/starter-kits/2-reasoning-agents#-submission-requirements). Every mandatory criterion is met; all optional/highly-valued criteria are also addressed.
+
+### Mandatory Requirements
+
+| # | Requirement | Status | Evidence |
+|---|-------------|--------|----------|
+| 1 | **Multi-agent system** aligned with the challenge scenario (student preparation for Microsoft certification exams) | ✅ **Met** | 8 specialised reasoning agents: `IntakeAgent` → `LearnerProfilingAgent` → `StudyPlanAgent` ∥ `LearningPathCuratorAgent` → `ProgressAgent` → `AssessmentAgent` → `CertRecommendationAgent`; supports 9 exam families (AI-102, DP-100, AZ-204, AZ-305, AZ-400, SC-100, AI-900, DP-203, MS-102) |
+| 2 | **Use Microsoft Foundry (UI or SDK)** and/or the Microsoft Agent Framework for agent development and orchestration | ✅ **Met** | `azure-ai-projects` SDK (`AIProjectClient.from_connection_string()`) is live for `LearnerProfilingAgent` — creates managed agent + thread, calls `create_and_process_run()`, deletes ephemeral agent after response; Tier 2 fallback to direct Azure OpenAI; remaining agents use Foundry-compatible typed contracts |
+| 3 | **Demonstrate reasoning and multi-step decision-making** across agents | ✅ **Met** | 8-agent sequential + parallel pipeline; Planner–Executor pattern (Intake → Profiler → Planner); Critic/Verifier pattern (GuardrailsPipeline at every agent boundary); conditional routing (`score ≥ 70%` → CertRecommender, `50–70%` → targeted review, `< 50%` → remediation loop); self-reflection iteration (re-plan on score drop); HITL gates |
+| 4 | **Integrate with external tools, APIs, and/or MCP servers** to meaningfully extend agent capabilities | ✅ **Met** | Azure OpenAI GPT-4o (LLM backbone); Azure AI Foundry Agent Service SDK (managed agent execution); SQLite persistence (cross-session learner profiles); SMTP email digest (progress notifications); MS Learn module catalogue (9-cert static registry; live MCP `/ms-learn` server integration via `MCP_MSLEARN_URL` is active roadmap — placeholder wired) |
+| 5 | **Be demoable** (live or recorded) and clearly explain the agent interactions | ✅ **Met** | Live at [agentsleague.streamlit.app](https://agentsleague.streamlit.app) (Streamlit Cloud); Admin Dashboard shows per-agent reasoning trace, input/output, guardrail violations, latency; mock mode runs zero-credential locally; `docs/judge_playbook.md` guides live demo walkthrough |
+| 6 | **Clear documentation** describing: agent roles and responsibilities, reasoning flow and orchestration logic, tools/API/MCP integrations | ✅ **Met** | `README.md` (this file — full architecture, agent table, reasoning patterns, tool integrations, Foundry SDK integration); `docs/architecture.md` (sequence diagrams, agent contracts, compliance map); `docs/judge_playbook.md` (demo script, scenario walkthroughs, guardrail evidence); `docs/user_flow.md` (full user journey with PII edge cases) |
+
+### Optional But Highly Valued
+
+| # | Criterion | Status | Evidence |
+|---|-----------|--------|----------|
+| 7 | **Use of evaluations, telemetry, or monitoring** | ✅ **Implemented** | `AgentStep` / `RunTrace` structs capture per-agent latency, token count, I/O snapshot, and guardrail violations; Admin Dashboard surfaces full trace per student session; 25 pytest tests in `tests/`; Azure AI Foundry portal telemetry active for Tier 1 Foundry-managed runs |
+| 8 | **Advanced reasoning patterns** (planner–executor, critics, reflection loops) | ✅ **All 4 implemented** | Planner–Executor (Intake→Profiler→StudyPlan); Critic/Verifier (GuardrailsPipeline 17 rules); Self-reflection + Iteration (remediation loop on low score); Role-based specialisation (bounded single-responsibility agents); + HITL gates, conditional routing, typed handoff contracts, concurrent fan-out |
+| 9 | **Responsible AI considerations** (guardrails, validation, fallbacks) | ✅ **Comprehensively implemented** | 17-rule `GuardrailsPipeline` (BLOCK/WARN/INFO); G-16 content safety heuristic (14 harmful keywords + PII regex); G-17 URL trust/anti-hallucination; G-05 PII notice; 3-tier graceful degradation (Foundry → OpenAI → Mock); HITL human oversight gates; transparency badges (mode badge, spinner labels, AI disclaimers); `.env` gitignored; synthetic demo data only — see `## 🤝 Responsible AI Considerations` section above for full breakdown |
+
+### Self-Improvement & Workflow Governance
+
+This project enforces a **plan-first, verify-before-done** development discipline:
+
+| Workflow Principle | Implementation |
+|-------------------|----------------|
+| **Plan Node Default** | Any task with > 3 implementation steps must be written to `tasks/todo.md` before coding starts |
+| **Self-Improvement Loop** | After every correction or AI-assisted change, lessons are recorded in `tasks/lessons.md` — compounding the mistake rate drop over time |
+| **Verification Before Done** | No task is marked `✅` without: syntax check (`py_compile`), behaviour diff (manual or `pytest`), and git diff review |
+| **Autonomous Bug Fixing** | CI test failures / error logs are addressed root-cause-first — no patch-over-patch workarounds |
+| **Strict Task Management** | `tasks/todo.md` uses checkable items; in-progress items are limited to one at a time; completed items immediately ticked |
+
+See [`tasks/todo.md`](tasks/todo.md) for current sprint tasks and [`tasks/lessons.md`](tasks/lessons.md) for the cumulative lessons log.
+
+---
+
 ## ✅ Starter Kit Compliance Checklist
 
-Alignment with [Battle #2 submission requirements](https://github.com/microsoft/agentsleague/tree/main/starter-kits/2-reasoning-agents#-submission-requirements):
+Alignment with the [Starter Kit README](https://github.com/microsoft/agentsleague/tree/main/starter-kits/2-reasoning-agents):
 
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| Multi-agent system aligned with cert prep scenario | ✅ | 8 specialised agents: Intake → Profiler → StudyPlan ∥ LearningPath → Progress → Assessment → CertRecommender |
-| Use Microsoft Foundry (UI/SDK) and/or Microsoft Agent Framework | ✅ | `azure-ai-projects` SDK (`AIProjectClient`) active for `LearnerProfilingAgent` in Tier 1; Tier 2 falls back to direct OpenAI; remaining agents are custom Python with Foundry-compatible typed contracts |
-| Demonstrate reasoning and multi-step decision-making | ✅ | 8-agent sequential + parallel pipeline; conditional routing (score ≥ 70%); remediation loop; HITL gates |
-| Integrate with external tools/APIs/MCP servers | ✅ | Azure OpenAI (GPT-4o); MS Learn module catalogue (static + live roadmap); SQLite persistence; Optional: email digest via SMTP / Azure Communication Services |
-| Demoable with clear agent interaction explanation | ✅ | Live at `agentsleague.streamlit.app`; Admin Dashboard with per-agent reasoning trace; mock mode (zero credentials) |
-| Clear documentation (agent roles, reasoning flow, tool integrations) | ✅ | `docs/architecture.md`, `docs/judge_playbook.md`, this README, `docs/user_flow.md` |
-| Evaluation/telemetry/monitoring (optional, highly valued) | ✅ | 25 pytest tests; `AgentStep`/`RunTrace` observability; Admin Dashboard guardrail audit |
-| Advanced reasoning patterns (optional, highly valued) | ✅ | All 4 starter-kit patterns implemented (Planner–Executor, Critic, Self-reflection, Role-based specialisation) |
-| Responsible AI (optional, highly valued) | ✅ | 17-rule `GuardrailsPipeline`; content safety (G-16); URL trust guard (G-17); PII notice (G-05); no credentials in repo |
+| Starter Kit Item | Status | Notes |
+|-----------------|--------|-------|
+| Multi-agent reasoning system | ✅ | 8 agents, 4 reasoning patterns |
+| `azure-ai-projects` SDK (`AIProjectClient`) active | ✅ | `LearnerProfilingAgent` Tier 1 — Foundry managed agent + thread |
+| Foundry-compatible typed agent contracts | ✅ | All agents exchange Pydantic `BaseModel` / `@dataclass` |
+| Human-in-the-Loop gates | ✅ | 2 explicit HITL gates in pipeline |
+| Content safety + input validation | ✅ | G-01..G-17 guardrails pipeline |
+| Evaluation / telemetry | ✅ | `AgentStep`/`RunTrace` + 25 pytest tests |
+| `.gitignore` per starter kit guidelines | ✅ | `.env`, `.azure/`, `.secrets/` excluded |
+| GitHub repository with full documentation | ✅ | [athiq-ahmed/agentsleague](https://github.com/athiq-ahmed/agentsleague) |
 
 ---
 

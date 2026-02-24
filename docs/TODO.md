@@ -96,25 +96,37 @@
 
 ---
 
-### D. Azure Communication Services (Optional — weekly email nudges)
+### D. SMTP Email (Optional — weekly progress email nudges)
+
+> **Current implementation** uses Python `smtplib` with standard SMTP credentials.  
+> Azure Communication Services is a **future roadmap** upgrade — it is **not** available in the current build.
 
 | Setting | Value |
 |---------|-------|
-| **Resource name** | `acs-agentsleague` |
-| **Pricing** | Pay-per-message (first 100 emails free) |
+| **Required vars** | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` |
+| **Works with** | Gmail, Outlook, SendGrid, or any SMTP relay |
+| **Cost** | Free tier available on all major providers |
 
-**How to set up:**
-1. Portal → **Create a resource** → "Communication Services" → **Create**
-2. **Email** → **Provision domains** → use Azure-managed domain (`*.azurecomm.net`)
-3. Copy connection string → `.env`:
+**How to set up (Gmail example):**
+1. Enable **App Passwords** in your Google account (2FA must be on)
+2. Create an App Password for "Mail" → copy the 16-character code
+3. Add to `.env`:
    ```
-   AZURE_COMM_CONNECTION_STRING=<connection-string>
-   AZURE_COMM_SENDER_EMAIL=DoNotReply@<guid>.azurecomm.net
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USER=your-account@gmail.com
+   SMTP_PASS=your-16-char-app-password
+   SMTP_FROM=your-account@gmail.com
    ```
-4. Used by `progress_agent.py` → `attempt_send_email()` for weekly summaries
+4. Used by `b1_2_progress_agent.py` → `attempt_send_email()` for weekly progress summaries
 
-- [ ] Resource created (optional — app works without it)
-- [x] Placeholders in `.env` (`AZURE_COMM_CONNECTION_STRING`, `AZURE_COMM_SENDER_EMAIL`)
+- [ ] SMTP credentials configured in `.env` (optional — app works without it)
+- [x] `attempt_send_email()` implemented in `b1_2_progress_agent.py` using `smtplib`
+- [x] `.env.example` has correct `SMTP_*` placeholder section
+
+---
+
+> 🗺️ **Roadmap — Azure Communication Services (ACS):** When ready to upgrade, create a **Communication Services** resource in the Azure portal → add an **Email Communication Service** sub-resource → verify or use the free Azure-managed domain (`*.azurecomm.net`) → copy connection string to `AZURE_COMM_CONNECTION_STRING`. Then swap `smtplib` for `azure-communication-email` SDK.
 
 ---
 
@@ -164,7 +176,7 @@
 
 - [ ] **MCP integration** — real MS Learn content instead of static mock data
 - [ ] **Content Safety API** — upgrade G-16 from regex to `azure-ai-contentsafety` SDK
-- [ ] **Wire `attempt_send_email()`** — connect `AzureCommConfig` in `b1_2_progress_agent.py`
+- [ ] **Wire `attempt_send_email()` with SMTP creds** — configure `SMTP_HOST/PORT/USER/PASS/FROM` in `.env` to activate weekly progress summaries in `b1_2_progress_agent.py` (ACS upgrade is a roadmap item)
 - [ ] **Record demo video** (3–5 min) showing:
   - New learner flow → profile generation → study plan → quiz
   - Returning learner → progress tracking → readiness assessment
