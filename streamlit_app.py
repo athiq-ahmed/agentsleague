@@ -1589,7 +1589,7 @@ with st.sidebar:
         _badge_col = "#94a3b8"   # grey
         _badge_icon = "🧪"
         _badge_text = "Mock Mode"
-        _badge_sub  = "Fill .env + toggle ON to switch" if not _env_live else "Toggle ON to go live"
+        _badge_sub  = "Rule-based agents · no Azure needed" if not _env_live else "Toggle Live Mode ↑ to use Azure"
     st.markdown(f"""
     <div style="background:rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;margin-top:4px;">
       <div style="display:flex;align-items:center;gap:6px;">
@@ -1891,46 +1891,46 @@ if is_returning and not st.session_state.get("editing_profile", False):
             st.session_state["editing_profile"] = True
             st.rerun()
 
-    _fv1, _fv2, _fv3 = st.columns(3)
-    with _fv1:
-        _email_disp = getattr(_raw_r, "email", "") or st.session_state.get("user_email", "")
-        _email_row = f'<div style="color:{TEXT_MUTED};font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-top:10px;margin-bottom:4px;">📧 Email</div><div style="font-size:0.82rem;color:{TEXT_PRIMARY};">{_email_disp if _email_disp else "—"}</div>' if True else ""
-        st.markdown(f"""
-        <div class="intake-card">
-          <div style="color:{TEXT_MUTED};font-size:0.68rem;font-weight:700;text-transform:uppercase;
-                      letter-spacing:.06em;margin-bottom:6px;">🎯 Exam Target</div>
-          <div style="font-size:0.95rem;font-weight:700;color:{TEXT_PRIMARY};margin-bottom:10px;">{_raw_r.exam_target}</div>
-          <div style="color:{TEXT_MUTED};font-size:0.68rem;font-weight:700;text-transform:uppercase;
-                      letter-spacing:.06em;margin-bottom:4px;">🕐 Study Budget</div>
-          <div style="font-size:0.87rem;font-weight:600;color:{TEXT_PRIMARY};">
-            {_raw_r.hours_per_week} hr/wk &middot; {_raw_r.weeks_available} weeks
-          </div>
-          {_email_row}
-        </div>""", unsafe_allow_html=True)
-    with _fv2:
-        _certs_disp   = ", ".join(_raw_r.existing_certs) if _raw_r.existing_certs else "None yet"
-        _concern_disp = ", ".join(_raw_r.concern_topics[:3]) if _raw_r.concern_topics else "None specified"
-        st.markdown(f"""
-        <div class="intake-card">
-          <div style="color:{TEXT_MUTED};font-size:0.68rem;font-weight:700;text-transform:uppercase;
-                      letter-spacing:.06em;margin-bottom:4px;">🏅 Existing Certs</div>
-          <div style="font-size:0.87rem;font-weight:600;color:{TEXT_PRIMARY};margin-bottom:10px;">{_certs_disp}</div>
-          <div style="color:{TEXT_MUTED};font-size:0.68rem;font-weight:700;text-transform:uppercase;
-                      letter-spacing:.06em;margin-bottom:4px;">🔍 Focus Areas</div>
-          <div style="font-size:0.82rem;color:{TEXT_PRIMARY};">{_concern_disp}</div>
-        </div>""", unsafe_allow_html=True)
-    with _fv3:
-        _bg_short   = (_raw_r.background_text[:120] + "\u2026") if len(_raw_r.background_text) > 120 else _raw_r.background_text
-        _style_disp = _raw_r.preferred_style if _raw_r.preferred_style else "Not specified"
-        st.markdown(f"""
-        <div class="intake-card">
-          <div style="color:{TEXT_MUTED};font-size:0.68rem;font-weight:700;text-transform:uppercase;
-                      letter-spacing:.06em;margin-bottom:4px;">👤 Background</div>
-          <div style="font-size:0.82rem;color:{TEXT_PRIMARY};line-height:1.45;margin-bottom:10px;">{_bg_short}</div>
-          <div style="color:{TEXT_MUTED};font-size:0.68rem;font-weight:700;text-transform:uppercase;
-                      letter-spacing:.06em;margin-bottom:4px;">📖 Learning Style</div>
-          <div style="font-size:0.82rem;color:{TEXT_PRIMARY};">{_style_disp}</div>
-        </div>""", unsafe_allow_html=True)
+    _email_disp   = getattr(_raw_r, "email", "") or st.session_state.get("user_email", "")
+    _email_row    = f'<div class="pfc-label">📧 Email</div><div class="pfc-val">{_email_disp if _email_disp else "—"}</div>'
+    _certs_disp   = ", ".join(_raw_r.existing_certs) if _raw_r.existing_certs else "None yet"
+    _concern_disp = ", ".join(_raw_r.concern_topics[:3]) if _raw_r.concern_topics else "None specified"
+    _bg_short     = (_raw_r.background_text[:120] + "\u2026") if len(_raw_r.background_text) > 120 else _raw_r.background_text
+    _style_disp   = _raw_r.preferred_style if _raw_r.preferred_style else "Not specified"
+    st.markdown(f"""
+    <style>
+      .pfc-row {{ display:flex; gap:12px; margin-bottom:6px; }}
+      .pfc-card {{ flex:1; background:#fff; border:1px solid #e5e7eb; border-radius:10px;
+                  padding:12px 14px; box-shadow:0 1px 3px rgba(0,0,0,0.04);
+                  display:flex; flex-direction:column; }}
+      .pfc-label {{ color:{TEXT_MUTED}; font-size:0.67rem; font-weight:700;
+                   text-transform:uppercase; letter-spacing:.06em; margin-bottom:4px; margin-top:10px; }}
+      .pfc-label:first-child {{ margin-top:0; }}
+      .pfc-val   {{ font-size:0.87rem; font-weight:600; color:{TEXT_PRIMARY}; margin-bottom:2px; line-height:1.45; }}
+      .pfc-val-lg{{ font-size:0.95rem; font-weight:700; color:{TEXT_PRIMARY}; margin-bottom:2px; }}
+    </style>
+    <div class="pfc-row">
+      <div class="pfc-card">
+        <div class="pfc-label">🎯 Exam Target</div>
+        <div class="pfc-val-lg">{_raw_r.exam_target}</div>
+        <div class="pfc-label">🕐 Study Budget</div>
+        <div class="pfc-val">{_raw_r.hours_per_week} hr/wk · {_raw_r.weeks_available} weeks</div>
+        {_email_row}
+      </div>
+      <div class="pfc-card">
+        <div class="pfc-label">🏅 Existing Certs</div>
+        <div class="pfc-val">{_certs_disp}</div>
+        <div class="pfc-label">🔍 Focus Areas</div>
+        <div class="pfc-val">{_concern_disp}</div>
+      </div>
+      <div class="pfc-card">
+        <div class="pfc-label">👤 Background</div>
+        <div class="pfc-val">{_bg_short}</div>
+        <div class="pfc-label">📖 Learning Style</div>
+        <div class="pfc-val">{_style_disp}</div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     submitted = False  # no form submission in read-only mode
 
