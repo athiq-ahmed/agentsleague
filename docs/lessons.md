@@ -10,6 +10,17 @@
 
 ## Log
 
+### 2026-02-25 — Nested f-string `_rows_html` in `st.markdown()` caused raw HTML display
+
+| Field | Details |
+|-------|---------|
+| **What went wrong** | Azure Services Status panel displayed raw HTML text instead of a rendered checklist when Live Mode toggle was clicked. |
+| **Root cause** | `_rows_html` was built via a loop of f-strings (multi-line, deeply indented), then embedded as `{_rows_html}` inside a second outer `st.markdown(f"""...""")` call. Streamlit's markdown pre-processor treated the indented multi-line HTML block as a fenced code block before `unsafe_allow_html` could act on it. |
+| **Fix applied** | Replaced the single outer f-string + `_rows_html` pattern with: (1) a flat header `st.markdown()` built via string concatenation (no multi-line f-string nesting), and (2) a loop using `st.columns([0.5, 6.5, 2.0])` where **each column gets its own isolated `st.markdown()` call** — no nesting, no ambiguity. |
+| **Prevention rule** | Never embed a multi-line HTML variable via `{var}` inside another `st.markdown()` f-string. Each logical HTML block must be its own standalone `st.markdown()` call. Prefer `st.columns()` over HTML grid CSS for service/checklist rows. |
+
+---
+
 ### 2026-02-24 — Foundry Best Practices section initially missing; tasks/ folder wrong location
 
 | Field | Details |
