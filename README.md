@@ -475,18 +475,60 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o
 AZURE_OPENAI_API_VERSION=2024-12-01-preview
 ```
 
-### Email digest (optional — standard SMTP, any provider)
-The progress agent sends a study-digest email via Python's built-in `smtplib`. Works with Gmail, Outlook, or any SMTP relay:
-```ini
-SMTP_HOST=smtp.gmail.com       # or smtp.office365.com, smtp.sendgrid.net, etc.
-SMTP_PORT=587
-SMTP_USER=your.account@gmail.com
-SMTP_PASS=<app-password>       # Gmail: Settings → Security → App Passwords
-SMTP_FROM=CertPrep <your.account@gmail.com>
+### Email digest (optional — weekly progress notifications)
+
+The `ProgressAgent` (`src/cert_prep/b1_2_progress_agent.py`) sends a weekly study-summary email to the learner via Python's built-in `smtplib`. **No Azure subscription required.** If the SMTP variables are absent the agent silently skips sending — the rest of the app is completely unaffected.
+
+#### How it works
+
 ```
-> **Note:** No Azure subscription needed for email. If these variables are absent the progress agent silently skips sending — the rest of the app is unaffected.
-> 
-> **Azure Communication Services (roadmap):** production upgrade to managed sender domain (`DoNotReply@<guid>.azurecomm.net`). Set up: Azure portal → **Communication Services** → add **Email Communication Service** sub-resource → verify/use the free Azure-managed domain → copy connection string to `AZURE_COMM_CONNECTION_STRING`.
+ProgressAgent.attempt_send_email()
+  → reads SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / SMTP_FROM from environment
+  → opens TLS connection (STARTTLS on port 587)
+  → sends HTML summary: domains covered, hours logged, readiness score, next steps
+  → logs success / failure to AgentStep trace (visible in Admin Dashboard)
+```
+
+#### Environment variables to set
+
+| Variable | What to put | Example |
+|----------|-------------|---------|
+| `SMTP_HOST` | Your SMTP server hostname | `smtp.gmail.com` |
+| `SMTP_PORT` | SMTP port (587 = STARTTLS, 465 = SSL) | `587` |
+| `SMTP_USER` | Login username (usually your email address) | `you@gmail.com` |
+| `SMTP_PASS` | Password or App Password (see below) | `abcd efgh ijkl mnop` |
+| `SMTP_FROM` | Display name + address shown in the "From" field | `CertPrep AI <you@gmail.com>` |
+
+#### Step-by-step: Gmail (recommended for testing)
+
+Gmail requires an **App Password** — your normal account password will not work.
+
+1. Sign in to [myaccount.google.com](https://myaccount.google.com)
+2. Go to **Security** → enable **2-Step Verification** (required)
+3. Go to **Security** → **App passwords** → select app: *Mail*, device: *Other (custom name)* → type `CertPrep` → click **Generate**
+4. Copy the **16-character code** shown (spaces don't matter)
+5. Add to your `.env` file:
+
+```ini
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=you@gmail.com
+SMTP_PASS=abcd efgh ijkl mnop    # paste the 16-char App Password here
+SMTP_FROM=CertPrep AI <you@gmail.com>
+```
+
+#### Other providers
+
+| Provider | `SMTP_HOST` | `SMTP_PORT` | Notes |
+|----------|-------------|-------------|-------|
+| **Outlook / Microsoft 365** | `smtp.office365.com` | `587` | Use your full email + account password |
+| **SendGrid** | `smtp.sendgrid.net` | `587` | `SMTP_USER=apikey`, `SMTP_PASS=<sendgrid-api-key>` |
+| **Mailgun** | `smtp.mailgun.org` | `587` | Use SMTP credentials from Mailgun dashboard |
+| **Any relay** | your relay hostname | `587` or `465` | Generic STARTTLS / SSL |
+
+> **No Azure needed.** The app works identically without these variables — email is purely additive.
+>
+> **Roadmap — Azure Communication Services:** future upgrade to a managed sender domain (`DoNotReply@<guid>.azurecomm.net`) via the `azure-communication-email` SDK. Setup when ready: Azure portal → **Communication Services** → add **Email Communication Service** sub-resource → provision or verify a domain → copy the connection string to `AZURE_COMM_CONNECTION_STRING`. See `docs/TODO.md` backlog task B-05.
 
 ---
 
