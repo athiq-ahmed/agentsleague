@@ -1,639 +1,275 @@
-# 📋 User Flow Scenarios — Microsoft Cert Prep Multi-Agent System
+# 📊 User Flow — CertPrep Multi-Agent System
 
-> This document describes every user journey the system supports, including the exact sequence of technical events behind each user action. Intended audience: developers, QA engineers, and technical judges.
+> Visual flowcharts for all 8 user journeys. Each diagram shows both user actions and the technical events behind them.
 
 ---
 
-## Navigation Map
+## Scenario Map
 
-| Scenario | User Type | Mode | Entry Point |
-|---|---|---|-
---|
-| [S1 — New Learner, AI-102](#s1--new-learner-ai-102-from-scratch) | First-time user | Mock | Login → Intake Form → Full pipeline |
-| [S2 — Returning Learner, DP-100](#s2--returning-learner-dp-100-profile-on-file) | Returning user | Mock | Login → Restore → Progress → Quiz |
-| [S3 — Live Azure OpenAI Mode](#s3--live-azure-openai-mode) | New user with Azure credentials | Live GPT-4o | Login → Intake → Azure profiling |
-| [S4 — Admin Dashboard](#s4--admin-user-audit-dashboard) | Admin | N/A | /pages/1_Admin_Dashboard |
-| [S5 — Remediation Loop](#s5--remediation-loop-score--70) | Any learner | Mock/Live | After quiz — score < 70% |
-| [S6 — Edit Profile](#s6--returning-user-edits-profile) | Returning user | Mock/Live | Profile card → Edit |
-| [S7 — Guardrail BLOCK](#s7--guardrail-block-scenarios) | Any user | Any | Various — invalid inputs |
-| [S8 — PII in Background Text](#s8--pii-personally-identifiable-information-in-background-text) | Any user | Any | Intake form — G-16 PII scan |
+`mermaid
+flowchart LR
+    Login([🔑 Login Screen])
+
+    Login -->|New learner| S1[S1 — New Learner\nAI-102 from scratch]
+    Login -->|Returning user| S2[S2 — Returning Learner\nDP-100 on file]
+    Login -->|Azure creds set| S3[S3 — Live Azure\nOpenAI Mode]
+    Login -->|Admin login| S4[S4 — Admin\nAudit Dashboard]
+
+    S1 --> S5[S5 — Remediation\nLoop score less than 70%]
+    S1 --> S6[S6 — Edit Profile]
+    S1 --> S7[S7 — Guardrail BLOCK]
+    S1 --> S8[S8 — PII in Background]
+`
 
 ---
 
 ## S1 — New Learner, AI-102 from Scratch
 
-**Persona:** Alex Chen — CS graduate, no Azure experience, targeting AI-102.  
-**Mode:** Mock (no Azure credentials needed)  
-**Time to complete:** ~5 minutes (mock) / ~12 minutes (live Azure OpenAI)
+The happy path. Mock mode — no Azure credentials needed. ~5 min end-to-end.
 
-### User Actions and Technical Events
+`mermaid
+flowchart TD
+    A([Open App]) --> B[Click Alex Chen\ndemo card]
+    B --> C[Session: logged_in=True\nSQLite upsert_student]
+    C --> D[Intake Form\npre-filled via sidebar_prefill]
 
-```
-Browser → https://agentsleague.streamlit.app
+    D --> G{Guardrails\nG-01 to G-05}
+    G -->|BLOCK| ERR1[st.error + st.stop\nUser fixes form]
+    G -->|PASS| PROF
 
-    [LOGIN SCREEN]
-    Three demo cards shown.
-    User clicks "Alex Chen — New Learner" card.
+    subgraph PROF [Learner Profiling — b1_mock_profiler.py]
+        P1[Parse background text\nkeyword rules]
+        P2[Assign ExperienceLevel\nBEGINNER]
+        P3[Set domain confidence\nall UNKNOWN or WEAK]
+        P1 --> P2 --> P3
+    end
 
-    TECHNICAL:
-      st.session_state["logged_in"]  = True
-      st.session_state["login_name"] = "Alex Chen"
-      upsert_student("Alex Chen","1234","learner") → SQLite write
+    PROF --> G2{Guardrails\nG-06 to G-08}
+    G2 -->|PASS| FAN
 
-    [INTAKE FORM — pre-filled via sidebar_prefill="alex"]
+    subgraph FAN [Parallel Fan-Out — ThreadPoolExecutor max_workers=2]
+        direction LR
+        SP[Thread A\nStudyPlanAgent\nLargest Remainder\nalgorithm]
+        LC[Thread B\nLearningPathCurator\nMS Learn module\nmapping + G-17]
+    end
 
-    TECHNICAL — Pre-fill mechanism:
-      st.session_state["sidebar_prefill"] = "alex"
-      → prefill.update(_PREFILL_SCENARIOS["Alex Chen — complete beginner, AI-102"])
-      → Every widget seeded via value=prefill.get(...)
-      → email_input pre-filled with "alex.chen@demo.com"
-```
+    FAN --> DB[(SQLite\nprofile + plan\n+ learning path)]
+    DB --> UI
 
-### Form Fields Pre-filled
+    subgraph UI [6-Tab UI Renders]
+        T1[Tab 1 Radar chart\n6 domains]
+        T2[Tab 2 Gantt chart\n10 weeks]
+        T3[Tab 3 MS Learn\nmodule cards]
+        T4[Tab 4 HITL Gate 1\nProgress check-in]
+        T5[Tab 5 Mock Quiz\n30 questions]
+        T6[Tab 6 Cert\nRecommendation]
+    end
 
-| Field | Pre-filled Value |
-|-------|-----------------|
-| Exam | AI-102 – Azure AI Engineer Associate |
-| Email | alex.chen@demo.com |
-| Hours/week | 12 |
-| Weeks | 10 |
-| Background | "Recent CS graduate, basic Python skills, no cloud experience" |
-| Learning style | Hands-on labs, Practice tests |
-| Motivation | Career growth |
-| Concerns | Azure Cognitive Services, Azure OpenAI, Bot Service |
+    T4 -->|Submit progress| PROG[ProgressAgent\nreadiness formula\n0.55 x confidence\n+0.25 x hours\n+0.20 x practice]
+    PROG -->|score 50% or above| T5
+    PROG -->|score below 50%| NOTYET[NOT YET banner\nWeak domains highlighted]
 
-### After Submit — Pipeline Events
+    T5 -->|Submit answers| SCORE[Score 30 questions\nweighted by domain]
+    SCORE -->|70% or above| T6
+    SCORE -->|below 70%| S5([S5 Remediation])
 
-```
-[GUARDRAILS G-01..G-05]
-  G-01: student_name = "Alex Chen" — present ✓
-  G-02: exam_target = "AI-102" — in EXAM_DOMAIN_REGISTRY ✓
-  G-03: hours_per_week = 12 — in [1,80] ✓
-  G-04: weeks_available = 10 — in [1,52] ✓
-  G-05: background_text len > 10 ✓
-  → GuardrailResult(blocked=False)
-  → PASS — pipeline continues
-
-[LEARNER PROFILING — b1_mock_profiler.py]
-  Input: RawStudentInput(name="Alex Chen", exam="AI-102", email="alex.chen@demo.com", ...)
-  Rule engine passes:
-    Pass 1 — "cs graduate" matches → ExperienceLevel.BEGINNER
-    Pass 2 — "no cloud" → all 6 AI-102 domains set to UNKNOWN/WEAK confidence
-    Pass 3 — concern_topics ["Azure OpenAI","Bot Service"] → added to risk_domains
-  Output: LearnerProfile(
-    domain_profiles=[6 × DomainProfile],
-    risk_domains=["D3-NLP","D5-Bots"],
-    experience_level=BEGINNER
-  )
-
-[GUARDRAIL G-06..G-08 on LearnerProfile]
-  G-06: len(domain_profiles) == 6 (AI-102 has 6 domains) ✓
-  G-07: all confidence_score in [0,1] ✓
-  G-08: all risk_domain IDs in registry ✓
-  → PASS
-
-[PARALLEL FAN-OUT — ThreadPoolExecutor(max_workers=2)]
-
-  Thread A — StudyPlanAgent:
-    Largest Remainder algorithm over 120 hours, 6 domains
-    Assigns weekly blocks: e.g., D3 (0.25 weight) → 30 hours → weeks 1-4
-    Prereq gap check: AZ-900 not in existing_certs → prereq_gaps=["AZ-900"]
-    Output: StudyPlan(weekly_blocks=[...], prereq_gaps=["AZ-900"])
-
-  Thread B — LearningPathCuratorAgent:
-    Skips domains with skip_recommended=True (none for Alex — all weak)
-    Maps each domain to top 3 MS Learn modules from MODULE_CATALOGUE
-    Validates all URLs with G-17 (must be learn.microsoft.com/...)
-    Output: LearningPath(modules=[...], total_modules=18)
-
-  Both threads complete → guardrail checks applied to both outputs
-  G-09..G-10: study plan bounds ✓
-  G-17: all URLs verified ✓
-
-[SQLITE PERSISTENCE]
-  save_learner_profile(profile)
-  save_study_plan(plan)
-  save_learning_path(learning_path)
-  save_raw_input(raw)  — includes email="alex.chen@demo.com"
-  record AgentStep per agent
-
-[UI RENDERS — 6 TABS]
-  Tab 1: Domain radar chart (Plotly) — all 6 domains at low confidence
-  Tab 2: Gantt chart (Plotly, 10 weeks)
-  Tab 3: 18 MS Learn module cards
-  Tab 4: [HITL Gate 1 form — awaiting user]
-  Tab 5: [Locked until Gate 1 submitted]
-  Tab 6: [Locked until quiz submitted]
-```
-
-### HITL Gate 1 — Progress Check-In
-
-```
-User fills Tab 4 form:
-  hours_spent = 8
-  domain_ratings = {D1:3, D2:2, D3:2, D4:3, D5:2, D6:4}
-  practice_score = 45
-  notes = "Struggling with Azure OpenAI endpoints"
-  Clicks "Submit Progress"
-
-[GUARDRAIL G-11..G-13]
-  G-11: hours_spent = 8 >= 0 ✓
-  G-12: all ratings in [1,5] ✓
-  G-13: practice_score = 45 in [0,100] ✓
-  → PASS
-
-[ProgressAgent — readiness formula]
-  normalised_confidence = mean([(3-1)/4,(2-1)/4,(2-1)/4,(3-1)/4,(2-1)/4,(4-1)/4])
-                        = mean([0.50, 0.25, 0.25, 0.50, 0.25, 0.75]) = 0.417
-  hours_utilisation     = 8 / 12 = 0.667
-  practice_pct          = 45 / 100 = 0.45
-
-  readiness_pct = 0.55×0.417 + 0.25×0.667 + 0.20×0.45
-               = 0.229 + 0.167 + 0.090 = 0.486 → 48.6%
-  verdict: NOT YET (< 50%)
-
-  UI: "❌ 48.6% — NOT YET. Extend your study plan before booking."
-  Weak domains highlighted: D2 (Vision), D3 (NLP), D5 (Decision AI)
-```
-
-### HITL Gate 2 — Mock Quiz
-
-```
-[AssessmentAgent — 30-question build]
-  domain_weights: {D1:0.15, D2:0.20, D3:0.25, D4:0.20, D5:0.10, D6:0.10}
-  Largest Remainder sampling:
-    D3 → 7-8 questions (highest weight)
-    D1, D2, D4 → 4-6 questions each
-    D5, D6 → 3 questions each
-    Total = exactly 30
-
-User answers all 30, clicks "Submit Answers"
-
-[GUARDRAIL G-14..G-15]
-  G-14: len(questions) = 30 >= 5 ✓
-  G-15: no duplicate question IDs ✓
-  → PASS
-
-[Scoring]
-  domain_scores = {D1:83%, D2:75%, D3:62%, D4:100%, D5:67%, D6:100%}
-  weighted_score = 0.15×83 + 0.20×75 + 0.25×62 + 0.20×100 + 0.10×67 + 0.10×100
-                 = 12.45 + 15.0 + 15.5 + 20.0 + 6.7 + 10.0 = 79.65%
-  verdict: PASS (>= 70%)
-```
-
-### Tab 6 — Cert Recommendation
-
-```
-[CertRecommendationAgent]
-  Input: AssessmentResult(score=79.65%, profile=...)
-  score >= 70 → ready_to_book = True
-  next_cert = "AZ-204" (highest synergy with AI-102)
-  booking_checklist = [
-    "Valid government ID",
-    "Register at pearsonvue.com/microsoft",
-    "Pay exam fee ~$165 USD",
-    "Choose exam centre or online proctored"
-  ]
-
-Output displayed on Tab 6:
-  "✅ You are ready to book AI-102!"
-  Next cert recommendation: AZ-204 — Azure Developer Associate
-  Booking checklist rendered as step-by-step cards
-  Consolidation plan: 2 weeks extra focus on D3 (Azure OpenAI) + D5 (AI Search)
-```
+    T6 --> DONE([Ready to book\nNext cert recommendation])
+`
 
 ---
 
-## S2 — Returning Learner, DP-100 (Profile on File)
+## S2 — Returning Learner, DP-100
 
-**Persona:** Priyanka Sharma — data scientist, completed full pipeline in previous session.  
-**Mode:** Mock. Profile restored from SQLite.
+Profile loaded from SQLite — no agent re-runs unless the user edits.
 
-### Login and Session Restore
+`mermaid
+flowchart TD
+    A([Login as Priyanka Sharma]) --> B[SQLite read\nlearner_profiles\nstudy_plan\nlearning_path]
+    B --> C{Data found?}
+    C -->|No| S1([S1 New Learner flow])
+    C -->|Yes| D[Restore session state\nis_returning = True]
 
-```
-User clicks "Priyanka Sharma" card on login screen.
+    D --> E[Show read-only\nProfile Cards x3\nno form, no agent calls]
+    E --> F{User action}
 
-TECHNICAL:
-  upsert_student("Priyanka Sharma","1234","learner")
-  _db_p = get_student("Priyanka Sharma") → SQLite read
-  profile loaded from learner_profiles table
-  plan, learning_path loaded from their tables
+    F -->|View tabs| TABS[All 6 tabs render\nfrom session state\nno re-computation]
+    F -->|Click Edit| S6([S6 Edit Profile flow])
 
-  st.session_state["is_returning"]   = True
-  st.session_state["profile"]        = loaded_profile
-  st.session_state["raw"]            = loaded_raw   (includes email)
-  st.session_state["plan"]           = loaded_plan
-  st.session_state["learning_path"]  = loaded_path
-
-Key code branch:
-  if is_returning and not st.session_state.get("editing_profile", False):
-      submitted = False   # no form re-submission
-      show read-only profile cards
-```
-
-### Read-Only Profile View
-
-```
-Three profile cards rendered:
-  Card 1: Exam=DP-100, Budget=8hr×6wk, Email=priyanka.sharma@demo.com
-  Card 2: Certs=AZ-900,AI-900, Focus=Azure ML,MLflow,model deployment
-  Card 3: "5 years in data analytics with Python and SQL...", Style=Video+Hands-on
-
-✏️ Edit Profile button shown — clicking it sets:
-  st.session_state["editing_profile"] = True
-  st.rerun() → shows editable form
-```
-
-### Continuing from Previous Session
-
-All 6 tabs render immediately from `st.session_state`:
-- If `progress_submitted=True` was stored: Tab 4 shows readiness result (no form shown again)
-- If `quiz_submitted=True` was stored: Tab 5 shows quiz result; Tab 6 shows recommendation
-
-No agents re-run on session restore. The pipeline only replays if the user submits new HITL gate input.
+    TABS --> G{Previous gates completed?}
+    G -->|progress_submitted = True| SHOW_PROG[Tab 4 shows\nprevious readiness result]
+    G -->|quiz_submitted = True| SHOW_QUIZ[Tab 5 shows score\nTab 6 shows recommendation]
+`
 
 ---
 
 ## S3 — Live Azure OpenAI Mode
 
-**Difference from mock:** `LearnerProfilingAgent` calls GPT-4o instead of the rule-based profiler.
+One branching point changes everything: use_live toggle in the sidebar.
 
-### Credential Setup
+`mermaid
+flowchart TD
+    A[Sidebar: Azure OpenAI Config] --> B{Creds filled\nand toggle ON?}
+    B -->|No| MOCK[run_mock_profiling\nb1_mock_profiler.py\nrule-based]
+    B -->|Yes| LIVE
 
-```
-Sidebar → "☁️ Azure OpenAI Config" expander
-  AZURE_OPENAI_ENDPOINT   = https://<resource>.openai.azure.com
-  AZURE_OPENAI_API_KEY    = <key>
-  AZURE_OPENAI_DEPLOYMENT = gpt-4o
-  Toggle "Use live Azure OpenAI?" = ON
+    subgraph LIVE [LearnerProfilingAgent — b0_intake_agent.py]
+        L1[Build system prompt\nwith JSON schema]
+        L2[Send RawStudentInput\nto GPT-4o\ntemperature = 0.2]
+        L3[Parse JSON response\nLearnerProfile Pydantic]
+        L1 --> L2 --> L3
+    end
 
-  → use_live = True
-```
+    LIVE -->|Success| MERGE[LearnerProfile]
+    LIVE -->|Exception| FB[Fallback to mock\nst.info shown]
+    FB --> MERGE
+    MOCK --> MERGE
 
-### Technical Difference at Profiling
-
-```python
-if use_live:
-    os.environ["AZURE_OPENAI_ENDPOINT"]   = az_endpoint
-    os.environ["AZURE_OPENAI_API_KEY"]    = az_key
-    os.environ["AZURE_OPENAI_DEPLOYMENT"] = az_deployment
-
-    profile = LearnerProfilingAgent().run(raw)
-    # LearnerProfilingAgent internally:
-    #   1. Builds system prompt with LearnerProfile JSON schema
-    #   2. Sends RawStudentInput fields as user message
-    #   3. Uses response_format type=json_object
-    #   4. temperature=0.2 for deterministic structure
-    #   5. Parses JSON → LearnerProfile Pydantic validation
-    mode_badge = "Azure OpenAI"
-else:
-    profile = run_mock_profiling(raw)
-    mode_badge = "Mock"
-```
-
-### Fallback on Error
-
-```python
-except Exception as e:
-    st.error(f"Azure OpenAI call failed: {e}")
-    st.info("Falling back to mock profiler.")
-    profile = run_mock_profiling(raw)
-    mode_badge = "Mock (fallback)"
-```
-
-All downstream agents, guardrails, and tabs work identically regardless of whether profiling was done by GPT-4o or the rule-based profiler.
+    MERGE --> REST([All downstream agents\nStudyPlan + LearningPath\nProgress + Quiz + Recommendation\nidentical in both modes])
+`
 
 ---
 
-## S4 — Admin User: Audit Dashboard
+## S4 — Admin Audit Dashboard
 
-**Entry:** Navigate to `/pages/1_Admin_Dashboard.py`  
-**Credentials:** username=`admin`, password=`agents2026`
+Navigate to /pages/1_Admin_Dashboard.py — credentials: dmin / gents2026.
 
-### Dashboard Sections
+`mermaid
+flowchart LR
+    A([Admin login]) --> B[Admin Dashboard]
 
-```
-[Student Roster]
-  Query: SELECT name, exam_target, experience_level, created_at FROM learner_profiles
-  Rendered as st.dataframe
+    B --> R[Student Roster\nSELECT from\nlearner_profiles]
+    B --> T[Agent Trace Log\nColour-bordered HTML cards\nper AgentStep]
+    B --> G[Guardrail Audit\nRED = BLOCK\nAMBER = WARN]
+    B --> M[Mode Badge\nMock or Azure OpenAI]
 
-[Agent Trace — Per-Run HTML]
-  Query: SELECT * FROM agent_steps ORDER BY run_id, step_index
-  Each step rendered as colour-bordered HTML card:
-    - Agent name + timestamp + duration_ms
-    - input_summary (truncated to 200 chars)
-    - output_summary (key fields)
-  Performance metric: "⚡ Parallel agents completed in Xms"
-
-[Guardrail Audit]
-  Query: SELECT * FROM guardrail_violations
-  BLOCK violations: red left-border
-  WARN violations: orange left-border
-  Useful for judges: proves guardrails are real and firing
-
-[Mode Badge]
-  Shows which profile mode was used: "Mock" or "Azure OpenAI"
-```
+    T --> T1[Agent name + timestamp\n+ duration_ms]
+    T --> T2[input_summary\ntruncated 200 chars]
+    T --> T3[output_summary\nkey fields]
+    T --> T4[Parallel time in ms]
+`
 
 ---
 
 ## S5 — Remediation Loop (Score < 70%)
 
-**Trigger:** Quiz score < 70% after Tab 5 submission.
+Triggered when mock quiz score falls below the pass threshold.
 
-```
-Quiz score = 58%
+`mermaid
+flowchart TD
+    Q([Quiz score below 70%]) --> A[CertRecommendationAgent\nremediation branch]
 
-[CertRecommendationAgent — remediation branch]
-  ready_to_book = False
-  weak_domains = [D3 (scored 45%), D5 (scored 55%)]
-  remediation_plan = [
-    "D3 Azure OpenAI: scored 45%, target 75% — add 8 extra hours",
-    "D5 Decision AI: scored 55%, target 75% — switch to hands-on labs"
-  ]
+    A --> B[ready_to_book = False\nIdentify weak domains\ne.g. D3 45% and D5 55%]
+    B --> C[UI: Not ready banner\nDomain breakdown table\nRemediation plan per domain]
 
-UI shows:
-  "❌ Not ready to book — targeted review planned"
-  Domain breakdown table with scores vs targets
-  "🔄 Regenerate Study Plan with Updated Focus" button
+    C --> D{User action}
+    D -->|Click Regenerate| E[Reset weak domain\nconfidence to 0.1\npop plan + learning_path]
 
-User clicks Regenerate:
-  st.session_state["remediation_domains"] = ["D3","D5"]
-  st.session_state.pop("plan")
-  st.session_state.pop("learning_path")
-  st.rerun()
+    E --> F[StudyPlanAgent re-runs\nLargest Remainder\nreallocates more hours\nto weak domains]
+    E --> GG[LearningPathCurator re-runs\nSelects hands-on-lab\nvariants for weak domains]
 
-StudyPlanAgent re-runs:
-  Weak domain confidence reset to 0.1 for D3, D5
-  Largest Remainder reallocates more hours to D3, D5
-  New StudyPlan overwrites in SQLite (version 2 of plan)
+    F --> H[(SQLite overwrite\nversion 2 of plan)]
+    GG --> H
+    H --> I([All tabs update\nwith new plan])
 
-LearningPathCuratorAgent re-runs:
-  Selects hands-on-lab variants for D3, D5 (if available)
-  New LearningPath overwrites in SQLite
-```
+    D -->|Ignore and reattempt quiz| Q
+`
 
 ---
 
-## S6 — Returning User Edits Profile
+## S6 — Edit Profile
 
-**Trigger:** Returning user clicks "✏️ Edit Profile" on profile card.
+`mermaid
+flowchart TD
+    A([Returning user\nclicks Edit]) --> B[editing_profile = True\nst.rerun]
+    B --> C[Intake form shown\npre-populated from stored raw]
+    C --> D[User updates fields\ne.g. AI-102 to AZ-204]
+    D --> E[Click Save and Regenerate]
 
-```
-st.session_state["editing_profile"] = True
-st.rerun()
+    E --> F{Guardrails\nG-01 to G-05}
+    F -->|BLOCK| ERR[User fixes field]
+    F -->|PASS| G[Full pipeline reruns\nfrom profiling onwards]
 
-Intake form renders with all fields pre-populated from stored raw:
-  prefill["email"] = getattr(_raw_r, "email", "") or session email
-  User changes exam from AI-102 to AZ-204
-  User changes hours from 10 to 15
-  User clicks "💾 Save & Regenerate Plan"
-
-[Full pipeline reruns from guardrails onwards]
-  G-02: AZ-204 in EXAM_DOMAIN_REGISTRY ✓
-  New LearnerProfile generated for AZ-204 (6 AZ-204 domains)
-  StudyPlan and LearningPath regenerated for AZ-204 in parallel
-  Old plan/path overwritten in SQLite
-  st.session_state.pop("editing_profile")
-  All 6 tabs updated to reflect AZ-204 content
-```
+    G --> H[New LearnerProfile\nfor AZ-204 domains]
+    H --> I[StudyPlan + LearningPath\nregenerated in parallel]
+    I --> J[(SQLite overwrite\nnew cert)]
+    J --> K[editing_profile cleared\nAll 6 tabs reflect AZ-204]
+`
 
 ---
 
 ## S7 — Guardrail BLOCK Scenarios
 
-### Scenario A: Invalid exam code
+`mermaid
+flowchart TD
+    INPUT([User submits form]) --> G02{G-02\nExam in registry?}
+    G02 -->|AZ-999 not found| BLK1[BLOCK\nAZ-999 not in registry\nst.stop]
+    G02 -->|Valid| G03
 
-```
-User attempts to submit with exam "AZ-999" (not in registry)
-  G-02: "AZ-999" not in EXAM_DOMAIN_REGISTRY
-  → GuardrailViolation(code="G-02", level=BLOCK,
-      message="Exam code AZ-999 is not in the supported registry.")
-  → st.error("Guardrail [G-02]: Exam code AZ-999 is not in the supported registry.")
-  → st.stop()  — pipeline halts, nothing below runs
-```
+    G03{G-03\nHours in 1 to 80?}
+    G03 -->|0 or above 80| BLK2[BLOCK\nHours must be 1 to 80\nst.stop]
+    G03 -->|Valid| G16
 
-### Scenario B: Hours out of range
+    G16{G-16\nHarmful keyword\nin text?}
+    G16 -->|bomb matched| BLK3[BLOCK\nHarmful content detected\nst.stop]
+    G16 -->|Clean| G17
 
-```
-hours_per_week = 0 (edge case — slider prevents, but programmatic test):
-  G-03: 0 not in [1,80]
-  → BLOCK: "Hours per week must be between 1 and 80."
-  → st.stop()
-```
+    G17{G-17\nURL trust check\non learning path}
+    G17 -->|youtube.com found| WRN[WARN only\nURL removed\nrest of path delivered]
+    G17 -->|All learn.microsoft.com| PASS([Pipeline continues])
 
-### Scenario C: URL hallucination caught
-
-```
-LearningPathCuratorAgent returns module URL:
-  "https://www.youtube.com/watch?v=abc123"
-  G-17: netloc "youtube.com" not in trusted origins
-  → WARN (not BLOCK): "Unverified URL removed: youtube.com"
-  → URL excluded from learning path; rest of path delivered
-  → st.warning("[G-17] 1 unverified URL was excluded from the learning path.")
-```
-
-### Scenario D: Content safety filter
-
-```
-background_text contains a blocked keyword
-  G-16: heuristic keyword match
-  → BLOCK: "[G-16] Background text contains disallowed content."
-  → st.stop()
-```
+    WRN --> PASS
+`
 
 ---
 
-## Technical Appendix: Session State Schema at Pipeline Completion
+## S8 — PII in Background Text
 
-```
-st.session_state = {
-    # Auth
-    "logged_in":           True,
-    "login_name":          "Alex Chen",
-    "user_email":          "alex.chen@demo.com",
-    "is_returning":        False,
+G-16 runs **before** any profiler agent. PII triggers WARN (pipeline continues). Harmful keywords trigger BLOCK.
 
-    # Pipeline outputs
-    "raw":                 RawStudentInput,
-    "profile":             LearnerProfile,
-    "plan":                StudyPlan,
-    "learning_path":       LearningPath,
-    "guardrail_plan":      GuardrailResult,
-    "guardrail_path":      GuardrailResult,
+`mermaid
+flowchart TD
+    TXT([background_text submitted]) --> SCAN[G-16 PII scan\nregex patterns]
 
-    # HITL Gate 1
-    "progress_submitted":  True,
-    "progress_snapshot":   ProgressSnapshot,
-    "readiness":           ReadinessAssessment,
+    SCAN --> SSN{SSN pattern\n123-45-6789?}
+    SCAN --> CC{Credit card\n16-digit?}
+    SCAN --> EMAIL{Email in bio\nuser at domain?}
+    SCAN --> HARM{Harmful keyword\nbomb, harm, etc?}
 
-    # HITL Gate 2
-    "quiz_submitted":      True,
-    "assessment_result":   AssessmentResult,
+    SSN -->|Match| W1[WARN banner\nSSN detected\nuser notified]
+    CC  -->|Match| W2[WARN banner\nCredit card detected]
+    EMAIL -->|Match| W3[WARN banner\nEmail in bio detected]
+    HARM -->|Match| BLK[BLOCK\nst.stop\nUser must edit text]
 
-    # Cert recommendation
-    "cert_recommendation": CertRecommendation,
+    W1 --> CONT[Pipeline continues\nSSN not forwarded\nto OpenAI in mock mode]
+    W2 --> CONT
+    W3 --> CONT
 
-    # Observability
-    "trace":               list_of_AgentSteps,
-    "parallel_agent_ms":   4821,
-    "mode_badge":          "Mock mode",
-}
-```
+    CONT --> LOG[(guardrail_violations\nlogged in SQLite\nvisible in Admin Dashboard)]
+`
 
 ---
 
-## Technical Appendix: Pipeline Exit Points
+## Pipeline Exit Points
 
-| Trigger | Guard | Action | Recovery Path |
-|---------|-------|--------|---------------|
-| `st.stop()` | G-01..G-05 BLOCK | Invalid form input | User corrects form and resubmits |
-| `st.stop()` | G-06..G-08 BLOCK | Invalid profiler output | Switch to live mode or report bug |
-| `st.stop()` | G-16 BLOCK | Harmful content in background | User rewrites background text |
-| `st.warning()` | G-16 WARN | PII detected in background text | User removes personal data; pipeline continues |
-| `st.warning()` | G-09..G-10 WARN | Plan hours slightly over budget | Pipeline continues with caution banner |
-| `st.warning()` | G-17 WARN | Unverified URL in path | URL removed; rest of path delivered |
-| Auto-fallback | Azure error | Network / quota / auth failure | Mock profiler used transparently |
+`mermaid
+flowchart LR
+    subgraph BLOCKS [Pipeline BLOCK — st.stop]
+        B1[G-01 to G-05\nInvalid form input]
+        B2[G-06 to G-08\nInvalid profiler output]
+        B3[G-16 harmful keyword]
+    end
 
----
+    subgraph WARNS [Pipeline WARN — continues]
+        W1[G-16 PII\nUser notified, runs on]
+        W2[G-09 to G-10\nPlan hours over budget]
+        W3[G-17 URL\nBad URL removed]
+    end
 
-## S8 — PII (Personally Identifiable Information) in Background Text
+    subgraph AUTO [Auto-recovery]
+        A1[Azure OpenAI error\nsilent fallback to mock]
+    end
 
-**Persona:** Any user who inadvertently pastes personal data into the "Tell us about your background" field.  
-**Trigger:** G-16 PII scan runs on `background_text` and `goal_text` before the profiler agent executes.  
-**Guardrail level:** WARN (pipeline continues, user is notified) — unless harmful keywords are also present (BLOCK).
-
----
-
-### Sub-scenario A — SSN in Background Text
-
-```
-User types in the background text field:
-  "I have 15 years of Python experience. My SSN is 123-45-6789 and I want..."
-
-[InputGuardrails.check() — G-16 PII scan]
-  _PII_PATTERNS check on background_text:
-    Pattern: SSN  →  r"\b\d{3}[-\s]\d{2}[-\s]\d{4}\b"
-    Match:  '123-45-6789'  ✓ FOUND
-
-  GuardrailViolation(
-    code    = "G-16",
-    level   = GuardrailLevel.WARN,   ← WARN, not BLOCK
-    field   = "background_text",
-    message = "[PII Detected — SSN] Social Security Number detected. "
-              "Please remove personal data from your text before submitting."
-  )
-
-[Orchestrator renders WARN banner]
-  st.warning(
-    "⚠️ [G-16] [PII Detected — SSN] Social Security Number detected. "
-    "Please remove personal data from your text before submitting."
-  )
-
-[Pipeline continues]
-  The learner profiler still runs — study plan is generated.
-  The SSN is NOT stored in the agent input that goes to Azure OpenAI.
-  → mock mode: profiler only uses semantic patterns; SSN is ignored by rule engine
-  → live mode: G-16 banner is shown BEFORE the OpenAI call is made,
-               giving the user a chance to edit; if ignored, the text is sent
-               but Azure OpenAI itself will not act on an SSN in a background bio
-```
-
-### Sub-scenario B — Credit Card Number
-
-```
-User background text:
-  "I'm a developer. Card: 4111 1111 1111 1111 — ignore this."
-
-[G-16 PII scan]
-  Pattern: Credit card  →  Visa prefix 4xxx + 16-digit check
-  Match: '4111 1111 1111 1111'  ✓ FOUND
-
-  WARN: "[PII Detected — Credit card] Credit card number pattern detected.
-          Please remove personal data from your text before submitting."
-
-  Pipeline continues. Credit card number is not stored in learning path or quiz data.
-```
-
-### Sub-scenario C — Email Address in Background Field
-
-```
-User background text:
-  "I'm jane.doe@company.com, senior engineer with 8 years experience."
-
-[G-16 PII scan]
-  Pattern: Email in bio  →  r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"
-  Match: 'jane.doe@company.com'  ✓ FOUND
-
-  WARN: "[PII Detected — Email in bio] Email address detected in background text —
-          consider removing personal contact details."
-
-  Note: This is a WARN not a BLOCK because some users legitimately include
-  their work email when describing their context. The user is informed and
-  can choose to remove it.
-```
-
-### Sub-scenario D — Harmful Keyword (BLOCK)
-
-```
-User background text:
-  "I want to bomb this exam."
-
-[G-16 harmful scan]
-  _HARMFUL_PATTERN match: 'bomb'
-
-  GuardrailViolation(
-    code  = "G-16",
-    level = GuardrailLevel.BLOCK,
-    message = "Potentially harmful content detected — pipeline halted."
-  )
-
-  st.error("🚫 Guardrail [G-16]: Potentially harmful content detected — pipeline halted.")
-  st.stop()  ← pipeline halts; no agent runs
-
-  User must edit the background text before resubmitting.
-  Note: common exam idioms like "ace", "pass", "crush" are NOT in the blocklist.
-```
-
-### What Data is Retained After a G-16 WARN?
-
-| Data | Stored? | Notes |
-|------|---------|-------|
-| Full `background_text` including PII | SQLite `raw_inputs` table | Yes — stored as submitted (user was warned) |
-| PII → Azure OpenAI | No (mock mode) | Rule engine ignores non-semantic tokens |
-| PII → Azure OpenAI | Possible (live mode, user ignored warning) | G-16 fires before spinner; user sees warning |
-| `guardrail_violations` table | Yes — violation logged with `field=background_text`, code G-16 | Visible in Admin Dashboard |
-
-### Production Upgrade: Azure AI Content Safety
-
-In production (Phase 2), G-16 is upgraded from heuristic regex to the **Azure AI Content Safety API**:
-
-```python
-from azure.ai.contentsafety import ContentSafetyClient
-from azure.core.credentials import AzureKeyCredential
-from cert_prep.config import get_settings
-
-def check_content_safety(text: str) -> list[str]:
-    cfg = get_settings().content_safety
-    if not cfg.is_configured:
-        return []   # graceful degradation to regex fallback
-
-    client = ContentSafetyClient(
-        endpoint=cfg.endpoint,
-        credential=AzureKeyCredential(cfg.api_key)
-    )
-    response = client.analyze_text({"text": text})
-    flagged = []
-    for cat in response.categories_analysis:
-        if cat.severity >= cfg.threshold:   # default: 2 = medium+
-            flagged.append(f"{cat.category} (severity {cat.severity})")
-    return flagged
-```
-
-This replaces regex with Microsoft's managed multi-lingual content moderation model, covering:
-- Hate speech and violence
-- Sexual content
-- Self-harm language
-- Professional language norms
-- PII via Azure Purview integration (roadmap)
+    BLOCKS --> ERR([Halted — user corrects input])
+    WARNS --> CONT([Continues with banner])
+    AUTO --> CONT
+`
