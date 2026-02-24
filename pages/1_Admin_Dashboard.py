@@ -20,7 +20,7 @@ import plotly.express as px
 import json
 import html as _html
 
-from cert_prep.database import get_all_students, get_student
+from cert_prep.database import get_all_students, get_student, delete_student
 from cert_prep.models import LearnerProfile
 
 # ─── Page config ─────────────────────────────────────────────────────────────
@@ -240,6 +240,21 @@ st.caption("All registered students and their current progress — data persiste
 import pandas as pd
 
 _all_students = get_all_students()
+
+# ── Delete empty-profile students (admin housekeeping) ───────────────────────
+_empty_names = [s["name"] for s in _all_students if not s.get("profile_json")]
+if _empty_names:
+    st.warning(
+        f"⚠️ {len(_empty_names)} student(s) with no profile data: **{', '.join(_empty_names)}**",
+        icon=None,
+    )
+    if st.button(f"🗑️ Remove {len(_empty_names)} empty record(s)", key="del_empty"):
+        for _en in _empty_names:
+            delete_student(_en)
+        st.success(f"Deleted: {', '.join(_empty_names)}")
+        st.rerun()
+    _all_students = [s for s in _all_students if s.get("profile_json")]
+
 if _all_students:
     _student_rows = []
     for _s in _all_students:
