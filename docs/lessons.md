@@ -10,6 +10,17 @@
 
 ## Log
 
+### 2026-02-24 — Foundry Best Practices section initially missing; tasks/ folder wrong location
+
+| Field | Details |
+|-------|---------|
+| **What went wrong** | The `tasks/` folder was created at workspace root instead of inside `docs/` where all documentation lives. Additionally, the Foundry Best Practices section (telemetry, monitoring, evaluation, Responsible AI) was not explicitly mapped in README despite most of it being implemented. |
+| **Root cause** | Files created in the first available path without checking existing folder conventions. Section written as a summary table without explicit traceability to each starter kit bullet point. |
+| **Fix applied** | `tasks/lessons.md` → `docs/lessons.md` and `tasks/todo.md` merged into `docs/TODO.md` (sprint section added). New `## 📡 Microsoft Foundry Best Practices — Implementation Status` section added to README with per-bullet honest status, evidence, and honest gaps table. |
+| **Prevention rule** | Before creating any new file, run `Get-ChildItem docs/` to check existing folder conventions. When documenting "best practices", explicitly number and map each upstream bullet point rather than summarising. |
+
+---
+
 ### 2026-02-24 — Email service reference was wrong across multiple files
 
 | Field | Details |
@@ -28,7 +39,7 @@
 | **What went wrong** | `AzureFoundryConfig` and `AZURE_AI_PROJECT_CONNECTION_STRING` existed in `config.py` and `.env.example` but `LearnerProfilingAgent` only instantiated `AzureOpenAI` directly — Foundry SDK was never invoked. Documentation incorrectly described Foundry as active. |
 | **Root cause** | Config scaffolding was added speculatively but the implementation was never wired to it. |
 | **Fix applied** | `LearnerProfilingAgent` rebuilt with 3-tier execution: Tier 1 `AIProjectClient` (Foundry Agent Service SDK), Tier 2 direct `AzureOpenAI`, Tier 3 raise `EnvironmentError`. `using_foundry` flag exposed for UI reporting. `azure-ai-projects>=1.0.0b9` and `azure-identity>=1.19.0` added to `requirements.txt` and installed. |
-| **Prevention rule** | When a config class is added (`is_configured` property), immediately grep all agent files to verify it is actually referenced in the constructor or method. If not, mark it `[STUB — not wired]` in comments. |
+| **Prevention rule** | When a config class is added (`is_configured` property), immediately grep all agent files to verify it is actually referenced in the constructor or method. If not, mark it `# [STUB — not wired in production]` in comments. |
 
 ---
 
@@ -61,3 +72,5 @@
 3. **Kill port, then launch** — always clear port 8501 before starting a new Streamlit process.
 4. **Same-pass doc update** — when implementing a feature, update docs in the same commit, not a follow-up.
 5. **Config stub tagging** — stub config classes that are not yet wired to implementations must be tagged `# [STUB — not wired in production]` so they are not mistakenly documented as active.
+6. **Check folder conventions first** — before creating any new file, run `Get-ChildItem docs/` to confirm where similar files live; never create a new top-level folder for documentation.
+7. **Explicit bullet traceability** — when documenting "best practices", number and individually map each upstream requirement bullet to code evidence rather than writing a summary; gaps must be explicitly labelled.

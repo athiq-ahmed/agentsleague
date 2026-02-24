@@ -422,7 +422,32 @@ As recommended in the [Agents League starter kit](https://github.com/microsoft/a
 
 ---
 
-## 🚀 Quick Start
+## � Microsoft Foundry Best Practices — Implementation Status
+
+Explicit mapping of each [Foundry best practice from the starter kit](https://github.com/microsoft/agentsleague/tree/main/starter-kits/2-reasoning-agents#-best-practices-for-building-with-microsoft-foundry) to concrete implementation evidence in this codebase.
+
+| # | Foundry Best Practice | Status | Implementation Evidence |
+|---|----------------------|--------|------------------------|
+| 1 | **Use telemetry, logs, and visual workflows in Foundry** to understand how agents reason and collaborate | ✅ **Implemented** | `agent_trace.py` — `AgentStep` struct captures: `agent_id`, `agent_name`, `start_ms`, `duration_ms`, `status`, `input_summary`, `output_summary`, `decisions[]`, `warnings[]`; `RunTrace` aggregates all steps per session with `run_id`, `student_name`, `exam_target`, `mode`, `total_ms`; Admin Dashboard renders the full per-agent reasoning trace (expandable cards); Azure AI Foundry portal **automatically** logs all Tier 1 `create_and_process_run()` calls with latency + token counts |
+| 2 | **Foundry Control Plane** — built-in monitoring tools to track agent interactions and performance | ✅ **Partially active** | When `AZURE_AI_PROJECT_CONNECTION_STRING` is set, every `LearnerProfilingAgent` run appears in the Foundry portal **Tracing** view (request/response, latency, token usage) — recorded automatically by `AIProjectClient`; remaining agents are traced locally via `RunTrace` / Admin Dashboard; full Control Plane coverage for all agents is sprint task T-06 |
+| 3 | **Apply evaluation strategies** — test cases, scoring rubrics, or HITL reviews to continuously improve agent behaviour | ✅ **Implemented** | 25 pytest tests (`test_guardrails.py`, `test_config.py`, `test_agents.py`); `GuardrailsPipeline` is a 17-rule scoring rubric (BLOCK/WARN/INFO with per-rule codes G-01..G-17); HITL Gate 1 (study hours + self-ratings) and Gate 2 (30-question quiz) are structured human reviews embedded in the pipeline; remediation loop re-runs planning agents on low-score outcomes |
+| 4 | **Evaluate generative AI models and applications** using Microsoft Foundry built-in features | ✅ **Active (portal)** / 🗺️ SDK roadmap | Foundry portal evaluation is available today for all Tier 1 `LearnerProfilingAgent` runs; `azure-ai-evaluation` SDK integration (programmatic metrics: coherence, groundedness, relevance) is sprint task T-09 — `AgentStep`/`RunTrace` data model is already schema-compatible |
+| 5 | **Evaluate your AI agents with the Microsoft Foundry SDK** (`azure-ai-evaluation`) | 🗺️ **Roadmap — T-09** | `azure-ai-evaluation` package not yet wired; `AgentStep`/`RunTrace` structs are schema-compatible with Foundry Evaluation input format; see `docs/TODO.md` sprint task T-09 |
+| 6 | **Build with Responsible AI principles** — at both application and data layers | ✅ **Comprehensively implemented** | **Application layer:** 17-rule `GuardrailsPipeline` (input G-01..G-05, profile G-06..G-08, study plan G-09..G-10, progress G-11..G-13, quiz G-14..G-15, content G-16, URL-trust G-17); **Foundry model layer:** Foundry's content filters applied automatically to all Tier 1 managed runs at the model endpoint; **Data layer:** `.env` gitignored, synthetic demo personas only, no PII in repo — see `## 🤝 Responsible AI Considerations` for the full 7-principle breakdown |
+| 7 | **Responsible AI in Microsoft Foundry** — transparency, guardrails, human oversight | ✅ **Implemented** | Sidebar mode badge clearly labels the active AI tier (☁️ Azure AI Foundry SDK / ☁️ Live Azure OpenAI / 🔌 Mock Mode); spinner messages name the exact API called; `🤖 AI-generated` disclaimers on study plans and recommendations; 3-tier graceful degradation (Foundry → OpenAI → Mock) ensures no silent failures; `GuardrailsPipeline` BLOCK halts via `st.stop()` with a user-visible error message |
+
+### Honest Gaps
+
+| Gap | Sprint Task | Notes |
+|-----|-------------|-------|
+| `azure-ai-evaluation` SDK not yet wired | T-09 | Schema-compatible `AgentStep` data ready; needs `pip install azure-ai-evaluation` + eval harness scripting |
+| Foundry SDK limited to `LearnerProfilingAgent` only | T-06 | Remaining 4 agents still use Tier 2 (direct OpenAI) or Tier 3 (mock) |
+| Azure Content Safety API not called (heuristic only for G-16) | T-07 | `check_content_safety()` stub in `guardrails.py`; env vars present in `.env.example` |
+| Foundry Evaluation dataset for bias testing | B-01 | Requires labelled test set across all 9 cert exam families |
+
+---
+
+## �🚀 Quick Start
 
 ```bash
 git clone https://github.com/athiq-ahmed/agentsleague.git
@@ -550,13 +575,13 @@ This project enforces a **plan-first, verify-before-done** development disciplin
 
 | Workflow Principle | Implementation |
 |-------------------|----------------|
-| **Plan Node Default** | Any task with > 3 implementation steps must be written to `tasks/todo.md` before coding starts |
-| **Self-Improvement Loop** | After every correction or AI-assisted change, lessons are recorded in `tasks/lessons.md` — compounding the mistake rate drop over time |
+| **Plan Node Default** | Any task with > 3 implementation steps must be written to `docs/TODO.md` before coding starts |
+| **Self-Improvement Loop** | After every correction or AI-assisted change, lessons are recorded in `docs/lessons.md` — compounding the mistake rate drop over time |
 | **Verification Before Done** | No task is marked `✅` without: syntax check (`py_compile`), behaviour diff (manual or `pytest`), and git diff review |
 | **Autonomous Bug Fixing** | CI test failures / error logs are addressed root-cause-first — no patch-over-patch workarounds |
-| **Strict Task Management** | `tasks/todo.md` uses checkable items; in-progress items are limited to one at a time; completed items immediately ticked |
+| **Strict Task Management** | `docs/TODO.md` uses checkable items; in-progress items are limited to one at a time; completed items immediately ticked |
 
-See [`tasks/todo.md`](tasks/todo.md) for current sprint tasks and [`tasks/lessons.md`](tasks/lessons.md) for the cumulative lessons log.
+See [`docs/TODO.md`](docs/TODO.md) for current sprint tasks and [`docs/lessons.md`](docs/lessons.md) for the cumulative lessons log.
 
 ---
 

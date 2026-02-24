@@ -238,6 +238,57 @@
 - [x] G-16 PII scan added to `InputGuardrails.check()` — fires before any agent runs
 - [x] S8 PII scenario documented in `docs/user_flow.md` (sub-scenarios A–D + production upgrade path)
 - [x] `tests/` folder created with `test_guardrails.py`, `test_config.py`, `test_agents.py`
+- [x] Dev Approach + Reasoning Patterns + Security docs added to README
+- [x] SMTP email clarification (`.env.example` + README + TODO.md)
+- [x] `azure-ai-projects` Foundry Agent Service SDK integrated (`LearnerProfilingAgent` 3-tier strategy)
+- [x] Responsible AI Considerations section added to README (7-principle table)
+- [x] Full Submission Requirements Checklist added to README (mandatory + optional)
+- [x] Microsoft Foundry Best Practices section added to README (all 6 practices with status)
+- [x] Self-improvement loop created: `docs/lessons.md` + sprint tracking in this file
+
+---
+
+## 🚀 Sprint — Current (Feb 2026 Submission)
+
+> **Rule:** Only ONE task `[IN PROGRESS]` at a time. Tasks only marked `[DONE]` after: `py_compile` passes + behaviour verified + git diff reviewed.
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| T-06 | Extend Azure AI Foundry SDK to remaining 4 agents | 🔲 NOT STARTED | `StudyPlanAgent`, `LearningPathCuratorAgent`, `AssessmentAgent`, `CertRecommendationAgent` — same 3-tier pattern as `LearnerProfilingAgent` |
+| T-07 | Upgrade G-16 content safety heuristic → Azure Content Safety API | 🔲 NOT STARTED | Stub + env vars already in `guardrails.py`; needs `AZURE_CONTENT_SAFETY_ENDPOINT/KEY` in `.env` |
+| T-08 | Wire MCP MS Learn server into `LearningPathCuratorAgent` | 🔲 NOT STARTED | `MCP_MSLEARN_URL` placeholder in `.env`; needs Node.js MCP sidecar + `httpx` client in agent |
+| T-09 | Wire `azure-ai-evaluation` SDK for agent quality metrics | 🔲 NOT STARTED | `AgentStep`/`RunTrace` already schema-compatible; needs `pip install azure-ai-evaluation` + eval harness |
+| T-10 | Record demo video (3–5 min) | 🔲 NOT STARTED | New learner → profile → plan → quiz → recommendation; show Admin Dashboard trace + G-16 PII |
+| T-11 | Deploy to Streamlit Cloud with service principal secrets | 🔲 NOT STARTED | Add `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID` to Streamlit Cloud secrets |
+
+### Backlog — Should Do
+
+| # | Task | Notes |
+|---|------|-------|
+| B-01 | Foundry Evaluation SDK harness (bias + relevance + groundedness metrics) | `azure-ai-evaluation`; test across all 9 cert families |
+| B-02 | Azure Monitor / App Insights telemetry | Per-agent latency, guardrail fire rate, parallel speedup |
+| B-03 | Add DP-420, AZ-500, AZ-700 exam domains to registry | Extend from 9 to 12 exam families |
+| B-04 | Adaptive quiz engine with GPT-4o item generation | IRT-based difficulty scaling; replace static question bank |
+| B-05 | Upgrade email SMTP → Azure Communication Services | `azure-communication-email` SDK + ACS resource |
+
+### Verification Checklist (run before every commit)
+
+```powershell
+# 1. Syntax check
+& ".venv/Scripts/python.exe" -m py_compile streamlit_app.py
+& ".venv/Scripts/python.exe" -m py_compile src/cert_prep/b0_intake_agent.py
+
+# 2. Unit tests
+& ".venv/Scripts/python.exe" -m pytest tests/ -x -q
+
+# 3. Kill port + launch smoke test
+$p = (netstat -ano | Select-String '0.0.0.0:8501 ' | ForEach-Object { ($_ -split '\s+')[-1] } | Select-Object -First 1)
+if ($p) { taskkill /PID $p /F }
+& ".venv/Scripts/python.exe" -m streamlit run streamlit_app.py
+
+# 4. Git diff review
+git diff --stat HEAD
+```
 
 ---
 
