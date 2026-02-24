@@ -896,9 +896,9 @@ st.markdown(f"""
   [data-testid="stSidebar"] {{
     background: linear-gradient(180deg, #0078D4 0%, #005A9E 100%) !important;
     border-right: none !important;
-    width: 220px !important;
-    min-width: 220px !important;
-    max-width: 220px !important;
+    width: 270px !important;
+    min-width: 270px !important;
+    max-width: 270px !important;
   }}
   [data-testid="stSidebar"] [data-testid="stSidebarContent"] {{
     background: transparent !important;
