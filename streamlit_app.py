@@ -1527,7 +1527,7 @@ with st.sidebar:
         <div class="{_alex_cls}">
           <span class="sbc-icon">🌱</span>
           <div class="sbc-body">
-            <span class="sbc-title">AI Beginner</span>
+            <span class="sbc-title">Novice</span>
             <span class="sbc-badge">AI-102</span>
           </div>
         </div>''', unsafe_allow_html=True)
@@ -1539,9 +1539,9 @@ with st.sidebar:
         _jordan_cls = "sb-sc-card active" if _jordan_active else "sb-sc-card"
         st.markdown(f'''
         <div class="{_jordan_cls}">
-          <span class="sbc-icon">📊</span>
+          <span class="sbc-icon">🏆</span>
           <div class="sbc-body">
-            <span class="sbc-title">Data Professional</span>
+            <span class="sbc-title">Expert</span>
             <span class="sbc-badge">DP-100</span>
           </div>
         </div>''', unsafe_allow_html=True)
@@ -1556,9 +1556,12 @@ with st.sidebar:
                 use_container_width=True,
                 help="Clear the current demo scenario and pick a different one",
             ):
+                # Keep only the login-level keys; wipe all profile/plan/form data
+                _keep = {"authenticated", "login_name", "user_type", "live_mode_toggle"}
                 for _k in list(st.session_state.keys()):
-                    if _k.startswith(("motiv_", "style_", "sidebar_prefill")):
+                    if _k not in _keep:
                         del st.session_state[_k]
+                st.session_state["is_demo_user"] = True
                 st.rerun()
     # Existing user — no demo scenario buttons, no message
 
