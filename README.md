@@ -98,7 +98,8 @@ The `.env.example` includes `AZURE_AI_PROJECT_CONNECTION_STRING` — the Foundry
 | **Azure AI Search** *(roadmap)* | Index the full MS Learn module catalogue (~4 000 modules) and search by exam domain, skill level, content type | Replaces static dictionary in `LearningPathCuratorAgent` with live, up-to-date catalogue | Real-time catalogue; faceted filtering by certification, locale, duration |
 | **Azure Monitor / App Insights** *(roadmap)* | Telemetry for production agent runs — latency per agent, guardrail fire rate, parallel speedup ratio | Observability at scale; alerts when P95 latency exceeds threshold | Dashboards for each judging criterion (accuracy, reasoning depth, reliability) |
 | **Azure Cosmos DB** *(roadmap)* | Replace SQLite with globally distributed multi-region learner data store | Required for production multi-tenant deployments; TTL policies for data retention compliance | 99.999% SLA; NoSQL schema flexibility matches our evolving agent output structs |
-| **Azure Communication Services** *(roadmap)* | Send weekly email digest to learners (current email field collected at intake) | First-party Azure service; avoids third-party email API keys; built-in delivery tracking | Seamless integration with Azure AD identity for enterprise learner management |
+| **SMTP Email** *(current — any provider)* | Weekly study-progress digest sent to the learner's optional email address (collected at intake); uses Python `smtplib`, works with Gmail, Outlook, or any SMTP relay | Zero Azure dependency; plug in any SMTP provider (Gmail app-password, Outlook, SendGrid, etc.); degrades silently when `SMTP_USER`/`SMTP_PASS` are absent | Self-contained; no SDK required; email field collected but sending is opt-in | 
+| **Azure Communication Services — Email** *(roadmap)* | Production-grade replacement for raw SMTP — use the [azure-communication-email](https://pypi.org/project/azure-communication-email/) SDK with a Foundry-provisioned sender domain (`DoNotReply@<guid>.azurecomm.net`) | First-party Azure managed service; no SMTP relay; built-in delivery telemetry and bounce handling | To set up: create **Communication Services** resource in Azure portal → add **Email Communication Service** sub-resource → verify a domain or use the free Azure-managed domain (`azurecomm.net`) → copy connection string to `AZURE_COMM_CONNECTION_STRING` |
 
 ---
 
@@ -296,7 +297,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
 ### Near Term (3–6 months)
 - **Azure AI Foundry native agents** — migrate from mock/ThreadPoolExecutor to full Foundry Agent SDK with tool calling, built-in memory, and Foundry-managed threads
 - **Azure AI Search integration** — replace static MS Learn lookup table with live vector search across the full ~4 000 module catalogue; semantic matching between learner profile and module descriptions
-- **Email digest via Azure Communication Services** — weekly personalised study summary sent to the learner's registered email (field now collected at intake)
+- **Email digest — upgrade from SMTP to Azure Communication Services** — the current implementation uses Python `smtplib` (works with Gmail/Outlook); the roadmap upgrade swaps this for the `azure-communication-email` SDK using a managed Azure sender domain (`DoNotReply@<guid>.azurecomm.net`); to set up today: create a **Communication Services** resource in the Azure portal, add an **Email Communication Service** sub-resource, then copy the connection string to `AZURE_COMM_CONNECTION_STRING`
 - **Adaptive quiz engine** — use GPT-4o to generate novel domain-specific questions dynamically rather than sampling from a static bank; item-response theory (IRT) for adaptive difficulty
 
 ### Medium Term (6–12 months)
@@ -386,13 +387,26 @@ streamlit run streamlit_app.py  # opens http://localhost:8501
 | Returning Learner | Priyanka Sharma | PIN: `1234` | DP-100 with profile loaded |
 | Admin | `admin` | Password: `agents2026` | Full trace + guardrail audit |
 
-### Azure OpenAI (optional)
+### Azure OpenAI (optional — enables live mode)
 ```ini
 AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com
 AZURE_OPENAI_API_KEY=<key>
 AZURE_OPENAI_DEPLOYMENT=gpt-4o
 AZURE_OPENAI_API_VERSION=2024-12-01-preview
 ```
+
+### Email digest (optional — standard SMTP, any provider)
+The progress agent sends a study-digest email via Python's built-in `smtplib`. Works with Gmail, Outlook, or any SMTP relay:
+```ini
+SMTP_HOST=smtp.gmail.com       # or smtp.office365.com, smtp.sendgrid.net, etc.
+SMTP_PORT=587
+SMTP_USER=your.account@gmail.com
+SMTP_PASS=<app-password>       # Gmail: Settings → Security → App Passwords
+SMTP_FROM=CertPrep <your.account@gmail.com>
+```
+> **Note:** No Azure subscription needed for email. If these variables are absent the progress agent silently skips sending — the rest of the app is unaffected.
+> 
+> **Azure Communication Services (roadmap):** production upgrade to managed sender domain (`DoNotReply@<guid>.azurecomm.net`). Set up: Azure portal → **Communication Services** → add **Email Communication Service** sub-resource → verify/use the free Azure-managed domain → copy connection string to `AZURE_COMM_CONNECTION_STRING`.
 
 ---
 
