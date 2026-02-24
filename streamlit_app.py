@@ -1790,8 +1790,47 @@ if use_live:
     _tbl += "</tbody></table></div>"
     st.markdown(_tbl, unsafe_allow_html=True)
 
-
-
+# ─── Gate: Live mode ON but required credentials missing ─────────────────────
+# Hide all content sections (intake form, domain map, study plan, etc.) until
+# the user either adds credentials or switches back to Mock mode.
+if use_live and not _env_live:
+    st.markdown(
+        """
+        <div style="
+          display:flex; flex-direction:column; align-items:center; justify-content:center;
+          padding:48px 24px; text-align:center; margin:24px 0;
+          background:linear-gradient(135deg,#FFF5F5 0%,#FFF0F0 100%);
+          border:1.5px solid #FFCDD2; border-radius:14px;
+          box-shadow:0 4px 16px rgba(211,47,47,0.08);
+        ">
+          <div style="font-size:2.4rem;margin-bottom:12px;line-height:1;">🔐</div>
+          <div style="font-size:1.15rem;font-weight:700;color:#C62828;margin-bottom:8px;">
+            Azure credentials required for Live Mode
+          </div>
+          <div style="font-size:0.85rem;color:#B71C1C;max-width:480px;margin-bottom:20px;line-height:1.6;">
+            <strong>AZURE_OPENAI_ENDPOINT</strong> and <strong>AZURE_OPENAI_API_KEY</strong>
+            must be set in your <code>.env</code> file before Live Mode can run.<br>
+            All content sections are hidden until the services are reachable.
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+            <div style="background:#FFEBEE;border:1px solid #FFCDD2;border-radius:8px;
+                        padding:8px 16px;font-size:0.78rem;color:#C62828;font-weight:600;">
+              1 &nbsp;·&nbsp; Add credentials to <code>.env</code>
+            </div>
+            <div style="background:#FFEBEE;border:1px solid #FFCDD2;border-radius:8px;
+                        padding:8px 16px;font-size:0.78rem;color:#C62828;font-weight:600;">
+              2 &nbsp;·&nbsp; Restart the Streamlit server
+            </div>
+            <div style="background:#FFEBEE;border:1px solid #FFCDD2;border-radius:8px;
+                        padding:8px 16px;font-size:0.78rem;color:#C62828;font-weight:600;">
+              3 &nbsp;·&nbsp; Or toggle back to <strong>Mock Mode</strong> ↑
+            </div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.stop()
 
 # ─── Dashboard welcome / Hero header ──────────────────────────────────────────
 if is_returning:
