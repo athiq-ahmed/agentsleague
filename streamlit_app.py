@@ -698,6 +698,7 @@ if not st.session_state["authenticated"]:
                 st.session_state["authenticated"] = True
                 st.session_state["login_name"] = "Alex Chen"
                 st.session_state["user_type"] = "learner"
+                st.session_state["is_demo_user"] = True  # fresh user — show scenario picker
                 st.rerun()
         with _d2:
             st.markdown('''
@@ -718,11 +719,14 @@ if not st.session_state["authenticated"]:
                     import json as _json_ql
                     st.session_state["profile"]          = LearnerProfile.model_validate_json(_db_p["profile_json"])
                     st.session_state["intake_submitted"] = True
+                    st.session_state["is_demo_user"]     = False  # returning user with saved profile
                     st.session_state["raw"]              = _raw_from_dict(_json_ql.loads(_db_p["raw_input_json"]))
                     if _db_p.get("plan_json"):
                         st.session_state["plan"] = _study_plan_from_dict(_json_ql.loads(_db_p["plan_json"]))
                     if _db_p.get("learning_path_json"):
                         st.session_state["learning_path"] = _learning_path_from_dict(_json_ql.loads(_db_p["learning_path_json"]))
+                else:
+                    st.session_state["is_demo_user"] = True  # first-time user — show scenario picker
                 st.rerun()
         with _d3:
             st.markdown('''
@@ -811,6 +815,7 @@ if not st.session_state["authenticated"]:
                     from cert_prep.models import LearnerProfile, RawStudentInput
                     st.session_state["profile"]          = LearnerProfile.model_validate_json(_db_student["profile_json"])
                     st.session_state["intake_submitted"] = True
+                    st.session_state["is_demo_user"]     = False  # returning user
                     st.session_state["raw"]              = _raw_from_dict(_json.loads(_db_student["raw_input_json"]))
                     st.session_state["badge"] = _db_student.get("badge", "🧪 Mock mode")
                     if _db_student.get("plan_json"):
@@ -822,6 +827,8 @@ if not st.session_state["authenticated"]:
                     if _db_student.get("progress_assessment_json"):
                         st.session_state["progress_assessment"] = _readiness_assessment_from_dict(_json_mod.loads(_db_student["progress_assessment_json"]))
                     st.rerun()
+                else:
+                    st.session_state["is_demo_user"] = True  # no saved profile — show scenario picker
     st.stop()
 
 # Auto-redirect admin users straight to the Admin Dashboard
@@ -1498,9 +1505,9 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     # Navigation section — DEMO SCENARIOS for new users only
-    # Use intake_submitted flag (set only after form run or DB profile load at login)
-    # so that Reset Scenario never hides the section — it only clears the selection.
-    _is_returning_user = st.session_state.get("intake_submitted", False)
+    # is_demo_user is set at login time and never changes mid-session.
+    # It stays True even after form submission so Reset Scenario always works.
+    _is_returning_user = not st.session_state.get("is_demo_user", False)
 
     if not _is_returning_user:
         st.markdown(
