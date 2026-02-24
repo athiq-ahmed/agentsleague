@@ -1675,48 +1675,22 @@ if use_live:
     if _has_required_missing:
         _panel_border = "#D32F2F"; _panel_bg = "#FFF5F5"; _header_col = "#D32F2F"
         _header_badge_bg = "#FFEBEE"
+        _status_icon = "⚠️"
         _status_text = "Required credentials missing — Live mode unavailable"
-        _status_sub  = "Set `AZURE_OPENAI_ENDPOINT` + `AZURE_OPENAI_API_KEY` in `.env` and restart."
+        _status_sub  = "Set AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY in .env and restart."
     elif _all_ok:
         _panel_border = "#2E7D32"; _panel_bg = "#F1F8E9"; _header_col = "#2E7D32"
         _header_badge_bg = "#E8F5E9"
+        _status_icon = "✅"
         _status_text = "All services configured — Full live mode active"
-        _status_sub  = "Every Azure service is connected."
+        _status_sub  = "Every Azure service is connected and ready."
     else:
         _panel_border = "#F57C00"; _panel_bg = "#FFFDE7"; _header_col = "#E65100"
         _header_badge_bg = "#FFF8E1"
-        _status_text = "Live mode active — optional services not yet configured"
-        _status_sub  = "Missing optional services degrade gracefully — no action required."
+        _status_icon = "🟡"
+        _status_text = "Live mode active — some optional services not configured"
+        _status_sub  = "Missing optional services degrade gracefully."
 
-    # Header banner (flat, no _rows_html nesting)
-    st.markdown(
-        "<div style='"
-        "border-left:4px solid " + _panel_border + ";"
-        "border-radius:8px;"
-        "background:" + _panel_bg + ";"
-        "padding:12px 16px 8px;"
-        "margin:8px 0 4px;"
-        "font-family:Segoe UI,Arial,sans-serif;"
-        "box-shadow:0 1px 6px rgba(0,0,0,0.06);"
-        "'>"
-        "<div style='display:flex;align-items:flex-start;justify-content:space-between;'>"
-        "<div>"
-        "<span style='font-size:0.82rem;font-weight:700;color:" + _header_col + ";'>" + _status_text + "</span><br>"
-        "<span style='font-size:0.71rem;color:#607D8B;'>" + _status_sub + "</span>"
-        "</div>"
-        "<span style='"
-        "font-size:0.62rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;"
-        "color:" + _panel_border + ";"
-        "background:" + _header_badge_bg + ";"
-        "border:1px solid " + _panel_border + "44;"
-        "border-radius:12px;padding:2px 8px;white-space:nowrap;margin-left:10px;margin-top:2px;"
-        "'>Azure Services</span>"
-        "</div>"
-        "</div>",
-        unsafe_allow_html=True,
-    )
-
-    # ── One row per service rendered in native st.columns ─────────────────
     _checklist = [
         ("Azure OpenAI",         _is_real_value(_env_endpoint) and _is_real_value(_env_api_key),
          True,  "LLM backbone — all agents",
@@ -1729,67 +1703,92 @@ if use_live:
          "AZURE_CONTENT_SAFETY_ENDPOINT + AZURE_CONTENT_SAFETY_KEY"),
         ("SMTP Email",           _is_real_value(os.getenv("SMTP_HOST", "")),
          False, "Weekly progress email digests",
-         "SMTP_HOST + SMTP_PORT + SMTP_USER + SMTP_PASS"),
+         "SMTP_HOST · SMTP_PORT · SMTP_USER · SMTP_PASS"),
         ("MS Learn MCP",         _is_real_value(os.getenv("MCP_MSLEARN_URL", "")),
-         False, "Live module catalogue (Node.js sidecar)",
+         False, "Live module catalogue",
          "MCP_MSLEARN_URL"),
     ]
 
-    for _svc_name, _svc_ok, _svc_req, _svc_desc, _svc_env in _checklist:
-        _ci, _cname, _cbadge = st.columns([0.5, 6.5, 2.0])
+    # ── Build entire table as one flat string (no nested f-string interpolation) ──
+    _tbl = (
+        "<div style='border:1px solid " + _panel_border + "33;"
+        "border-radius:10px;overflow:hidden;margin:8px 0 16px;"
+        "font-family:Segoe UI,Arial,sans-serif;"
+        "box-shadow:0 2px 8px rgba(0,0,0,0.07);'>"
 
-        # Icon column
-        _ci.markdown(
-            "<div style='font-size:1.1rem;padding-top:4px;text-align:center;'>"
-            + ("✅" if _svc_ok else "❌") + "</div>",
-            unsafe_allow_html=True,
-        )
+        # ── Banner header
+        "<div style='background:" + _panel_bg + ";"
+        "border-bottom:2px solid " + _panel_border + "55;"
+        "padding:11px 16px;display:flex;align-items:center;justify-content:space-between;'>"
+        "<div style='display:flex;align-items:center;gap:8px;'>"
+        "<span style='font-size:1rem;'>" + _status_icon + "</span>"
+        "<div>"
+        "<span style='font-size:0.83rem;font-weight:700;color:" + _header_col + ";'>" + _status_text + "</span>"
+        "<br><span style='font-size:0.71rem;color:#607D8B;'>" + _status_sub + "</span>"
+        "</div></div>"
+        "<span style='font-size:0.6rem;font-weight:700;letter-spacing:0.07em;"
+        "text-transform:uppercase;color:" + _panel_border + ";"
+        "background:" + _header_badge_bg + ";"
+        "border:1px solid " + _panel_border + "55;"
+        "border-radius:20px;padding:3px 10px;white-space:nowrap;'>☁️ Azure Services</span>"
+        "</div>"
 
-        # Name + description + env hint
+        # ── Table column headers
+        "<table style='width:100%;border-collapse:collapse;'>"
+        "<thead><tr style='background:rgba(0,0,0,0.035);'>"
+        "<th style='padding:6px 14px;font-size:0.66rem;font-weight:600;color:#90A4AE;"
+        "text-transform:uppercase;letter-spacing:0.05em;text-align:center;width:36px;'></th>"
+        "<th style='padding:6px 14px;font-size:0.66rem;font-weight:600;color:#90A4AE;"
+        "text-transform:uppercase;letter-spacing:0.05em;text-align:left;'>Service</th>"
+        "<th style='padding:6px 14px;font-size:0.66rem;font-weight:600;color:#90A4AE;"
+        "text-transform:uppercase;letter-spacing:0.05em;text-align:left;'>Description</th>"
+        "<th style='padding:6px 14px;font-size:0.66rem;font-weight:600;color:#90A4AE;"
+        "text-transform:uppercase;letter-spacing:0.05em;text-align:left;'>Env Variables</th>"
+        "<th style='padding:6px 14px;font-size:0.66rem;font-weight:600;color:#90A4AE;"
+        "text-transform:uppercase;letter-spacing:0.05em;text-align:center;'>Status</th>"
+        "</tr></thead><tbody>"
+    )
+
+    for _i, (_svc_name, _svc_ok, _svc_req, _svc_desc, _svc_env) in enumerate(_checklist):
+        _row_bg = "rgba(46,125,50,0.03)" if _svc_ok else ("rgba(211,47,47,0.03)" if _svc_req else "transparent")
+        _row_sep = "border-top:1px solid rgba(0,0,0,0.06);" if _i > 0 else ""
+
         if _svc_ok:
-            _nc = "#1B5E20"; _rc = "#78909C"
+            _dot   = "<span style='display:inline-block;width:10px;height:10px;border-radius:50%;background:#43A047;box-shadow:0 0 4px #43A04766;'></span>"
+            _nc    = "#2E7D32"
+            _ev    = "<span style='color:#B0BEC5;font-size:0.72rem;'>—</span>"
+            _badge = ("<span style='font-size:0.65rem;font-weight:600;color:#2E7D32;"
+                      "background:#E8F5E9;border:1px solid #A5D6A7;"
+                      "border-radius:20px;padding:3px 10px;'>● connected</span>")
         else:
-            _nc = "#C62828" if _svc_req else "#5D4037"
-            _rc = "#78909C"
+            _dot   = "<span style='display:inline-block;width:10px;height:10px;border-radius:50%;background:#BDBDBD;'></span>"
+            _nc    = "#C62828" if _svc_req else "#5D4037"
+            _ev    = ("<code style='font-size:0.67rem;font-family:Consolas,monospace;"
+                      "background:rgba(0,0,0,0.06);border-radius:4px;padding:1px 5px;"
+                      "color:#546E7A;'>" + _svc_env + "</code>")
+            if _svc_req:
+                _badge = ("<span style='font-size:0.65rem;font-weight:600;color:#C62828;"
+                          "background:#FFEBEE;border:1px solid #EF9A9A;"
+                          "border-radius:20px;padding:3px 10px;'>✕ required</span>")
+            else:
+                _badge = ("<span style='font-size:0.65rem;font-weight:600;color:#9E9E9E;"
+                          "background:#F5F5F5;border:1px solid #BDBDBD;"
+                          "border-radius:20px;padding:3px 10px;'>○ optional</span>")
 
-        _hint_html = (
-            "<br><code style='font-size:0.65rem;font-family:Consolas,monospace;"
-            "background:rgba(0,0,0,0.06);border-radius:3px;padding:1px 4px;"
-            "color:#455A64;'>" + _svc_env + "</code>"
-        ) if not _svc_ok else ""
-
-        _cname.markdown(
-            "<div style='padding-top:3px;'>"
-            "<span style='font-size:0.79rem;font-weight:600;color:" + _nc + ";'>" + _svc_name + "</span>"
-            "&nbsp;<span style='font-size:0.68rem;color:" + _rc + ";'>" + _svc_desc + "</span>"
-            + _hint_html +
-            "</div>",
-            unsafe_allow_html=True,
+        _tbl += (
+            "<tr style='background:" + _row_bg + ";" + _row_sep + "'>"
+            "<td style='padding:9px 14px;text-align:center;'>" + _dot + "</td>"
+            "<td style='padding:9px 14px;'>"
+            "<span style='font-size:0.8rem;font-weight:600;color:" + _nc + ";'>" + _svc_name + "</span>"
+            "</td>"
+            "<td style='padding:9px 14px;font-size:0.76rem;color:#607D8B;'>" + _svc_desc + "</td>"
+            "<td style='padding:9px 14px;'>" + _ev + "</td>"
+            "<td style='padding:9px 16px;text-align:center;'>" + _badge + "</td>"
+            "</tr>"
         )
 
-        # Badge column
-        if _svc_ok:
-            _badge_html = (
-                "<span style='font-size:0.62rem;font-weight:600;color:#2E7D32;"
-                "background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;"
-                "padding:2px 8px;'>connected</span>"
-            )
-        else:
-            _bt = "required" if _svc_req else "optional"
-            _bc = "#C62828" if _svc_req else "#9E9E9E"
-            _bb = "#FFEBEE" if _svc_req else "#F5F5F5"
-            _bd = "#EF9A9A" if _svc_req else "#BDBDBD"
-            _badge_html = (
-                "<span style='font-size:0.62rem;font-weight:600;color:" + _bc + ";"
-                "background:" + _bb + ";border:1px solid " + _bd + ";border-radius:10px;"
-                "padding:2px 8px;'>" + _bt + "</span>"
-            )
-        _cbadge.markdown(
-            "<div style='text-align:right;padding-top:5px;'>" + _badge_html + "</div>",
-            unsafe_allow_html=True,
-        )
-
-    st.markdown("<div style='margin-bottom:10px;'></div>", unsafe_allow_html=True)
+    _tbl += "</tbody></table></div>"
+    st.markdown(_tbl, unsafe_allow_html=True)
 
 
 
