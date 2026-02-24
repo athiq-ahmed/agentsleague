@@ -6,7 +6,7 @@ Run:
 
 Requires:
     .env file with AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY set.
-    See .env.example for format.
+    See .env for format (commented examples are included).
 """
 
 from __future__ import annotations
@@ -155,7 +155,7 @@ def main() -> None:
 
     except EnvironmentError as e:
         console.print(f"\n[bold red]Configuration error:[/bold red] {e}")
-        console.print("[dim]Create a .env file based on .env.example and retry.[/dim]")
+        console.print("[dim]Fill in AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY in .env and retry.[/dim]")
         sys.exit(1)
 
     except KeyboardInterrupt:

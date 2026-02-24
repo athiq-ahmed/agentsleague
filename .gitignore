@@ -3,10 +3,9 @@ __pycache__/
 .venv/
 .pytest_cache/
 
-# secrets – never commit
+# secrets – never commit (.env holds all config including commented examples)
 .env
 .env.*
-!.env.example
 *.pem
 *.key
 

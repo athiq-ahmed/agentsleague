@@ -2,7 +2,7 @@
 config.py — Central settings for the CertPrep Multi-Agent System
 =================================================================
 All configuration is loaded from environment variables / .env file.
-Copy .env.example → .env and fill in your values.
+Edit .env in place — it ships with commented example values for every variable.
 
 Live mode activates automatically when AZURE_OPENAI_ENDPOINT and
 AZURE_OPENAI_API_KEY contain real (non-placeholder) values.

@@ -442,7 +442,7 @@ Explicit mapping of each [Foundry best practice from the starter kit](https://gi
 |-----|-------------|-------|
 | `azure-ai-evaluation` SDK not yet wired | T-09 | Schema-compatible `AgentStep` data ready; needs `pip install azure-ai-evaluation` + eval harness scripting |
 | Foundry SDK limited to `LearnerProfilingAgent` only | T-06 | Remaining 4 agents still use Tier 2 (direct OpenAI) or Tier 3 (mock) |
-| Azure Content Safety API not called (heuristic only for G-16) | T-07 | `check_content_safety()` stub in `guardrails.py`; env vars present in `.env.example` |
+| Azure Content Safety API not called (heuristic only for G-16) | T-07 | `check_content_safety()` stub in `guardrails.py`; env vars present in `.env` |
 | Foundry Evaluation dataset for bias testing | B-01 | Requires labelled test set across all 9 cert exam families |
 
 ---
@@ -537,8 +537,7 @@ SMTP_FROM=CertPrep AI <you@gmail.com>
 ```
 agentsleague/
 ├── streamlit_app.py                      # Orchestrator + full 8-tab UI (main entry point)
-├── .env                                  # ⚠️ NOT committed — real secrets here (gitignored)
-├── .env.example                          # ✅ Committed template — copy to .env, fill in values
+├── .env                                  # ⚠️ NOT committed (gitignored) — fill in real values; commented examples included
 ├── requirements.txt                      # pip dependencies
 │
 ├── pages/
@@ -577,14 +576,9 @@ agentsleague/
 └── archive/                             # Old planning files (not in production path)
 ```
 
-### Why two `.env` files?
+### One `.env` file — no separate template needed
 
-| File | Committed? | Purpose |
-|------|-----------|---------|
-| `.env` | ❌ Never (gitignored) | Your real secrets — Azure keys, endpoints, passwords |
-| `.env.example` | ✅ Yes | Safe template listing every required variable with placeholders — copy to `.env` and fill in |
-
-**To go Live:** copy `.env.example` → `.env`, fill real Azure values, restart app. The toggle switches automatically.
+`.env` is gitignored and contains **both real values and commented example placeholders** for every variable. To go Live, fill in `AZURE_OPENAI_ENDPOINT` + `AZURE_OPENAI_API_KEY` and restart — the toggle switches automatically.
 
 ---
 
@@ -652,7 +646,7 @@ Alignment with the [Starter Kit README](https://github.com/microsoft/agentsleagu
 
 | Prohibited Content | Status |
 |-------------------|--------|
-| ❌ Azure API keys, connection strings, or credentials | `.env` is gitignored; `.env.example` contains only placeholders |
+| ❌ Azure API keys, connection strings, or credentials | `.env` is gitignored; all values are local-only |
 | ❌ Customer data or personally identifiable information (PII) | All demo personas (Alex Chen, Priyanka Sharma) use synthetic data only |
 | ❌ Confidential or proprietary company information | None |
 | ❌ Internal engineering projects not approved for open source | None |
@@ -672,7 +666,7 @@ Alignment with the [Starter Kit README](https://github.com/microsoft/agentsleagu
 ```
 
 - ✅ **Credentials in environment variables only** — never in committed code
-- ✅ **`.env.example` committed** — safe template with placeholder values only
+- ✅ **`.env` is gitignored** — commented example placeholders are inside `.env` itself; no secrets can be accidentally committed
 - ✅ **Demo data only** — no real customer data or production datasets in the repository
 - ✅ **PIN hashed (SHA-256)** — demo PINs are hashed before SQLite storage
 - ✅ **Production path** uses Azure Key Vault + Managed Identity (documented in `docs/architecture.md`)
