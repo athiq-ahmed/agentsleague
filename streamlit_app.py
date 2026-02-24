@@ -1672,29 +1672,51 @@ if use_live:
     _has_required_missing = any(n == "Azure OpenAI" for n, _ in _missing_svcs)
     _all_ok               = len(_missing_svcs) == 0
 
-    # Panel header colours
     if _has_required_missing:
         _panel_border = "#D32F2F"; _panel_bg = "#FFF5F5"; _header_col = "#D32F2F"
-        _status_text  = "Required credentials missing — Live mode unavailable"
-        _status_sub   = (
-            "Set <code style='font-size:0.7rem;background:#0001;padding:1px 4px;"
-            "border-radius:3px;font-family:Consolas,monospace;'>AZURE_OPENAI_ENDPOINT</code> + "
-            "<code style='font-size:0.7rem;background:#0001;padding:1px 4px;"
-            "border-radius:3px;font-family:Consolas,monospace;'>AZURE_OPENAI_API_KEY</code> "
-            "in <code style='font-size:0.7rem;background:#0001;padding:1px 4px;"
-            "border-radius:3px;font-family:Consolas,monospace;'>.env</code> and restart."
-        )
+        _header_badge_bg = "#FFEBEE"
+        _status_text = "Required credentials missing — Live mode unavailable"
+        _status_sub  = "Set `AZURE_OPENAI_ENDPOINT` + `AZURE_OPENAI_API_KEY` in `.env` and restart."
     elif _all_ok:
         _panel_border = "#2E7D32"; _panel_bg = "#F1F8E9"; _header_col = "#2E7D32"
-        _status_text  = "All services configured — Full live mode active"
-        _status_sub   = "Every Azure service is connected. Running via Azure AI Foundry Agent Service SDK."
+        _header_badge_bg = "#E8F5E9"
+        _status_text = "All services configured — Full live mode active"
+        _status_sub  = "Every Azure service is connected."
     else:
         _panel_border = "#F57C00"; _panel_bg = "#FFFDE7"; _header_col = "#E65100"
-        _status_text  = "Live mode active — optional services not yet configured"
-        _status_sub   = "Missing optional services will degrade gracefully — no action required."
+        _header_badge_bg = "#FFF8E1"
+        _status_text = "Live mode active — optional services not yet configured"
+        _status_sub  = "Missing optional services degrade gracefully — no action required."
 
-    # ── Build checklist rows ──────────────────────────────────────────────
-    # (name, configured, required, description, env_hint)
+    # Header banner (flat, no _rows_html nesting)
+    st.markdown(
+        "<div style='"
+        "border-left:4px solid " + _panel_border + ";"
+        "border-radius:8px;"
+        "background:" + _panel_bg + ";"
+        "padding:12px 16px 8px;"
+        "margin:8px 0 4px;"
+        "font-family:Segoe UI,Arial,sans-serif;"
+        "box-shadow:0 1px 6px rgba(0,0,0,0.06);"
+        "'>"
+        "<div style='display:flex;align-items:flex-start;justify-content:space-between;'>"
+        "<div>"
+        "<span style='font-size:0.82rem;font-weight:700;color:" + _header_col + ";'>" + _status_text + "</span><br>"
+        "<span style='font-size:0.71rem;color:#607D8B;'>" + _status_sub + "</span>"
+        "</div>"
+        "<span style='"
+        "font-size:0.62rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;"
+        "color:" + _panel_border + ";"
+        "background:" + _header_badge_bg + ";"
+        "border:1px solid " + _panel_border + "44;"
+        "border-radius:12px;padding:2px 8px;white-space:nowrap;margin-left:10px;margin-top:2px;"
+        "'>Azure Services</span>"
+        "</div>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    # ── One row per service rendered in native st.columns ─────────────────
     _checklist = [
         ("Azure OpenAI",         _is_real_value(_env_endpoint) and _is_real_value(_env_api_key),
          True,  "LLM backbone — all agents",
@@ -1703,7 +1725,7 @@ if use_live:
          False, "Managed agent + thread (Tier 1)",
          "AZURE_AI_PROJECT_CONNECTION_STRING"),
         ("Azure Content Safety", _is_real_value(os.getenv("AZURE_CONTENT_SAFETY_ENDPOINT", "")),
-         False, "G-16 content filter API upgrade",
+         False, "G-16 content filter API",
          "AZURE_CONTENT_SAFETY_ENDPOINT + AZURE_CONTENT_SAFETY_KEY"),
         ("SMTP Email",           _is_real_value(os.getenv("SMTP_HOST", "")),
          False, "Weekly progress email digests",
@@ -1713,74 +1735,62 @@ if use_live:
          "MCP_MSLEARN_URL"),
     ]
 
-    _rows_html = ""
     for _svc_name, _svc_ok, _svc_req, _svc_desc, _svc_env in _checklist:
-        if _svc_ok:
-            _icon     = "✅"
-            _name_col = "#1B5E20"
-            _row_bg   = "rgba(46,125,50,0.06)"
-            _row_bdr  = "1px solid rgba(46,125,50,0.15)"
-            _badge    = (
-                '<span style="font-size:0.62rem;font-weight:600;color:#2E7D32;'
-                'background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;'
-                'padding:1px 7px;">connected</span>'
-            )
-        else:
-            _icon     = "❌"
-            _name_col = "#C62828" if _svc_req else "#795548"
-            _row_bg   = "rgba(211,47,47,0.05)" if _svc_req else "rgba(0,0,0,0.03)"
-            _row_bdr  = "1px solid rgba(211,47,47,0.15)" if _svc_req else "1px solid rgba(0,0,0,0.08)"
-            _req_txt  = "required" if _svc_req else "optional"
-            _req_col  = "#C62828" if _svc_req else "#9E9E9E"
-            _req_bg   = "#FFEBEE" if _svc_req else "#F5F5F5"
-            _req_bdr  = "#EF9A9A" if _svc_req else "#BDBDBD"
-            _badge    = (
-                f'<span style="font-size:0.62rem;font-weight:600;color:{_req_col};'
-                f'background:{_req_bg};border:1px solid {_req_bdr};border-radius:10px;'
-                f'padding:1px 7px;">{_req_txt}</span>'
-            )
+        _ci, _cname, _cbadge = st.columns([0.5, 6.5, 2.0])
 
-        _env_chip = (
-            f'<code style="font-size:0.67rem;font-family:Consolas,monospace;'
-            f'background:rgba(0,0,0,0.05);border-radius:3px;padding:1px 5px;'
-            f'color:#455A64;">{_svc_env}</code>'
+        # Icon column
+        _ci.markdown(
+            "<div style='font-size:1.1rem;padding-top:4px;text-align:center;'>"
+            + ("✅" if _svc_ok else "❌") + "</div>",
+            unsafe_allow_html=True,
+        )
+
+        # Name + description + env hint
+        if _svc_ok:
+            _nc = "#1B5E20"; _rc = "#78909C"
+        else:
+            _nc = "#C62828" if _svc_req else "#5D4037"
+            _rc = "#78909C"
+
+        _hint_html = (
+            "<br><code style='font-size:0.65rem;font-family:Consolas,monospace;"
+            "background:rgba(0,0,0,0.06);border-radius:3px;padding:1px 4px;"
+            "color:#455A64;'>" + _svc_env + "</code>"
         ) if not _svc_ok else ""
 
-        _rows_html += f"""
-        <div style="display:grid;grid-template-columns:28px 1fr auto;align-items:center;
-             gap:8px;padding:6px 10px;border-radius:6px;margin-bottom:4px;
-             background:{_row_bg};border:{_row_bdr};">
-          <span style="font-size:1rem;text-align:center;line-height:1;">{_icon}</span>
-          <div>
-            <span style="font-size:0.78rem;font-weight:600;color:{_name_col};">{_svc_name}</span>
-            <span style="font-size:0.68rem;color:#78909C;margin-left:6px;">{_svc_desc}</span>
-            {"<br>" + _env_chip if _env_chip else ""}
-          </div>
-          <div style="text-align:right;">{_badge}</div>
-        </div>"""
+        _cname.markdown(
+            "<div style='padding-top:3px;'>"
+            "<span style='font-size:0.79rem;font-weight:600;color:" + _nc + ";'>" + _svc_name + "</span>"
+            "&nbsp;<span style='font-size:0.68rem;color:" + _rc + ";'>" + _svc_desc + "</span>"
+            + _hint_html +
+            "</div>",
+            unsafe_allow_html=True,
+        )
 
-    st.markdown(f"""
-<div style="
-  border-left:4px solid {_panel_border};border-radius:8px;
-  background:{_panel_bg};padding:12px 16px 10px;
-  margin:8px 0 14px;font-family:'Segoe UI',Arial,sans-serif;
-  box-shadow:0 1px 6px rgba(0,0,0,0.06);
-">
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;">
-    <div>
-      <span style="font-size:0.82rem;font-weight:700;color:{_header_col};">{_status_text}</span><br>
-      <span style="font-size:0.72rem;color:{TEXT_MUTED};line-height:1.6;">{_status_sub}</span>
-    </div>
-    <span style="font-size:0.65rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;
-          color:{_panel_border};background:{'#E8F5E9' if _all_ok else ('#FFEBEE' if _has_required_missing else '#FFF8E1')};
-          border:1px solid {_panel_border}44;
-          border-radius:12px;padding:2px 8px;white-space:nowrap;margin-left:12px;margin-top:1px;">
-      Azure Services
-    </span>
-  </div>
-  {_rows_html}
-</div>
-    """, unsafe_allow_html=True)
+        # Badge column
+        if _svc_ok:
+            _badge_html = (
+                "<span style='font-size:0.62rem;font-weight:600;color:#2E7D32;"
+                "background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;"
+                "padding:2px 8px;'>connected</span>"
+            )
+        else:
+            _bt = "required" if _svc_req else "optional"
+            _bc = "#C62828" if _svc_req else "#9E9E9E"
+            _bb = "#FFEBEE" if _svc_req else "#F5F5F5"
+            _bd = "#EF9A9A" if _svc_req else "#BDBDBD"
+            _badge_html = (
+                "<span style='font-size:0.62rem;font-weight:600;color:" + _bc + ";"
+                "background:" + _bb + ";border:1px solid " + _bd + ";border-radius:10px;"
+                "padding:2px 8px;'>" + _bt + "</span>"
+            )
+        _cbadge.markdown(
+            "<div style='text-align:right;padding-top:5px;'>" + _badge_html + "</div>",
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("<div style='margin-bottom:10px;'></div>", unsafe_allow_html=True)
+
 
 
 
