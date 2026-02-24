@@ -21,6 +21,72 @@ A **production-grade multi-agent AI system** for personalised Microsoft certific
 
 ---
 
+## 🛠️ Development Approach
+
+**Chosen approach: Local code-first development in Visual Studio Code with Azure OpenAI integration**
+
+Per the [Agents League Starter Kit](https://github.com/microsoft/agentsleague/tree/main/starter-kits/2-reasoning-agents), participants can use one of:
+
+| Approach | Description | Status in This Project |
+|----------|-------------|----------------------|
+| **Local development (code-first)** | Build and test custom agentic solution locally with the [OSS Microsoft Agent Framework](https://github.com/microsoft/agent-framework) in Visual Studio Code | ✅ **Chosen** — custom Python pipeline built and tested locally in VS Code with GitHub Copilot |
+| **Cloud-based (low-code/no-code)** | Use [Foundry UI](https://ai.azure.com/) to configure agents and workflows visually | ❌ Not chosen — code-first preferred for typed handoffs, deterministic algorithms, and unit-testable guardrails |
+| **Cloud-based (code-first Foundry SDK)** | Use the [Foundry Agent Service SDK](https://learn.microsoft.com/azure/ai-foundry/how-to/develop/sdk-overview) to build programmatically in the cloud | 🗺️ Roadmap — current architecture maps 1:1 to Foundry SDK; migration requires no redesign |
+
+### What We Actually Use
+
+| Component | Technology | Notes |
+|-----------|-----------|-------|
+| **IDE** | Visual Studio Code | Primary development environment throughout |
+| **AI-assisted development** | **GitHub Copilot** | Used extensively to accelerate code generation, refactoring, and test scaffolding |
+| **LLM — live mode** | `gpt-4o` via Azure OpenAI (Azure AI Foundry-hosted model deployment) | JSON-mode completions; accessed via `openai.AzureOpenAI` SDK |
+| **LLM — mock mode** | Rule-based Python engine | Fully deterministic, zero credentials, identical output contract as live mode |
+| **Agent orchestration** | Custom Python pipeline (`concurrent.futures.ThreadPoolExecutor` for fan-out) | Sequential typed pipeline; parallel fan-out for independent agents |
+| **Data models / contracts** | Pydantic v2 `BaseModel` + `@dataclass` | Validated typed handoffs at every agent boundary |
+| **Persistence** | SQLite (Python stdlib `sqlite3`) | Zero-dependency local store; schema portable to Azure Cosmos DB |
+| **Hosting** | Streamlit Community Cloud | Auto-deploys from `git push`; secrets via environment variables |
+| **Microsoft Agent Framework (OSS)** | Not used in current implementation | Architecture is compatible; migration path documented |
+| **Foundry Agent Service SDK** | Not used in current implementation | Conceptual mapping is 1:1 (see section below) |
+
+### Why Code-First Over Foundry UI?
+
+The solution requires capabilities that are best expressed in code, not UI configuration:
+
+- **Typed handoff contracts** — Pydantic `BaseModel` between every agent; no raw strings cross boundaries
+- **Deterministic algorithms** — Largest Remainder allocation, weighted readiness formula (`0.55×confidence + 0.25×hours_utilisation + 0.20×practice_score`)
+- **17-rule guardrail pipeline** — fully enumerable, unit-tested with 25 pytest tests, reproducible across runs
+- **Conditional state machine** — `score ≥ 70%` → CertRecommendation; else → remediation loop back to StudyPlanAgent
+
+### Azure AI Foundry Integration (Live Mode)
+
+In live mode, `LearnerProfilingAgent` calls an **Azure AI Foundry-hosted model deployment**:
+
+```python
+# src/cert_prep/b0_intake_agent.py — live mode path
+from openai import AzureOpenAI
+client = AzureOpenAI(
+    azure_endpoint=settings.openai_endpoint,   # Foundry project endpoint
+    api_key=settings.openai_api_key,           # Foundry project API key
+    api_version=settings.openai_api_version
+)
+response = client.chat.completions.create(
+    model=settings.openai_deployment,          # gpt-4o deployment defined in Foundry project
+    messages=[{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": text}],
+    response_format={"type": "json_object"},   # JSON-mode guarantees structured output
+)
+```
+
+The `.env.example` includes `AZURE_AI_PROJECT_CONNECTION_STRING` — the Foundry SDK's native credential, making the migration path seamless.
+
+### Models Used
+
+| Mode | Model | Hosting |
+|------|-------|--------|
+| **Live** | `gpt-4o` (configurable via `AZURE_OPENAI_DEPLOYMENT`) | Azure AI Foundry-hosted (Azure OpenAI deployment) |
+| **Mock** | Deterministic rule engine | Locally hosted — zero cost, zero credentials needed |
+
+---
+
 ## ☁️ Azure Services Used
 
 | Azure Service | Role in This System | Why We Use It | Key Benefit |
@@ -36,9 +102,11 @@ A **production-grade multi-agent AI system** for personalised Microsoft certific
 
 ---
 
-## 🤖 How Azure AI Foundry Orchestrates the Agents
+## 🔮 Azure AI Foundry — Conceptual Mapping & Migration Target
 
-Azure AI Foundry acts as the **managed runtime layer** for this multi-agent system. Here is how each Foundry concept maps to our implementation:
+> **Note:** The code snippets in this section illustrate the **target architecture** when migrating to the Foundry Agent Service SDK (roadmap). The current implementation uses a custom Python pipeline with `AzureOpenAI` calls in live mode (see [Development Approach](#️-development-approach) above). The architectural mapping is 1:1 — no redesign required.
+
+Here is how every Foundry concept maps to our current custom orchestration — demonstrating a clean migration path:
 
 ### 1 — Agent Definitions
 Each of the 8 agents is defined as an **AI Foundry Agent** with a system prompt, tool list, and output schema. The Foundry runtime manages the conversation thread and ensures agents receive only the data they are entitled to:
@@ -266,18 +334,35 @@ domains = get_exam_domains("DP-100")
 
 ---
 
-## 🔀 Reasoning Patterns
+## 🧠 Reasoning Patterns & Best Practices
+
+As recommended in the [Agents League starter kit](https://github.com/microsoft/agentsleague/tree/main/starter-kits/2-reasoning-agents#-reasoning-patterns--best-practices), this project implements all four core reasoning patterns:
+
+| Pattern | Starter Kit Requirement | Where in This System |
+|---------|------------------------|---------------------|
+| **Planner–Executor** | Separate agents for planning and execution | `IntakeAgent` plans (collects goals) → `LearnerProfilingAgent` executes (extracts typed `LearnerProfile`) → `StudyPlanAgent` plans the schedule |
+| **Critic / Verifier** | Agent that reviews outputs and validates reasoning | `GuardrailsPipeline` (17 rules) validates every agent output before the next stage proceeds; `ProgressAgent` critiques learner readiness before unlocking assessment |
+| **Self-reflection & Iteration** | Agents reflect on intermediate results and refine | Score < 70% → remediation loop: `StudyPlanAgent` re-runs with updated weak-domain profile; HITL gate captures real learner data before each iteration |
+| **Role-based specialisation** | Clear, bounded responsibilities per agent | `StudyPlanAgent` (temporal scheduling only) ≠ `LearningPathCuratorAgent` (content discovery only) ≠ `AssessmentAgent` (evaluation only) ≠ `CertRecommendationAgent` (booking + next-cert path only) |
+
+### Additional Patterns
 
 | Pattern | Where |
 |---------|-------|
-| **Planner–Executor** | IntakeAgent (plans) → ProfilingAgent (executes extraction into typed struct) |
-| **Critic / Verifier** | GuardrailsPipeline validates every agent output; ProgressAgent critiques before assessment |
-| **Self-reflection & Iteration** | Score < 70% → remediation loop back to StudyPlanAgent with updated domain profile |
-| **Role-based specialisation** | StudyPlan (temporal scheduling) ≠ LearningPath (content discovery) ≠ Assessment (evaluation) |
-| **Human-in-the-Loop** | Gate 1: submit study hours + ratings; Gate 2: answer quiz |
-| **Conditional Routing** | score ≥ 70 → CertRecommendation; else → remediation path |
-| **Typed Handoff Contracts** | All agents exchange Pydantic BaseModel or dataclass — never raw strings |
-| **Concurrent Fan-out** | StudyPlanAgent ∥ LearningPathCuratorAgent via ThreadPoolExecutor |
+| **Human-in-the-Loop (HITL)** | Gate 1: learner submits study hours + self-ratings; Gate 2: learner answers 30-question quiz — agents produce inputs and interpret outputs, human provides the data |
+| **Conditional Routing** | `score ≥ 70%` → `CertRecommendationAgent`; `50–70%` → targeted review; `< 50%` → full remediation loop |
+| **Typed Handoff Contracts** | All agents exchange Pydantic `BaseModel` or `@dataclass` — never raw strings; validated at every boundary by `GuardrailsPipeline` |
+| **Concurrent Fan-out** | `StudyPlanAgent` ∥ `LearningPathCuratorAgent` via `ThreadPoolExecutor` — independent agents with same `LearnerProfile` input, different outputs |
+
+### Best Practices Applied
+
+| Starter Kit Best Practice | How This System Addresses It |
+|--------------------------|-----------------------------|
+| Use telemetry, logs, and visual workflows | `AgentStep`/`RunTrace` observability structs capture per-agent latency, token count, and I/O summary; Admin Dashboard surfaces guardrail violations, agent traces, and student roster |
+| Foundry built-in monitoring (roadmap) | `agent_trace.py` data model is directly portable to Azure AI Foundry telemetry schema when migrating to Foundry SDK |
+| Apply evaluation strategies | 25 pytest tests (`test_guardrails.py`, `test_config.py`, `test_agents.py`); mock mode enables reproducible, deterministic testing without API calls |
+| Build with Responsible AI principles | `GuardrailsPipeline` G-16 (content safety), G-17 (URL trust / anti-hallucination), G-01..G-05 (input validation and PII notice); `.env` never committed; demo data only in public repo |
+| Leverage AI-assisted development | GitHub Copilot used throughout for code generation, refactoring, and test scaffolding |
 
 ---
 
@@ -364,6 +449,78 @@ agentsleague/
 | `.env.example` | ✅ Yes | Safe template listing every required variable with placeholders — copy to `.env` and fill in |
 
 **To go Live:** copy `.env.example` → `.env`, fill real Azure values, restart app. The toggle switches automatically.
+
+---
+
+## ✅ Starter Kit Compliance Checklist
+
+Alignment with [Battle #2 submission requirements](https://github.com/microsoft/agentsleague/tree/main/starter-kits/2-reasoning-agents#-submission-requirements):
+
+| Requirement | Status | Evidence |
+|-------------|--------|----------|
+| Multi-agent system aligned with cert prep scenario | ✅ | 8 specialised agents: Intake → Profiler → StudyPlan ∥ LearningPath → Progress → Assessment → CertRecommender |
+| Use Microsoft Foundry (UI/SDK) and/or Microsoft Agent Framework | ✅ Partial | Live mode uses Azure OpenAI via Azure AI Foundry-hosted endpoint; full Foundry Agent SDK migration is direct roadmap (1:1 architectural mapping documented) |
+| Demonstrate reasoning and multi-step decision-making | ✅ | 8-agent sequential + parallel pipeline; conditional routing (score ≥ 70%); remediation loop; HITL gates |
+| Integrate with external tools/APIs/MCP servers | ✅ | Azure OpenAI (GPT-4o); MS Learn module catalogue (static + live roadmap); SQLite persistence; Optional: email digest via SMTP / Azure Communication Services |
+| Demoable with clear agent interaction explanation | ✅ | Live at `agentsleague.streamlit.app`; Admin Dashboard with per-agent reasoning trace; mock mode (zero credentials) |
+| Clear documentation (agent roles, reasoning flow, tool integrations) | ✅ | `docs/architecture.md`, `docs/judge_playbook.md`, this README, `docs/user_flow.md` |
+| Evaluation/telemetry/monitoring (optional, highly valued) | ✅ | 25 pytest tests; `AgentStep`/`RunTrace` observability; Admin Dashboard guardrail audit |
+| Advanced reasoning patterns (optional, highly valued) | ✅ | All 4 starter-kit patterns implemented (Planner–Executor, Critic, Self-reflection, Role-based specialisation) |
+| Responsible AI (optional, highly valued) | ✅ | 17-rule `GuardrailsPipeline`; content safety (G-16); URL trust guard (G-17); PII notice (G-05); no credentials in repo |
+
+---
+
+## 🔒 Security & Disclaimer
+
+> ⚠️ **This is a public repository accessible worldwide.** Before contributing or forking, please read the [Agents League Disclaimer](https://github.com/microsoft/agentsleague/blob/DISCLAIMER.md).
+
+### What This Repository Does NOT Contain
+
+| Prohibited Content | Status |
+|-------------------|--------|
+| ❌ Azure API keys, connection strings, or credentials | `.env` is gitignored; `.env.example` contains only placeholders |
+| ❌ Customer data or personally identifiable information (PII) | All demo personas (Alex Chen, Priyanka Sharma) use synthetic data only |
+| ❌ Confidential or proprietary company information | None |
+| ❌ Internal engineering projects not approved for open source | None |
+| ❌ Pre-release product information under NDA | None |
+| ❌ Trade secrets or proprietary algorithms | Largest Remainder allocation is a published parliamentary apportionment method |
+
+### Azure Security Best Practices Applied
+
+```ini
+# ✅ .gitignore includes:
+.env
+.env.*
+.azure/
+**/.secrets/
+*.pem
+*.key
+```
+
+- ✅ **Credentials in environment variables only** — never in committed code
+- ✅ **`.env.example` committed** — safe template with placeholder values only
+- ✅ **Demo data only** — no real customer data or production datasets in the repository
+- ✅ **PIN hashed (SHA-256)** — demo PINs are hashed before SQLite storage
+- ✅ **Production path** uses Azure Key Vault + Managed Identity (documented in `docs/architecture.md`)
+
+### Responsible AI in This System
+
+| Principle | Implementation |
+|-----------|---------------|
+| **Validate inputs and outputs** | 17-rule `GuardrailsPipeline` — BLOCK halts pipeline; WARN is logged and surfaced in Admin Dashboard |
+| **Content filters** | G-16 heuristic harmful-keyword filter on all free-text fields; G-17 URL trust allowlist prevents hallucinated links |
+| **Transparency** | Every response includes agent source label and mock/live mode indicator |
+| **Human oversight** | Two HITL gates interrupt the pipeline — humans provide real progress data before agents advance |
+| **Fairness** | Exam domains drawn from official Microsoft weighting tables — not model-generated |
+
+Learn more: [Responsible AI in Microsoft Foundry](https://learn.microsoft.com/azure/ai-foundry/responsible-use-of-ai-overview)
+
+### Legal & Licensing
+
+- All content is original work created for this competition
+- Submitted under the repository's [MIT License](https://github.com/microsoft/agentsleague/blob/LICENSE)
+- Complies with the [Code of Conduct](https://github.com/microsoft/agentsleague/blob/CODE_OF_CONDUCT.md)
+- Demo personas use entirely synthetic / fictional data
 
 ---
 

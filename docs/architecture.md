@@ -5,6 +5,43 @@
 
 ---
 
+## Development Approach & Technology Stack
+
+**Approach chosen: Local code-first development** — built in Visual Studio Code with GitHub Copilot, tested locally, deployed to Streamlit Community Cloud.
+
+| Category | Choice | Rationale |
+|----------|--------|-----------|
+| **Development approach** | Local code-first (VS Code + GitHub Copilot) | Typed handoffs, deterministic algorithms, and 17-rule guardrail pipeline are best expressed in code |
+| **AI-assisted development** | GitHub Copilot | Used throughout for code generation, refactoring, and test scaffolding |
+| **LLM runtime (live)** | Azure OpenAI `gpt-4o` via Azure AI Foundry-hosted deployment | JSON-mode completion; 128K context; enterprise SLA |
+| **LLM runtime (mock)** | Rule-based Python engine | Deterministic, zero credentials, identical output contract |
+| **Agent orchestration** | Custom Python pipeline | Sequential typed stages; `ThreadPoolExecutor` for independent parallel fan-out |
+| **Agent framework** | Custom Python (`BaseModel` contracts) | Direct migration path to Microsoft Agent Framework / Foundry SDK; no redesign required |
+| **Data validation** | Pydantic v2 `BaseModel` | Validated typed handoffs at every agent boundary |
+| **Persistence** | SQLite (`sqlite3` stdlib) | Zero-dependency local store; schema portable to Azure Cosmos DB (roadmap) |
+
+### What Is NOT Used (and Why)
+
+| Tool | Status | Note |
+|------|--------|------|
+| Microsoft Agent Framework (OSS) | Not used in current build | Architecture is 1:1 compatible; migration path documented in README |
+| Azure AI Foundry Agent Service SDK | Not used in current build | Conceptual mapping is 1:1 (see README Foundry section); `AZURE_AI_PROJECT_CONNECTION_STRING` in `.env.example` for migration |
+| Foundry UI (low-code/no-code) | Not chosen | Code-first approach required for Pydantic contracts and deterministic routing |
+
+### Compliance with Starter Kit Requirements
+
+The project aligns with the [Battle #2 Starter Kit](https://github.com/microsoft/agentsleague/tree/main/starter-kits/2-reasoning-agents) requirements:
+
+- ✅ **Multi-agent system** — 8 specialised agents with single bounded responsibility each
+- ✅ **Azure AI (Foundry-hosted)** — live mode uses `gpt-4o` via Foundry-compatible endpoint
+- ✅ **All 4 reasoning patterns** — Planner–Executor, Critic/Verifier, Self-reflection & Iteration, Role-based specialisation
+- ✅ **HITL** — two human-in-the-loop gates
+- ✅ **Responsible AI** — 17-rule guardrail pipeline, content safety, URL trust guard, PII handling
+- ✅ **Evaluation** — 25 pytest tests, per-agent `RunTrace` observability, Admin Dashboard audit
+- ✅ **GitHub Copilot** — AI-assisted development throughout
+
+---
+
 ## High-Level Flow
 
 ```mermaid
