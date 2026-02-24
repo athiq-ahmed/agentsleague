@@ -1556,7 +1556,9 @@ with st.sidebar:
                 use_container_width=True,
                 help="Clear the current demo scenario and pick a different one",
             ):
-                st.session_state.pop("sidebar_prefill", None)
+                for _k in list(st.session_state.keys()):
+                    if _k.startswith(("motiv_", "style_", "sidebar_prefill")):
+                        del st.session_state[_k]
                 st.rerun()
     # Existing user — no demo scenario buttons, no message
 
