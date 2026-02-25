@@ -2190,14 +2190,33 @@ if submitted:
     st.session_state["user_email"] = raw.email
 
     # ── Guardrail: validate raw input ────────────────────────────────────────
+    # G-16 PII + harmful content:
+    #   Mock mode  → regex patterns (no credentials needed)
+    #   Live mode  → Azure Content Safety API; regex PII always runs as supplement
     _guardrails = GuardrailsPipeline()
-    _input_result = _guardrails.check_input(raw)
+    _input_result = _guardrails.check_input(raw, use_live=use_live)
     if _input_result.blocked:
         for v in _input_result.violations:
             if v.level == GuardrailLevel.BLOCK:
-                st.error(f"🚫 Guardrail [{v.code}]: {v.message}")
+                st.error(f"🚫 **Guardrail [{v.code}]** — {v.message}")
         st.stop()
-    for v in [v for v in _input_result.violations if v.level.value == "WARN"]:
+    # Surface WARNs — PII detections get a dedicated callout box
+    _warn_violations = [v for v in _input_result.violations if v.level.value == "WARN"]
+    _pii_warns  = [v for v in _warn_violations if v.code == "G-16" and "PII" in v.message]
+    _other_warns = [v for v in _warn_violations if v not in _pii_warns]
+    if _pii_warns:
+        _mode_label = (
+            "🔍 Azure Content Safety API + regex scan"
+            if use_live else
+            "🔍 Regex scan (mock mode)"
+        )
+        _pii_lines = "\n".join(f"• {v.message}" for v in _pii_warns)
+        st.warning(
+            f"**⚠️ Personal data detected in your form [{_mode_label}]**\n\n"
+            f"{_pii_lines}\n\n"
+            "You can continue, but consider removing sensitive data before submitting."
+        )
+    for v in _other_warns:
         st.warning(f"⚠️ [{v.code}] {v.message}")
 
     # ── Profile generation ────────────────────────────────────────────────────

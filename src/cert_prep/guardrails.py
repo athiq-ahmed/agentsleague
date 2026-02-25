@@ -45,10 +45,17 @@ Output content guards (all agent outputs):
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
+
+try:
+    import urllib.request
+    import json as _json
+except ImportError:
+    pass
 
 
 # ─── Enums & data models ─────────────────────────────────────────────────────
@@ -173,7 +180,7 @@ TRUSTED_URL_PREFIXES = (
 class InputGuardrails:
     """G-01 – G-05: Validates RawStudentInput before intake processing."""
 
-    def check(self, raw_input) -> GuardrailResult:
+    def check(self, raw_input, use_live: bool = False) -> GuardrailResult:
         violations: list[GuardrailViolation] = []
 
         # G-01 Non-empty required fields
@@ -243,13 +250,22 @@ class InputGuardrails:
             ),
         ))
 
-        # G-16 PII scan on free-text fields (background_text, goal_text)
+        # G-16 PII + harmful content scan on ALL free-text fields
+        # Mock mode: regex heuristic (always runs)
+        # Live mode: also calls Azure Content Safety API for harmful content
         _content_guard = OutputContentGuardrails()
-        for _field, _val in [
-            ("background_text", raw_input.background_text),
-            ("goal_text",       getattr(raw_input, "goal_text", "")),
-        ]:
-            _text_result = _content_guard.check_text(_val, _field)
+        _free_text_fields = [
+            ("background_text",  "Your Background",       raw_input.background_text),
+            ("goal_text",        "Your Goal",             getattr(raw_input, "goal_text", "")),
+            ("preferred_style",  "Preferred Study Style", getattr(raw_input, "preferred_style", "")),
+            ("concern_topics",   "Concern Topics",        getattr(raw_input, "concern_topics", "")
+             if isinstance(getattr(raw_input, "concern_topics", ""), str)
+             else ", ".join(getattr(raw_input, "concern_topics", []))),
+        ]
+        for _fname, _flabel, _fval in _free_text_fields:
+            if not _fval:
+                continue
+            _text_result = _content_guard.check_text(_fval, _fname, _flabel, use_live)
             violations.extend(_text_result.violations)
 
         return GuardrailResult(
@@ -395,35 +411,139 @@ class AssessmentGuardrails:
         )
 
 
+# ─── Human-readable field labels for PII messages ───────────────────────────
+_FIELD_LABELS: dict[str, str] = {
+    "background_text": "Your Background",
+    "goal_text":       "Your Goal",
+    "preferred_style": "Preferred Study Style",
+    "concern_topics":  "Concern Topics",
+}
+
+
 class OutputContentGuardrails:
     """G-16 – G-17: Validates free-text and URL fields in all agent outputs."""
 
-    def check_text(self, text: str, field_name: str = "") -> GuardrailResult:
-        """G-16 – Check for harmful content (BLOCK) and PII patterns (WARN)."""
+    def check_text(
+        self,
+        text: str,
+        field_name: str = "",
+        field_label: str = "",
+        use_live: bool = False,
+    ) -> GuardrailResult:
+        """G-16 – Check for harmful content (BLOCK) and PII patterns (WARN).
+
+        Mock mode: regex heuristics for both harmful content and PII.
+        Live mode: Azure Content Safety API for harmful content (BLOCK),
+                   regex for PII patterns (WARN, not covered by Content Safety).
+        """
         violations: list[GuardrailViolation] = []
+        _label = field_label or _FIELD_LABELS.get(field_name, field_name)
 
-        # BLOCK: harmful/profanity/dangerous keywords
-        if _HARMFUL_PATTERN.search(text):
-            violations.append(GuardrailViolation(
-                code="G-16", level=GuardrailLevel.BLOCK,
-                field=field_name,
-                message="Potentially harmful content detected — pipeline halted.",
-            ))
+        if use_live:
+            # ─ Live mode: call Azure Content Safety API for harmful-content BLOCK ─
+            _cs_violations = self._check_content_safety_api(text, field_name, _label)
+            violations.extend(_cs_violations)
+            # If API returned a BLOCK we can skip the regex harmful check.
+            # PII regex always runs: Content Safety API does NOT catch SSNs/CC nums.
+        else:
+            # ─ Mock mode: regex harmful pattern ─
+            if _HARMFUL_PATTERN.search(text):
+                violations.append(GuardrailViolation(
+                    code="G-16", level=GuardrailLevel.BLOCK,
+                    field=field_name,
+                    message=(
+                        f"Potentially harmful content detected in \"{_label}\" — "
+                        "pipeline halted."
+                    ),
+                ))
 
-        # WARN: PII patterns — alert the user but don't block the pipeline
-        for label, description, pattern in _PII_PATTERNS:
+        # WARN: PII patterns — always regex; alert user but don't block
+        for pii_label, description, pattern in _PII_PATTERNS:
             if pattern.search(text):
                 violations.append(GuardrailViolation(
                     code="G-16", level=GuardrailLevel.WARN,
                     field=field_name,
-                    message=f"[PII Detected — {label}] {description}. "
-                            "Please remove personal data from your text before submitting.",
+                    message=(
+                        f"PII detected in \"{_label}\" — {pii_label}: {description}. "
+                        "Please remove personal data from this field."
+                    ),
                 ))
 
         return GuardrailResult(
             passed=not any(v.level == GuardrailLevel.BLOCK for v in violations),
             violations=violations,
         )
+
+    def _check_content_safety_api(
+        self, text: str, field_name: str, field_label: str
+    ) -> list[GuardrailViolation]:
+        """Call Azure Content Safety text:analyze endpoint.
+
+        Returns a BLOCK violation if any category scores severity >= 2 (medium).
+        Falls back silently to an empty list if the endpoint is not configured
+        or the call fails — the regex harmful check in mock mode is the safety net.
+        """
+        _endpoint = os.getenv("AZURE_CONTENT_SAFETY_ENDPOINT", "").rstrip("/")
+        _key      = os.getenv("AZURE_CONTENT_SAFETY_KEY", "")
+        if not _endpoint or not _key:
+            # Endpoint not configured — fall back to regex
+            if _HARMFUL_PATTERN.search(text):
+                return [GuardrailViolation(
+                    code="G-16", level=GuardrailLevel.BLOCK,
+                    field=field_name,
+                    message=(
+                        f"Potentially harmful content detected in \"{field_label}\" — "
+                        "pipeline halted. (Content Safety endpoint not configured; "
+                        "regex fallback triggered.)"
+                    ),
+                )]
+            return []
+
+        _url = f"{_endpoint}/contentsafety/text:analyze?api-version=2024-09-01"
+        _payload = _json.dumps({
+            "text": text[:10_000],   # API limit
+            "categories": ["Hate", "SelfHarm", "Sexual", "Violence"],
+            "outputType": "FourSeverityLevels",
+        }).encode()
+        _req = urllib.request.Request(
+            _url,
+            data=_payload,
+            headers={
+                "Content-Type": "application/json",
+                "Ocp-Apim-Subscription-Key": _key,
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(_req, timeout=5) as resp:
+                _data = _json.loads(resp.read())
+            # severity levels: 0=Safe, 2=Low, 4=Medium, 6=High
+            _flagged = [
+                cat["category"]
+                for cat in _data.get("categoriesAnalysis", [])
+                if cat.get("severity", 0) >= 2
+            ]
+            if _flagged:
+                return [GuardrailViolation(
+                    code="G-16", level=GuardrailLevel.BLOCK,
+                    field=field_name,
+                    message=(
+                        f"Azure Content Safety flagged \"{field_label}\" for: "
+                        f"{', '.join(_flagged)}. Pipeline halted."
+                    ),
+                )]
+        except Exception:
+            # Network error / service unavailable — fall back to regex
+            if _HARMFUL_PATTERN.search(text):
+                return [GuardrailViolation(
+                    code="G-16", level=GuardrailLevel.BLOCK,
+                    field=field_name,
+                    message=(
+                        f"Potentially harmful content detected in \"{field_label}\" — "
+                        "pipeline halted. (Content Safety API unavailable; regex fallback.)"
+                    ),
+                )]
+        return []
 
     def check_url(self, url: str, field_name: str = "") -> GuardrailResult:
         """G-17 – Ensure URLs originate from trusted Microsoft/Pearson domains."""
@@ -485,8 +605,8 @@ class GuardrailsPipeline:
         self.assess_guard   = AssessmentGuardrails()
         self.content_guard  = OutputContentGuardrails()
 
-    def check_input(self, raw) -> GuardrailResult:
-        return self.input_guard.check(raw)
+    def check_input(self, raw, use_live: bool = False) -> GuardrailResult:
+        return self.input_guard.check(raw, use_live=use_live)
 
     def check_profile(self, profile) -> GuardrailResult:
         return self.profile_guard.check(profile)
