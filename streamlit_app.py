@@ -3473,42 +3473,70 @@ if "profile" in st.session_state:
             unsafe_allow_html=True,
         )
 
-        # Per-domain confidence grid
-        st.markdown("##### Domain Readiness Breakdown")
-        _sorted_recs = sorted(profile.domain_profiles, key=lambda d: d.confidence_score)
-        _dom_cols = st.columns(2)
-        for _di, _dp in enumerate(_sorted_recs):
-            _conf     = _dp.confidence_score
-            _conf_pct = int(_conf * 100)
-            _short    = (_dp.domain_name
-                         .replace("Implement ", "").replace(" Solutions", "")
-                         .replace(" & Knowledge Mining", " & KM"))
-            _is_risk  = _dp.domain_id in (profile.risk_domains or [])
-            _is_skip  = _dp.domain_id in (profile.modules_to_skip or [])
-            if _conf >= 0.70:
-                _d_col, _d_bg, _badge = "#16A34A", "#F0FDF4", "✅ Ready"
-            elif _conf >= 0.50:
-                _d_col, _d_bg, _badge = "#D97706", "#FFFBEB", "⚠️ Building"
+        # ── Prioritised Study Action Plan ────────────────────────────────────
+        st.markdown("##### 🎯 Prioritised Study Action Plan")
+        st.caption(
+            "Domains ranked by urgency — what to tackle first, with concrete actions "
+            "tailored to your learning style and available budget."
+        )
+        _STUDY_TIPS = {
+            "weak":     ("Start from scratch — use official Microsoft Learn modules and take notes.",
+                         "📚 Block daily 45-min focus slots. No skipping."),
+            "moderate": ("Bridge gaps — review official docs and try 10-question practice drills.",
+                         "🔁 Mix reading with practice questions every other day."),
+            "strong":   ("Maintain edge — skim official docs and attempt timed mock questions.",
+                         "⏱ One timed mock set per week is enough."),
+        }
+        _PRIORITY_ORDER = [
+            (_dp, _dp.domain_id in (profile.risk_domains or []), _dp.domain_id in (profile.modules_to_skip or []))
+            for _dp in sorted(profile.domain_profiles, key=lambda d: (
+                0 if d.domain_id in (profile.risk_domains or []) else
+                (1 if d.confidence_score < 0.50 else
+                 (2 if d.confidence_score < 0.70 else
+                  (4 if d.domain_id in (profile.modules_to_skip or []) else 3)))
+            ))
+        ]
+        for _rank, (_pdp, _is_risk_p, _is_skip_p) in enumerate(_PRIORITY_ORDER, 1):
+            _lv      = _pdp.knowledge_level.value
+            _tip1, _tip2 = _STUDY_TIPS.get(_lv, _STUDY_TIPS["moderate"])
+            _pshort  = (_pdp.domain_name
+                        .replace("Implement ", "").replace(" Solutions", "")
+                        .replace(" & Knowledge Mining", " & KM"))
+            _pw_pct  = _pdp.exam_weight_pct or 0
+            if _is_skip_p:
+                _p_border, _p_bg = "#2563EB", "#EFF6FF"
+                _urgency = "⏩ Fast-track — light review only"
+            elif _is_risk_p:
+                _p_border, _p_bg = "#DC2626", "#FFF1F0"
+                _urgency = "🚨 Critical — highest priority"
+            elif _pdp.confidence_score < 0.50:
+                _p_border, _p_bg = "#D97706", "#FFFBEB"
+                _urgency = "⚠️ Below threshold — needs focused time"
+            elif _pdp.confidence_score < 0.70:
+                _p_border, _p_bg = "#0078D4", "#EFF6FF"
+                _urgency = "📈 Building — consolidate with practice"
             else:
-                _d_col, _d_bg, _badge = "#DC2626", "#FFF1F0", "📖 Needs Work"
-            if _is_skip:
-                _badge = "⏩ Fast-track"
-                _d_col, _d_bg = "#2563EB", "#EFF6FF"
-            with _dom_cols[_di % 2]:
-                st.markdown(
-                    f"""<div style="background:{_d_bg};border-left:4px solid {_d_col};
-                         border-radius:8px;padding:10px 14px;margin-bottom:8px;">
-                      <div style="display:flex;justify-content:space-between;align-items:center;">
-                        <span style="font-weight:600;font-size:0.85rem;color:#111;">{_short}</span>
-                        <span style="font-size:0.75rem;color:{_d_col};font-weight:700;">{_badge}</span>
-                      </div>
-                      <div style="background:#e5e7eb;border-radius:4px;height:7px;margin:6px 0 3px;">
-                        <div style="background:{_d_col};width:{_conf_pct}%;height:7px;border-radius:4px;"></div>
-                      </div>
-                      <div style="font-size:0.76rem;color:#555;">{_conf_pct}% confidence</div>
-                    </div>""",
-                    unsafe_allow_html=True,
-                )
+                _p_border, _p_bg = "#16A34A", "#F0FDF4"
+                _urgency = "✅ Ready — maintain with light review"
+            _hrs_suggested = round((_pw_pct / 100) * profile.total_budget_hours)
+            st.markdown(
+                f"""<div style="background:{_p_bg};border-left:4px solid {_p_border};
+                     border-radius:8px;padding:11px 15px;margin-bottom:8px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-weight:700;font-size:0.88rem;color:#111;">
+                      #{_rank}&nbsp; {_pshort}
+                    </span>
+                    <span style="font-size:0.75rem;color:{_p_border};font-weight:600;">{_urgency}</span>
+                  </div>
+                  <div style="font-size:0.78rem;color:#374151;margin-top:5px;">
+                    📌 <b>Action:</b> {_tip1}<br/>
+                    {_tip2}<br/>
+                    ⏱ <b>Suggested budget:</b> ~{_hrs_suggested} h
+                    &nbsp;({_pw_pct:.0f}% of exam weight)
+                  </div>
+                </div>""",
+                unsafe_allow_html=True,
+            )
 
         # ── Certification Recommendation Agent ────────────────────────────────
         st.markdown("### 🏅 Exam Booking Guidance")
@@ -4086,14 +4114,14 @@ if "profile" in st.session_state:
                 # Domain scores
                 st.markdown("#### 📊 Domain Breakdown")
                 for _did, _ds in sorted(_prior_result.domain_scores.items(), key=lambda x: x[1]):
-                    _dc = "#16a34a" if _ds >= 70 else ("#f59e0b" if _ds >= 50 else "#dc2626")
+                    _dom_col = "#16a34a" if _ds >= 70 else ("#f59e0b" if _ds >= 50 else "#dc2626")
                     _dn = EXAM_DOMAIN_NAMES.get(_did, _did).replace("Implement ", "").replace(" Solutions","")
                     st.markdown(
                         f"""<div style="display:flex;align-items:center;gap:10px;
                              margin-bottom:6px;padding:6px 12px;border-radius:6px;
-                             background:white;border:1px solid #e5e7eb;border-left:4px solid {_dc};">
+                             background:white;border:1px solid #e5e7eb;border-left:4px solid {_dom_col};">
                           <span style="flex:2;font-weight:600;color:#111;">{_dn}</span>
-                          <span style="flex:1;font-weight:700;color:{_dc};">{_ds:.0f}%</span>
+                          <span style="flex:1;font-weight:700;color:{_dom_col};">{_ds:.0f}%</span>
                           <span style="color:#888;font-size:0.8rem;">
                             {'✓ Pass' if _ds >= 60 else '✗ Review'}
                           </span>
