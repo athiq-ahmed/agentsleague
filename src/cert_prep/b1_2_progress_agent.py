@@ -37,10 +37,11 @@ from email.mime.text import MIMEText
 from enum import Enum
 from typing import Optional
 
-from cert_prep.models import EXAM_DOMAINS, LearnerProfile
+from cert_prep.models import EXAM_DOMAINS, LearnerProfile, get_exam_domains
 
 
-# ─── Domain weights lookup ────────────────────────────────────────────────────
+# ─── Domain weights lookup (AI-102 used as fallback only — per-exam lookup ────
+# happens inside ProgressAgent.assess() via get_exam_domains(exam_target))  ────
 _DOMAIN_WEIGHT: dict[str, float] = {d["id"]: d["weight"] for d in EXAM_DOMAINS}
 _DOMAIN_NAME:   dict[str, str]   = {d["id"]: d["name"]   for d in EXAM_DOMAINS}
 
@@ -150,9 +151,17 @@ class ProgressAgent:
 
         # ── 1. Weighted domain readiness ──────────────────────────────────────
         # Domain score = self_rating / 5, weighted by exam weight
+        # Build per-exam weight lookup so DP-100 / AZ-204 / AZ-305 etc. use
+        # their correct weights instead of the AI-102 defaults.
+        _exam_domain_list = get_exam_domains(profile.exam_target)
+        _exam_weight_map: dict[str, float] = {
+            d["id"]: d["weight"] for d in _exam_domain_list
+        }
+        _fallback_w = 1.0 / len(_exam_domain_list) if _exam_domain_list else 1.0 / len(EXAM_DOMAINS)
+
         weighted_score = 0.0
         for dp in snap.domain_progress:
-            w = _DOMAIN_WEIGHT.get(dp.domain_id, 1 / len(EXAM_DOMAINS))
+            w = _exam_weight_map.get(dp.domain_id, _fallback_w)
             weighted_score += (dp.self_rating / 5.0) * w
 
         # ── 2. Hours progress ratio ───────────────────────────────────────────

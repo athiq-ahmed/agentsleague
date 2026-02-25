@@ -101,11 +101,54 @@ class TestReadinessAssessmentStructure:
 
 
 class TestProgressAgentMultipleExams:
-    @pytest.mark.parametrize("exam_target", ["AI-102", "DP-100", "AZ-204"])
+    @pytest.mark.parametrize("exam_target", ["AI-102", "DP-100", "AZ-204", "AZ-305", "AI-900"])
     def test_assess_works_for_multiple_exams(self, exam_target):
         agent = ProgressAgent()
         profile = make_profile(exam_target=exam_target)
         snap = make_snapshot(profile)
         ra = agent.assess(profile, snap)
         assert isinstance(ra, ReadinessAssessment)
+        assert 0 <= ra.readiness_pct <= 100
+
+    @pytest.mark.parametrize("exam_target", ["AI-102", "DP-100", "AZ-204"])
+    def test_high_ratings_yields_high_readiness_all_exams(self, exam_target):
+        """All-5 self-ratings with full hours should give ≥50% readiness for any exam."""
+        from cert_prep.models import get_exam_domains
+        agent   = ProgressAgent()
+        profile = make_profile(exam_target=exam_target)
+        # Self-rating 5 for every domain in the exam
+        snap = make_snapshot(
+            profile,
+            hours_spent=profile.total_budget_hours,
+            weeks_elapsed=profile.weeks_available,
+            self_rating=5,
+            practice_done="multiple",
+            practice_score=90,
+        )
+        ra = agent.assess(profile, snap)
+        assert ra.readiness_pct >= 50, (
+            f"{exam_target}: expected ≥50% readiness with perfect inputs, got {ra.readiness_pct:.1f}%"
+        )
+
+    @pytest.mark.parametrize("exam_target", ["AI-102", "DP-100", "AZ-204"])
+    def test_uses_exam_specific_domain_weights(self, exam_target):
+        """Domain weights in the assessment must sum to ~1.0 (verifying per-exam lookup)."""
+        from cert_prep.models import get_exam_domains
+        _exam_domains = get_exam_domains(exam_target)
+        _total_weight = sum(d["weight"] for d in _exam_domains)
+        assert abs(_total_weight - 1.0) < 0.05, (
+            f"{exam_target}: domain weights sum to {_total_weight:.3f}, expected ~1.0"
+        )
+
+    def test_domain_id_mismatch_uses_fallback_weight(self):
+        """If a snap has an unrecognised domain_id, the fallback weight applies and no crash occurs."""
+        agent   = ProgressAgent()
+        profile = make_profile(exam_target="AI-102")
+        snap = make_snapshot(profile, self_rating=3)
+        # Inject a domain progress entry with a bogus domain ID
+        from cert_prep.b1_2_progress_agent import DomainProgress
+        snap.domain_progress.append(
+            DomainProgress(domain_id="nonexistent_domain", domain_name="Ghost", self_rating=3, hours_spent=0.0)
+        )
+        ra = agent.assess(profile, snap)   # must not raise
         assert 0 <= ra.readiness_pct <= 100

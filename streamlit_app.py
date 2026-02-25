@@ -109,43 +109,94 @@ def _dc_to_json(obj) -> str:
     return _json_mod.dumps(_dc.asdict(obj), default=str)
 
 
+def _dc_filter(cls, d: dict) -> dict:
+    """Return a copy of *d* containing only keys that are valid fields of *cls*.
+    Silently drops unknown keys (schema-evolution safety) while preserving all
+    recognised keys.  Missing required fields (no default) still raise TypeError
+    at construction time — that's intentional and surfaceable.
+    """
+    _known = {f.name for f in _dc.fields(cls)}
+    return {k: v for k, v in d.items() if k in _known}
+
+
 def _progress_snapshot_from_dict(d: dict) -> ProgressSnapshot:
-    d["domain_progress"] = [DomainProgress(**dp) for dp in d.get("domain_progress", [])]
-    return ProgressSnapshot(**d)
+    d2 = _dc_filter(ProgressSnapshot, d)
+    d2["domain_progress"] = [
+        DomainProgress(**_dc_filter(DomainProgress, dp))
+        for dp in d.get("domain_progress", [])
+    ]
+    return ProgressSnapshot(**d2)
 
 
 def _readiness_assessment_from_dict(d: dict) -> ReadinessAssessment:
-    d["verdict"] = ReadinessVerdict(d["verdict"])
-    d["domain_status"] = [DomainStatusLine(**ds) for ds in d.get("domain_status", [])]
-    d["nudges"] = [Nudge(level=NudgeLevel(n["level"]), title=n["title"], message=n["message"]) for n in d.get("nudges", [])]
-    return ReadinessAssessment(**d)
+    # Safely coerce verdict enum — fall back to NEEDS_WORK on stale/invalid values
+    _valid_verdicts = {e.value for e in ReadinessVerdict}
+    _raw_verdict = d.get("verdict", "")
+    verdict = ReadinessVerdict(_raw_verdict) if _raw_verdict in _valid_verdicts else ReadinessVerdict.NEEDS_WORK
+
+    _valid_levels = {e.value for e in NudgeLevel}
+    d2 = _dc_filter(ReadinessAssessment, d)
+    d2["verdict"] = verdict
+    d2["domain_status"] = [
+        DomainStatusLine(**_dc_filter(DomainStatusLine, ds))
+        for ds in d.get("domain_status", [])
+    ]
+    d2["nudges"] = [
+        Nudge(
+            level=NudgeLevel(n["level"]) if n.get("level") in _valid_levels else NudgeLevel.INFO,
+            title=n.get("title", ""),
+            message=n.get("message", ""),
+        )
+        for n in d.get("nudges", [])
+    ]
+    return ReadinessAssessment(**d2)
 
 
 def _assessment_from_dict(d: dict) -> Assessment:
-    d["questions"] = [QuizQuestion(**q) for q in d.get("questions", [])]
-    return Assessment(**d)
+    d2 = _dc_filter(Assessment, d)
+    d2["questions"] = [
+        QuizQuestion(**_dc_filter(QuizQuestion, q))
+        for q in d.get("questions", [])
+    ]
+    return Assessment(**d2)
 
 
 def _assessment_result_from_dict(d: dict) -> AssessmentResult:
-    d["feedback"] = [QuestionFeedback(**f) for f in d.get("feedback", [])]
-    return AssessmentResult(**d)
+    d2 = _dc_filter(AssessmentResult, d)
+    d2["feedback"] = [
+        QuestionFeedback(**_dc_filter(QuestionFeedback, f))
+        for f in d.get("feedback", [])
+    ]
+    return AssessmentResult(**d2)
 
 
 def _study_plan_from_dict(d: dict) -> StudyPlan:
     from cert_prep.b1_1_study_plan_agent import StudyTask, PrereqInfo
-    d["tasks"] = [StudyTask(**t) for t in d.get("tasks", [])]
-    d["prerequisites"] = [PrereqInfo(**p) for p in d.get("prerequisites", [])]
-    return StudyPlan(**d)
+    d2 = _dc_filter(StudyPlan, d)
+    d2["tasks"] = [
+        StudyTask(**_dc_filter(StudyTask, t))
+        for t in d.get("tasks", [])
+    ]
+    d2["prerequisites"] = [
+        PrereqInfo(**_dc_filter(PrereqInfo, p))
+        for p in d.get("prerequisites", [])
+    ]
+    return StudyPlan(**d2)
 
 
 def _learning_path_from_dict(d: dict) -> LearningPath:
-    d["all_modules"] = [LearningModule(**m) for m in d.get("all_modules", [])]
+    d2 = _dc_filter(LearningPath, d)
+    d2["all_modules"] = [
+        LearningModule(**_dc_filter(LearningModule, m))
+        for m in d.get("all_modules", [])
+    ]
     # curated_paths is dict[str, list[LearningModule]]
     cp = d.get("curated_paths", {})
-    d["curated_paths"] = {
-        k: [LearningModule(**m) for m in v] for k, v in cp.items()
+    d2["curated_paths"] = {
+        k: [LearningModule(**_dc_filter(LearningModule, m)) for m in v]
+        for k, v in cp.items()
     }
-    return LearningPath(**d)
+    return LearningPath(**d2)
 
 
 def _raw_from_dict(d: dict) -> RawStudentInput:
@@ -3601,7 +3652,7 @@ if "profile" in st.session_state:
             if _cert_rec.booking_checklist:
                 st.markdown("#### ✅ Pre-Exam Booking Checklist")
                 for _item in _cert_rec.booking_checklist:
-                    st.checkbox(_item, key=f"chk_{hash(_item)[:8] if hasattr(hash(_item), '__getitem__') else abs(hash(_item))}")
+                    st.checkbox(_item, key=f"chk_{abs(hash(_item))}")
 
             if _cert_rec.remediation_plan:
                 st.markdown(

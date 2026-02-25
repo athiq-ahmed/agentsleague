@@ -931,7 +931,7 @@ else:
         "exam": trace.exam_target.split("–")[0].strip(), "mode": trace.mode, "time": trace.timestamp,
         "total_ms": f"{trace.total_ms:.0f} ms",
         "level": profile.experience_level.value.replace("_", " ").title() if profile else "—",
-        "avg_conf": "—", "risk_count": "—",
+        "avg_conf": "—", "risk_count": None,
     }])
 
 if len(history_df) > 0:
