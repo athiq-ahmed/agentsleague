@@ -17,5 +17,8 @@ config/secrets.*
 # Local database
 cert_prep_data.db
 
+# Demo PDF cache — generated at runtime, not committed
+demo_pdfs/*.pdf
+
 # Streamlit credentials (local only)
 .streamlit/credentials.toml

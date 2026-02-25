@@ -186,6 +186,36 @@ APP_PIN = "1234"
 ADMIN_USER = "admin"
 ADMIN_PASS = "agents2026"
 
+# ─── Demo PDF cache ────────────────────────────────────────────────────────────
+# PDFs for fixed demo scenarios are generated once and stored in demo_pdfs/.
+# Subsequent calls (download or email) load the cached file instead of running
+# the full reportlab pipeline again.  Real users always regenerate.
+_DEMO_PDF_DIR = Path(__file__).parent / "demo_pdfs"
+
+
+def _get_or_generate_pdf(scenario_key, pdf_type: str, generate_fn, *args) -> bytes:
+    """Return a cached PDF for a demo scenario, or generate (and cache) a new one.
+
+    Args:
+        scenario_key: sidebar_prefill value (\"alex\" / \"priyanka\") or None/\"\" for real users.
+        pdf_type:     Short string used in the filename, e.g. \"profile\" or \"assessment\".
+        generate_fn:  Callable that produces the PDF bytes.
+        *args:        Forwarded to generate_fn.
+    """
+    if scenario_key:
+        _DEMO_PDF_DIR.mkdir(exist_ok=True)
+        _cache_path = _DEMO_PDF_DIR / f"{scenario_key}_{pdf_type}.pdf"
+        if _cache_path.exists():
+            return _cache_path.read_bytes()
+    pdf_bytes = generate_fn(*args)
+    if scenario_key:
+        try:
+            _cache_path.write_bytes(pdf_bytes)
+        except Exception:
+            pass
+    return pdf_bytes
+
+
 # Default demo accounts for quick login
 DEMO_USERS = {
     "new":      {"name": "Alex Chen",    "pin": "1234",       "desc": "First-time user · AI-102"},
@@ -2258,7 +2288,10 @@ if submitted:
     if _intake_email and _smtp_ready:
         try:
             _intake_html = generate_intake_summary_html(profile, plan, learning_path)
-            _intake_pdf  = generate_profile_pdf(profile, plan, learning_path)
+            _intake_pdf  = _get_or_generate_pdf(
+                st.session_state.get("sidebar_prefill"), "profile",
+                generate_profile_pdf, profile, plan, learning_path,
+            )
             _pdf_fname   = f"StudyPlan_{_student_name.replace(' ','_')}_{profile.exam_target.split()[0]}.pdf"
             _subj        = f"Your {profile.exam_target} Study Plan is Ready — {_student_name}"
             _ok_i, _msg_i = attempt_send_email(
@@ -2771,7 +2804,10 @@ if "profile" in st.session_state:
             try:
                 _plan_obj = st.session_state.get("plan")
                 _lp_obj   = st.session_state.get("learning_path")
-                _pdf_data = generate_profile_pdf(profile, _plan_obj, _lp_obj)
+                _pdf_data = _get_or_generate_pdf(
+                    st.session_state.get("sidebar_prefill"), "profile",
+                    generate_profile_pdf, profile, _plan_obj, _lp_obj,
+                )
                 _pdf_name = f"StudyPlan_{profile.student_name.replace(' ','_')}_{profile.exam_target.split()[0]}.pdf"
                 st.download_button(
                     label="⬇️ Download PDF",
@@ -2799,7 +2835,10 @@ if "profile" in st.session_state:
                     try:
                         _plan_obj2 = st.session_state.get("plan")
                         _lp_obj2   = st.session_state.get("learning_path")
-                        _pdf_bytes2 = generate_profile_pdf(profile, _plan_obj2, _lp_obj2)
+                        _pdf_bytes2 = _get_or_generate_pdf(
+                            st.session_state.get("sidebar_prefill"), "profile",
+                            generate_profile_pdf, profile, _plan_obj2, _lp_obj2,
+                        )
                         _html_body2 = generate_intake_summary_html(profile, _plan_obj2, _lp_obj2)
                         _subj2      = f"Your {profile.exam_target} Study Plan — {profile.student_name}"
                         _fname2     = f"StudyPlan_{profile.student_name.replace(' ','_')}_{profile.exam_target.split()[0]}.pdf"
@@ -3804,7 +3843,10 @@ if "profile" in st.session_state:
                 with _erow3:
                     st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
                     try:
-                        _prog_pdf  = generate_assessment_pdf(profile, _snap, _asmt)
+                        _prog_pdf  = _get_or_generate_pdf(
+                            st.session_state.get("sidebar_prefill"), "assessment",
+                            generate_assessment_pdf, profile, _snap, _asmt,
+                        )
                         _prog_fname = f"ProgressReport_{profile.student_name.replace(' ','_')}.pdf"
                         st.download_button(
                             label="⬇️ Download PDF",
@@ -3827,7 +3869,10 @@ if "profile" in st.session_state:
                             f"Readiness {_asmt.readiness_pct:.0f}%"
                         )
                         try:
-                            _pdf_attach  = generate_assessment_pdf(profile, _snap, _asmt)
+                            _pdf_attach  = _get_or_generate_pdf(
+                                st.session_state.get("sidebar_prefill"), "assessment",
+                                generate_assessment_pdf, profile, _snap, _asmt,
+                            )
                             _pdf_attach_name = f"ProgressReport_{profile.student_name.replace(' ','_')}.pdf"
                         except Exception:
                             _pdf_attach      = None
@@ -3865,7 +3910,10 @@ if "profile" in st.session_state:
                         )
                     with _prev_col2:
                         try:
-                            _prev_pdf = generate_assessment_pdf(profile, _snap, _asmt)
+                            _prev_pdf = _get_or_generate_pdf(
+                                st.session_state.get("sidebar_prefill"), "assessment",
+                                generate_assessment_pdf, profile, _snap, _asmt,
+                            )
                             st.download_button(
                                 label="⬇️ Download as PDF",
                                 data=_prev_pdf,
