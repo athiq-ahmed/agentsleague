@@ -2809,7 +2809,7 @@ if "profile" in st.session_state:
         st.markdown("---")
         st.markdown("### 📄 Study Plan Report")
         _smtp_cfg = _is_real_value(os.getenv("SMTP_USER", "")) and _is_real_value(os.getenv("SMTP_PASS", ""))
-        _pdf_cols = st.columns([1, 1, 2]) if _smtp_cfg else st.columns([1, 3])
+        _pdf_cols = st.columns([1, 1, 2]) if _smtp_cfg else st.columns([1])
         with _pdf_cols[0]:
             try:
                 _plan_obj = st.session_state.get("plan")
@@ -2866,9 +2866,6 @@ if "profile" in st.session_state:
                                 st.warning(f"⚠️ Email failed — {_msg2}")
                         except Exception as _e2:
                             st.error(f"Failed: {_e2}")
-        else:
-            with _pdf_cols[1]:
-                st.caption("💡 Add SMTP credentials to `.env` to enable email delivery.")
 
     # ── Tab 2: Study Setup ────────────────────────────────────────────────────
     with tab_plan:
