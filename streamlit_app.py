@@ -3507,13 +3507,15 @@ if "profile" in st.session_state:
                   (4 if d.domain_id in (profile.modules_to_skip or []) else 3)))
             ))
         ]
+        _n_domains = max(len(profile.domain_profiles), 1)
         for _rank, (_pdp, _is_risk_p, _is_skip_p) in enumerate(_PRIORITY_ORDER, 1):
             _lv      = _pdp.knowledge_level.value
             _tip1, _tip2 = _STUDY_TIPS.get(_lv, _STUDY_TIPS["moderate"])
             _pshort  = (_pdp.domain_name
                         .replace("Implement ", "").replace(" Solutions", "")
                         .replace(" & Knowledge Mining", " & KM"))
-            _pw_pct  = _pdp.exam_weight_pct or 0
+            # exam_weight_pct is not on DomainProfile; fall back to equal distribution
+            _pw_pct  = getattr(_pdp, 'exam_weight_pct', 0) or round(100.0 / _n_domains, 1)
             if _is_skip_p:
                 _p_border, _p_bg = "#2563EB", "#EFF6FF"
                 _urgency = "⏩ Fast-track — light review only"
