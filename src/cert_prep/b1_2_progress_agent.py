@@ -1215,23 +1215,41 @@ def generate_intake_summary_html(
     today = date.today().strftime("%B %d, %Y")
 
     domain_rows_html = ""
+    # Build weight lookup from registry (DomainProfile has no .exam_weight or .priority)
+    from cert_prep.models import get_exam_domains as _get_exam_domains_html
+    _wt_lkp = {
+        d["id"]: d.get("weight", 0.0)
+        for d in _get_exam_domains_html(profile.exam_target)
+    }
     for dp in profile.domain_profiles:
         conf_pct = int(dp.confidence_score * 100)
         bar_color = ("#107c10" if conf_pct >= 70 else
                      "#ca5010" if conf_pct >= 40 else "#d13438")
+        _wt = _wt_lkp.get(dp.domain_id)
+        _wt_str = f"{_wt * 100:.0f}%" if _wt else "—"
+        if dp.skip_recommended:
+            _prio = "Skip"
+        elif dp.confidence_score < 0.30:
+            _prio = "Critical"
+        elif dp.confidence_score < 0.50:
+            _prio = "High"
+        elif dp.confidence_score < 0.70:
+            _prio = "Medium"
+        else:
+            _prio = "Low"
         domain_rows_html += f"""
         <tr>
           <td style="padding:6px 10px;border-bottom:1px solid #eee;">
             {dp.domain_name.replace("Implement ", "").replace(" Solutions", "")}
           </td>
           <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:center;">
-            {dp.exam_weight * 100:.0f}%
+            {_wt_str}
           </td>
           <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:center;">
             <span style="color:{bar_color};font-weight:600;">{conf_pct}%</span>
           </td>
           <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:center;">
-            {dp.priority.title()}
+            {_prio}
           </td>
         </tr>"""
 
