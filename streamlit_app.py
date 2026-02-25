@@ -2799,8 +2799,9 @@ if "profile" in st.session_state:
         # ── Download / Email Study Plan PDF ──────────────────────────────────
         st.markdown("---")
         st.markdown("### 📄 Study Plan Report")
-        _pdf_col1, _pdf_col2, _pdf_col3 = st.columns([1, 1, 2])
-        with _pdf_col1:
+        _smtp_cfg = _is_real_value(os.getenv("SMTP_USER", "")) and _is_real_value(os.getenv("SMTP_PASS", ""))
+        _pdf_cols = st.columns([1, 1, 2]) if _smtp_cfg else st.columns([1, 3])
+        with _pdf_cols[0]:
             try:
                 _plan_obj = st.session_state.get("plan")
                 _lp_obj   = st.session_state.get("learning_path")
@@ -2819,48 +2820,46 @@ if "profile" in st.session_state:
                 )
             except Exception as _pdf_err:
                 st.caption(f"PDF unavailable: {_pdf_err}")
-        with _pdf_col2:
-            _profile_email = getattr(profile, "email", "") or st.session_state.get("user_email", "")
-            _email_to_send = st.text_input(
-                "Email address",
-                value=_profile_email,
-                placeholder="you@example.com",
-                key="profile_pdf_email",
-                label_visibility="collapsed",
-            )
-        with _pdf_col3:
-            if st.button("📤 Email Study Plan PDF", key="profile_send_pdf", use_container_width=True):
-                if not _email_to_send:
-                    st.error("Enter an email address first.")
-                elif not (_is_real_value(os.getenv("SMTP_USER", "")) and _is_real_value(os.getenv("SMTP_PASS", ""))):
-                    st.warning(
-                        "📧 SMTP not configured. Add `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, "
-                        "`SMTP_PASS`, `SMTP_FROM` to your `.env` file to enable email. "
-                        "Use ⬇️ **Download PDF** to save the report locally."
-                    )
-                else:
-                    try:
-                        _plan_obj2 = st.session_state.get("plan")
-                        _lp_obj2   = st.session_state.get("learning_path")
-                        _pdf_bytes2 = _get_or_generate_pdf(
-                            st.session_state.get("sidebar_prefill"), "profile",
-                            generate_profile_pdf, profile, _plan_obj2, _lp_obj2,
-                            st.session_state.get("raw"),
-                        )
-                        _html_body2 = generate_intake_summary_html(profile, _plan_obj2, _lp_obj2)
-                        _subj2      = f"Your {profile.exam_target} Study Plan — {profile.student_name}"
-                        _fname2     = f"StudyPlan_{profile.student_name.replace(' ','_')}_{profile.exam_target.split()[0]}.pdf"
-                        with st.spinner("Sending…"):
-                            _ok2, _msg2 = attempt_send_email(
-                                _email_to_send, _subj2, _html_body2,
-                                pdf_bytes=_pdf_bytes2, pdf_filename=_fname2,
+        if _smtp_cfg:
+            with _pdf_cols[1]:
+                _profile_email = getattr(profile, "email", "") or st.session_state.get("user_email", "")
+                _email_to_send = st.text_input(
+                    "Email address",
+                    value=_profile_email,
+                    placeholder="you@example.com",
+                    key="profile_pdf_email",
+                    label_visibility="collapsed",
+                )
+            with _pdf_cols[2]:
+                if st.button("📤 Email Study Plan PDF", key="profile_send_pdf", use_container_width=True):
+                    if not _email_to_send:
+                        st.error("Enter an email address first.")
+                    else:
+                        try:
+                            _plan_obj2 = st.session_state.get("plan")
+                            _lp_obj2   = st.session_state.get("learning_path")
+                            _pdf_bytes2 = _get_or_generate_pdf(
+                                st.session_state.get("sidebar_prefill"), "profile",
+                                generate_profile_pdf, profile, _plan_obj2, _lp_obj2,
+                                st.session_state.get("raw"),
                             )
-                        if _ok2:
-                            st.success(f"✅ {_msg2}")
-                        else:
-                            st.warning(f"⚠️ Email failed — {_msg2}")
-                    except Exception as _e2:
-                        st.error(f"Failed: {_e2}")
+                            _html_body2 = generate_intake_summary_html(profile, _plan_obj2, _lp_obj2)
+                            _subj2      = f"Your {profile.exam_target} Study Plan — {profile.student_name}"
+                            _fname2     = f"StudyPlan_{profile.student_name.replace(' ','_')}_{profile.exam_target.split()[0]}.pdf"
+                            with st.spinner("Sending…"):
+                                _ok2, _msg2 = attempt_send_email(
+                                    _email_to_send, _subj2, _html_body2,
+                                    pdf_bytes=_pdf_bytes2, pdf_filename=_fname2,
+                                )
+                            if _ok2:
+                                st.success(f"✅ {_msg2}")
+                            else:
+                                st.warning(f"⚠️ Email failed — {_msg2}")
+                        except Exception as _e2:
+                            st.error(f"Failed: {_e2}")
+        else:
+            with _pdf_cols[1]:
+                st.caption("💡 Add SMTP credentials to `.env` to enable email delivery.")
 
     # ── Tab 2: Study Setup ────────────────────────────────────────────────────
     with tab_plan:
@@ -3830,24 +3829,32 @@ if "profile" in st.session_state:
 
                 # ── Email / Download Weekly Report ───────────────────────────
                 st.markdown("### 📧 Weekly Progress Report")
-                _email_addr = st.session_state.get("user_email", "")
+                _email_addr  = st.session_state.get("user_email", "")
+                _smtp_cfg_pr = _is_real_value(os.getenv("SMTP_USER", "")) and _is_real_value(os.getenv("SMTP_PASS", ""))
 
-                _erow1, _erow2, _erow3 = st.columns([2.2, 1.1, 1.1])
-                with _erow1:
-                    _send_to = st.text_input(
-                        "Send report to",
-                        value=_email_addr,
-                        placeholder="you@example.com",
-                        key="send_email_input",
-                        help="Enter your email to receive the weekly progress report with PDF attached.",
-                    )
-                with _erow2:
-                    st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
-                    _do_send = st.button(
-                        "📤 Email + PDF",
-                        type="primary",
-                        use_container_width=True,
-                    )
+                if _smtp_cfg_pr:
+                    _erow1, _erow2, _erow3 = st.columns([2.2, 1.1, 1.1])
+                    with _erow1:
+                        _send_to = st.text_input(
+                            "Send report to",
+                            value=_email_addr,
+                            placeholder="you@example.com",
+                            key="send_email_input",
+                            help="Enter your email to receive the weekly progress report with PDF attached.",
+                        )
+                    with _erow2:
+                        st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
+                        _do_send = st.button(
+                            "📤 Email + PDF",
+                            type="primary",
+                            use_container_width=True,
+                        )
+                else:
+                    _do_send = False
+                    _send_to = ""
+                    _erow3, _erow_hint = st.columns([1, 3])
+                    with _erow_hint:
+                        st.caption("💡 Add SMTP credentials to `.env` to enable email delivery.")
                 with _erow3:
                     st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
                     try:
@@ -3869,15 +3876,6 @@ if "profile" in st.session_state:
                 if _do_send:
                     if not _send_to:
                         st.error("Please enter an email address.")
-                    elif not (_is_real_value(os.getenv("SMTP_USER", "")) and _is_real_value(os.getenv("SMTP_PASS", ""))):
-                        st.warning(
-                            "📧 SMTP not configured. Add `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, "
-                            "`SMTP_PASS`, `SMTP_FROM` to your `.env` file to enable email. "
-                            "Use ⬇️ **Download PDF** to save the report locally."
-                        )
-                        with st.expander("👁️ Preview weekly report (no email needed)", expanded=True):
-                            _html_body = generate_weekly_summary(profile, _snap, _asmt)
-                            st.markdown(_html_body, unsafe_allow_html=True)
                     else:
                         _html_body = generate_weekly_summary(profile, _snap, _asmt)
                         _subject   = (
