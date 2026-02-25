@@ -2834,7 +2834,9 @@ if "profile" in st.session_state:
                     "domain_id":      task.domain_id,
                 })
 
-            # Add review week bar
+            # Add review week bar — review hours = remaining budget after domain tasks
+            _gantt_domain_h  = sum(t.total_hours for t in plan.tasks)
+            _gantt_review_h  = max(0.0, profile.total_budget_hours - _gantt_domain_h)
             review_start = _BASE + datetime.timedelta(weeks=plan.review_start_week - 1)
             review_end   = _BASE + datetime.timedelta(weeks=plan.review_start_week)
             gantt_rows.append({
@@ -2843,7 +2845,7 @@ if "profile" in st.session_state:
                 "Finish":     review_end.isoformat(),
                 "Priority":   "Review",
                 "Level":      "-",
-                "Hours":      f"{profile.hours_per_week:.0f} h",
+                "Hours":      f"{_gantt_review_h:.0f} h",
                 "Confidence": "—",
                 "_color":     PLAN_COLOUR["review"],
                 "WeekRange":  f"Week {plan.review_start_week}",
@@ -2937,7 +2939,8 @@ if "profile" in st.session_state:
                 }
                 for t in plan.tasks
             ]
-            _review_h = profile.hours_per_week
+            _domain_h = sum(t.total_hours for t in plan.tasks)
+            _review_h = max(0.0, profile.total_budget_hours - _domain_h)
             task_table_rows.append({
                 "Domain":         "🏁 Review & Practice Exam",
                 "Weeks":          str(plan.review_start_week),
@@ -2945,7 +2948,7 @@ if "profile" in st.session_state:
                 "Priority":       "Review",
                 "Starting Point": "—",
             })
-            _total_h = sum(t.total_hours for t in plan.tasks) + _review_h
+            _total_h = profile.total_budget_hours
             task_table_rows.append({
                 "Domain":         "📊 TOTAL",
                 "Weeks":          f"1–{plan.total_weeks}",
@@ -2966,7 +2969,7 @@ if "profile" in st.session_state:
         st.markdown("### 📋 Study Setup Summary")
 
         if plan:
-            _total_h_sum  = sum(t.total_hours for t in plan.tasks) + profile.hours_per_week
+            _total_h_sum  = profile.total_budget_hours
             _critical_dom = [t.domain_name.replace("Implement ", "").replace(" Solutions", "")
                              for t in plan.tasks if t.priority == "critical"]
             _skip_dom     = [t.domain_name.replace("Implement ", "").replace(" Solutions", "")
@@ -2979,7 +2982,7 @@ if "profile" in st.session_state:
             with _s3: st.metric("Hours / Week", f"{profile.hours_per_week:.0f} h")
             with _s4: st.metric("Avg Confidence", f"{_avg_conf_sum*100:.0f}%")
             st.caption(
-                f"{profile.hours_per_week:.0f} h/week × {plan.total_weeks} weeks = **{_total_h_sum:.0f} h total budget** "
+                f"{profile.hours_per_week:.0f} h/week × {profile.weeks_available} weeks = **{_total_h_sum:.0f} h total budget** "
                 f"(covers MS Learn modules + labs + practice exams + review). "
                 f"MS Learn curated content alone is shorter — see the Learning Path tab for module-level time."
             )
