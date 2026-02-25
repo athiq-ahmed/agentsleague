@@ -13,8 +13,14 @@ Handles the "returning learner" flow:
   generate_weekly_summary(profile, snapshot, assessment) → str (HTML)
     Produces a formatted HTML e-mail body for the weekly progress report.
 
-  attempt_send_email(to_address, subject, html_body, config) → bool
-    Tries to send via SMTP if env vars are set; returns True on success.
+  send_simple_email(smtp_host, smtp_port, to_emails, subject, body_text,
+                    sender_email, sender_pass, pdf_bytes, pdf_filename) → (bool, str)
+    Pure-library SMTP helper — all credentials passed as arguments.
+    No .env configuration required. Works with any Gmail / Outlook / SMTP relay.
+
+  attempt_send_email(to_address, subject, html_body, …) → (bool, str)
+    Convenience wrapper: uses inline smtp_user/smtp_pass args first,
+    then falls back to SMTP_USER/SMTP_PASS environment variables.
 """
 
 from __future__ import annotations
@@ -547,47 +553,62 @@ def generate_weekly_summary(
 
 # ─── Email dispatch ───────────────────────────────────────────────────────────
 
-def attempt_send_email(
-    to_address: str,
+def send_simple_email(
+    smtp_host: str,
+    smtp_port: int,
+    to_emails: "str | list[str]",
     subject: str,
-    html_body: str,
+    body_text: str,
+    sender_email: str,
+    sender_pass: str,
     pdf_bytes: Optional[bytes] = None,
-    pdf_filename: str = "CertPrep_Report.pdf",
+    pdf_filename: str = "report.pdf",
 ) -> tuple[bool, str]:
     """
-    Attempts to send `html_body` to `to_address` via SMTP.
-    If `pdf_bytes` is provided it is attached as a PDF.
+    Pure-library SMTP helper — all credentials supplied as arguments.
+    No .env configuration required.
 
-    Reads SMTP config from environment variables:
-        SMTP_HOST  (default: smtp.gmail.com)
-        SMTP_PORT  (default: 587)
-        SMTP_USER  – sender address / login
-        SMTP_PASS  – app password
-        SMTP_FROM  – display From address (defaults to SMTP_USER)
+    Parameters
+    ----------
+    smtp_host     : e.g. "smtp.gmail.com"
+    smtp_port     : e.g. 587  (STARTTLS) or 465 (SSL)
+    to_emails     : single address string or list of addresses
+    subject       : email subject line
+    body_text     : plain text OR HTML body (auto-detected)
+    sender_email  : the Gmail / SMTP account used to authenticate and send
+    sender_pass   : app password (Gmail: myaccount.google.com → Security →
+                    App passwords → generate a 16-char password)
+    pdf_bytes     : optional raw PDF bytes to attach
+    pdf_filename  : filename shown to recipient (default "report.pdf")
 
-    Returns:
-        (True, "Sent successfully")  on success
-        (False, "<error message>")   on failure / missing config
+    Returns
+    -------
+    (True,  "Sent successfully")
+    (False, "<error description>")
+
+    Gmail quickstart
+    ----------------
+    1. Enable 2-Step Verification on your Google account
+    2. Go to myaccount.google.com → Security → App passwords
+    3. Generate a 16-char app password for "Mail / Windows Computer"
+    4. Pass that password as sender_pass — no .env changes needed
     """
-    smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user = os.getenv("SMTP_USER", "")
-    smtp_pass = os.getenv("SMTP_PASS", "")
-    smtp_from = os.getenv("SMTP_FROM", smtp_user)
+    if not sender_email or not sender_pass:
+        return False, "sender_email and sender_pass are required."
 
-    if not smtp_user or not smtp_pass:
-        return False, (
-            "SMTP credentials not configured. "
-            "Set SMTP_USER and SMTP_PASS environment variables to enable email sending."
-        )
+    recipients = [to_emails] if isinstance(to_emails, str) else list(to_emails)
+
+    # Detect HTML vs plain text
+    is_html = body_text.strip().startswith("<")
+    mime_subtype = "html" if is_html else "plain"
 
     msg = MIMEMultipart("mixed")
     msg["Subject"] = subject
-    msg["From"]    = smtp_from
-    msg["To"]      = to_address
+    msg["From"]    = sender_email
+    msg["To"]      = ", ".join(recipients)
 
     alt_part = MIMEMultipart("alternative")
-    alt_part.attach(MIMEText(html_body, "html", "utf-8"))
+    alt_part.attach(MIMEText(body_text, mime_subtype, "utf-8"))
     msg.attach(alt_part)
 
     if pdf_bytes:
@@ -596,15 +617,79 @@ def attempt_send_email(
         msg.attach(pdf_part)
 
     try:
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.sendmail(smtp_from, [to_address], msg.as_string())
+        if smtp_port == 465:
+            import ssl
+            ctx = ssl.create_default_context()
+            with smtplib.SMTP_SSL(smtp_host, smtp_port, context=ctx, timeout=15) as server:
+                server.login(sender_email, sender_pass)
+                server.sendmail(sender_email, recipients, msg.as_string())
+        else:
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
+                server.ehlo()
+                server.starttls()
+                server.login(sender_email, sender_pass)
+                server.sendmail(sender_email, recipients, msg.as_string())
         attach_note = " (PDF attached)" if pdf_bytes else ""
-        return True, f"Email sent successfully{attach_note}! Check your inbox."
+        return True, f"Email sent successfully{attach_note}!"
+    except smtplib.SMTPAuthenticationError:
+        return False, (
+            "Authentication failed. For Gmail, use an App Password "
+            "(not your regular password). "
+            "Enable 2FA first, then generate one at "
+            "myaccount.google.com → Security → App passwords."
+        )
     except Exception as exc:
         return False, f"Failed to send email: {exc}"
+
+
+def attempt_send_email(
+    to_address: str,
+    subject: str,
+    html_body: str,
+    pdf_bytes: Optional[bytes] = None,
+    pdf_filename: str = "CertPrep_Report.pdf",
+    smtp_user: str = "",
+    smtp_pass: str = "",
+) -> tuple[bool, str]:
+    """
+    Convenience wrapper around send_simple_email.
+
+    Priority for credentials:
+      1. smtp_user / smtp_pass arguments (passed from UI session state)
+      2. SMTP_USER / SMTP_PASS environment variables
+      3. → returns (False, "not configured") if neither present
+
+    All other SMTP settings (host, port, from) read from env vars with
+    sensible Gmail defaults so existing callers need no changes.
+    """
+    _user = smtp_user or os.getenv("SMTP_USER", "")
+    _pass = smtp_pass or os.getenv("SMTP_PASS", "")
+
+    if not _user or not _pass:
+        return False, (
+            "Email credentials not configured. "
+            "Enter your Gmail address and App Password in the "
+            "📧 Email Settings panel in the sidebar."
+        )
+
+    _host  = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    _port  = int(os.getenv("SMTP_PORT", "587"))
+    _from  = os.getenv("SMTP_FROM", _user)
+
+    # Patch the From header to the configured display address
+    # (send_simple_email uses sender_email as both auth and From)
+    ok, msg_text = send_simple_email(
+        smtp_host=_host,
+        smtp_port=_port,
+        to_emails=to_address,
+        subject=subject,
+        body_text=html_body,
+        sender_email=_from or _user,
+        sender_pass=_pass,
+        pdf_bytes=pdf_bytes,
+        pdf_filename=pdf_filename,
+    )
+    return ok, msg_text
 
 
 # ─── PDF report generators ────────────────────────────────────────────────────

@@ -49,7 +49,7 @@
         </mxCell>
 
         <!-- 1.2 Study Plan & Engagement Generator (merged) -->
-        <mxCell id="a12" value="&lt;b&gt;1.2 Study Plan &amp;amp; Engagement Generator&lt;/b&gt;&#xa;(Study plan + reminders)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F0FF;strokeColor=#5C2D91;fontSize=13;" vertex="1" parent="1">
+        <mxCell id="a12" value="&lt;b&gt;1.2 Study Plan &amp;amp; Engagement Generator&lt;/b&gt;&#xa;(Study plan + PDF reports + SMTP email)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F0FF;strokeColor=#5C2D91;fontSize=13;" vertex="1" parent="1">
           <mxGeometry x="990" y="162" width="330" height="76" as="geometry" />
         </mxCell>
 
@@ -218,7 +218,7 @@
         <mxCell id="leg1" value="&lt;div style=&quot;font-family:'Segoe UI';line-height:20px;&quot;&gt;&lt;font size=&quot;3&quot;&gt;&lt;b&gt;Learner Intake &amp;amp; Profiling&lt;/b&gt; converts raw student input into a structured learner profile that the Planner uses for orchestration.&lt;/font&gt;&lt;/div&gt;" style="text;whiteSpace=wrap;html=1;" vertex="1" parent="1">
           <mxGeometry x="40" y="724" width="1840" height="34" as="geometry" />
         </mxCell>
-        <mxCell id="leg2" value="&lt;div style=&quot;font-family:'Segoe UI';line-height:20px;&quot;&gt;&lt;font size=&quot;3&quot;&gt;&lt;b&gt;1.1 Learning Path Planner&lt;/b&gt; maps the exam syllabus to structured domains and authoritative Microsoft Learn resources (merged from Syllabus Mapper + Path Curator).&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&lt;b&gt;1.2 Study Plan &amp;amp; Engagement Generator&lt;/b&gt; converts the path into a weekly schedule with milestones and sends engagement reminders (merged from Study Plan Generator + Engagement Reminders).&lt;/font&gt;&lt;/div&gt;" style="text;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+        <mxCell id="leg2" value="&lt;div style=&quot;font-family:'Segoe UI';line-height:20px;&quot;&gt;&lt;font size=&quot;3&quot;&gt;&lt;b&gt;1.1 Learning Path Planner&lt;/b&gt; maps the exam syllabus to structured domains and authoritative Microsoft Learn resources (merged from Syllabus Mapper + Path Curator).&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&lt;b&gt;1.2 Study Plan &amp;amp; Engagement Generator&lt;/b&gt; converts the path into a weekly schedule with milestones; generates downloadable PDF reports (Study Plan + Progress) via &lt;i&gt;reportlab&lt;/i&gt;; sends emails with PDF attachments via Python &lt;i&gt;smtplib&lt;/i&gt; using credentials entered at runtime in the sidebar — no .env configuration required.&lt;/font&gt;&lt;/div&gt;" style="text;whiteSpace=wrap;html=1;" vertex="1" parent="1">
           <mxGeometry x="40" y="762" width="1840" height="40" as="geometry" />
         </mxCell>
         <mxCell id="leg3" value="&lt;div style=&quot;font-family:'Segoe UI';line-height:20px;&quot;&gt;&lt;font size=&quot;3&quot;&gt;&lt;b&gt;2.1 Assessment Builder&lt;/b&gt; generates exam-style questions tagged by objective and difficulty.&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&lt;b&gt;2.2 Tiered Verifier + Repair Loop&lt;/b&gt; validates questions for correctness, coverage and safety; repairs and re-verifies before output.&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&lt;b&gt;2.3 Scoring Engine&lt;/b&gt; computes domain and overall scores deterministically.&lt;/font&gt;&lt;/div&gt;" style="text;whiteSpace=wrap;html=1;" vertex="1" parent="1">

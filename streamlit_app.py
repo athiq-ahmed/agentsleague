@@ -90,7 +90,7 @@ from cert_prep.b1_1_study_plan_agent import StudyPlanAgent, StudyPlan, PRIORITY_
 from cert_prep.b1_2_progress_agent import (
     ProgressAgent, ProgressSnapshot, DomainProgress,
     ReadinessAssessment, DomainStatusLine, Nudge,
-    generate_weekly_summary, attempt_send_email,
+    generate_weekly_summary, attempt_send_email, send_simple_email,
     generate_profile_pdf, generate_assessment_pdf,
     generate_intake_summary_html,
     NudgeLevel, ReadinessVerdict,
@@ -1594,6 +1594,45 @@ with st.sidebar:
             del st.session_state[k]
         st.rerun()
 
+    # ── Email Settings (no .env needed — enter credentials directly) ──────────
+    with st.expander("📧 Email Settings", expanded=False):
+        st.caption(
+            "Enter any Gmail address + App Password to send PDFs. "
+            "No .env changes required."
+        )
+        _si_user = st.text_input(
+            "Gmail address",
+            value=st.session_state.get("_smtp_user_ui", os.getenv("SMTP_USER", "")),
+            placeholder="you@gmail.com",
+            key="smtp_user_ui",
+            label_visibility="visible",
+        )
+        _si_pass = st.text_input(
+            "App Password",
+            value=st.session_state.get("_smtp_pass_ui", os.getenv("SMTP_PASS", "")),
+            type="password",
+            placeholder="16-char app password",
+            key="smtp_pass_ui",
+            label_visibility="visible",
+        )
+        # Persist to session state so email buttons can read them
+        if _si_user:
+            st.session_state["_smtp_user_ui"] = _si_user
+        if _si_pass:
+            st.session_state["_smtp_pass_ui"] = _si_pass
+
+        # Quick status indicator
+        _smtp_creds_ok = bool(st.session_state.get("_smtp_user_ui")) and bool(st.session_state.get("_smtp_pass_ui"))
+        if _smtp_creds_ok:
+            st.success("✅ Email credentials ready", icon=None)
+        else:
+            st.info(
+                "Generate an App Password at "
+                "[myaccount.google.com](https://myaccount.google.com) "
+                "→ Security → App passwords → Mail.",
+                icon="ℹ️",
+            )
+
     # ── Azure services mode badge ─────────────────────────────────────────
     st.markdown("---")
     if use_live:
@@ -1723,9 +1762,10 @@ if use_live:
         ("Azure Content Safety", _is_real_value(os.getenv("AZURE_CONTENT_SAFETY_ENDPOINT", "")),
          False, "G-16 content filter API",
          "AZURE_CONTENT_SAFETY_ENDPOINT + AZURE_CONTENT_SAFETY_KEY"),
-        ("SMTP Email",           _is_real_value(os.getenv("SMTP_HOST", "")),
-         False, "Weekly progress email digests",
-         "SMTP_HOST · SMTP_PORT · SMTP_USER · SMTP_PASS"),
+        ("SMTP Email",
+         bool(st.session_state.get("_smtp_user_ui")) or _is_real_value(os.getenv("SMTP_HOST", "")),
+         False, "PDF email via sidebar credentials or .env",
+         "Sidebar \u25b8 Email Settings (or SMTP_USER/SMTP_PASS in .env)"),
         ("MS Learn MCP",         _is_real_value(os.getenv("MCP_MSLEARN_URL", "")),
          False, "Live module catalogue",
          "MCP_MSLEARN_URL"),
@@ -2250,7 +2290,9 @@ if submitted:
 
     # ── Auto-email: send study plan + PDF on first intake ─────────────────────
     _intake_email = raw.email.strip() if raw.email else ""
-    _smtp_ready   = bool(os.getenv("SMTP_USER", "")) and bool(os.getenv("SMTP_PASS", ""))
+    _smtp_ui_user = st.session_state.get("_smtp_user_ui", os.getenv("SMTP_USER", ""))
+    _smtp_ui_pass = st.session_state.get("_smtp_pass_ui", os.getenv("SMTP_PASS", ""))
+    _smtp_ready   = bool(_smtp_ui_user) and bool(_smtp_ui_pass)
     if _intake_email and _smtp_ready:
         try:
             _intake_html = generate_intake_summary_html(profile, plan, learning_path)
@@ -2260,6 +2302,7 @@ if submitted:
             _ok_i, _msg_i = attempt_send_email(
                 _intake_email, _subj, _intake_html,
                 pdf_bytes=_intake_pdf, pdf_filename=_pdf_fname,
+                smtp_user=_smtp_ui_user, smtp_pass=_smtp_ui_pass,
             )
             if _ok_i:
                 st.success(f"📧 Study plan emailed to **{_intake_email}** with PDF attached!")
@@ -2799,10 +2842,13 @@ if "profile" in st.session_state:
                         _html_body2 = generate_intake_summary_html(profile, _plan_obj2, _lp_obj2)
                         _subj2      = f"Your {profile.exam_target} Study Plan — {profile.student_name}"
                         _fname2     = f"StudyPlan_{profile.student_name.replace(' ','_')}_{profile.exam_target.split()[0]}.pdf"
+                        _smtp_u = st.session_state.get("_smtp_user_ui", os.getenv("SMTP_USER", ""))
+                        _smtp_p = st.session_state.get("_smtp_pass_ui", os.getenv("SMTP_PASS", ""))
                         with st.spinner("Sending…"):
                             _ok2, _msg2 = attempt_send_email(
                                 _email_to_send, _subj2, _html_body2,
                                 pdf_bytes=_pdf_bytes2, pdf_filename=_fname2,
+                                smtp_user=_smtp_u, smtp_pass=_smtp_p,
                             )
                         if _ok2:
                             st.success(f"✅ {_msg2}")
@@ -3828,11 +3874,14 @@ if "profile" in st.session_state:
                         except Exception:
                             _pdf_attach      = None
                             _pdf_attach_name = "ProgressReport.pdf"
+                        _smtp_u2 = st.session_state.get("_smtp_user_ui", os.getenv("SMTP_USER", ""))
+                        _smtp_p2 = st.session_state.get("_smtp_pass_ui", os.getenv("SMTP_PASS", ""))
                         with st.spinner("Sending email…"):
                             _ok, _msg = attempt_send_email(
                                 _send_to, _subject, _html_body,
                                 pdf_bytes=_pdf_attach,
                                 pdf_filename=_pdf_attach_name,
+                                smtp_user=_smtp_u2, smtp_pass=_smtp_p2,
                             )
                         if _ok:
                             st.success(f"✅ {_msg}")
