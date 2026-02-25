@@ -19,11 +19,13 @@ Handles the "returning learner" flow:
 
 from __future__ import annotations
 
+import io
 import os
 import smtplib
 import textwrap
 from dataclasses import dataclass, field
 from datetime import date
+from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from enum import Enum
@@ -549,9 +551,12 @@ def attempt_send_email(
     to_address: str,
     subject: str,
     html_body: str,
+    pdf_bytes: Optional[bytes] = None,
+    pdf_filename: str = "CertPrep_Report.pdf",
 ) -> tuple[bool, str]:
     """
     Attempts to send `html_body` to `to_address` via SMTP.
+    If `pdf_bytes` is provided it is attached as a PDF.
 
     Reads SMTP config from environment variables:
         SMTP_HOST  (default: smtp.gmail.com)
@@ -576,11 +581,19 @@ def attempt_send_email(
             "Set SMTP_USER and SMTP_PASS environment variables to enable email sending."
         )
 
-    msg = MIMEMultipart("alternative")
+    msg = MIMEMultipart("mixed")
     msg["Subject"] = subject
     msg["From"]    = smtp_from
     msg["To"]      = to_address
-    msg.attach(MIMEText(html_body, "html", "utf-8"))
+
+    alt_part = MIMEMultipart("alternative")
+    alt_part.attach(MIMEText(html_body, "html", "utf-8"))
+    msg.attach(alt_part)
+
+    if pdf_bytes:
+        pdf_part = MIMEApplication(pdf_bytes, _subtype="pdf")
+        pdf_part.add_header("Content-Disposition", "attachment", filename=pdf_filename)
+        msg.attach(pdf_part)
 
     try:
         with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
@@ -588,6 +601,638 @@ def attempt_send_email(
             server.starttls()
             server.login(smtp_user, smtp_pass)
             server.sendmail(smtp_from, [to_address], msg.as_string())
-        return True, "Email sent successfully! Check your inbox."
+        attach_note = " (PDF attached)" if pdf_bytes else ""
+        return True, f"Email sent successfully{attach_note}! Check your inbox."
     except Exception as exc:
         return False, f"Failed to send email: {exc}"
+
+
+# ─── PDF report generators ────────────────────────────────────────────────────
+
+def _rl_colour(hex_str: str):
+    """Convert a CSS hex colour string to a reportlab Color."""
+    from reportlab.lib import colors as rl_colors
+    h = hex_str.lstrip("#")
+    if len(h) == 3:
+        h = "".join(c * 2 for c in h)
+    r, g, b = int(h[0:2], 16) / 255, int(h[2:4], 16) / 255, int(h[4:6], 16) / 255
+    return rl_colors.Color(r, g, b)
+
+
+def generate_profile_pdf(
+    profile: "LearnerProfile",
+    plan=None,
+    lp=None,
+) -> bytes:
+    """
+    Build a study-plan PDF for a newly profiled learner.
+    Returns raw PDF bytes.
+
+    Parameters
+    ----------
+    profile : LearnerProfile
+    plan    : StudyPlan (optional) — adds a study-plan task table
+    lp      : LearningPath (optional) — adds a learning-path module table
+    """
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors as rl_colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+        HRFlowable, KeepTogether,
+    )
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4,
+        leftMargin=1.8 * cm, rightMargin=1.8 * cm,
+        topMargin=1.8 * cm, bottomMargin=1.8 * cm,
+    )
+
+    styles = getSampleStyleSheet()
+    PURPLE = _rl_colour("#5C2D91")
+    DARK   = _rl_colour("#1f2937")
+    MUTED  = _rl_colour("#6b7280")
+    GREEN  = _rl_colour("#16a34a")
+    RED    = _rl_colour("#dc2626")
+    AMBER  = _rl_colour("#d97706")
+    BLUE   = _rl_colour("#2563eb")
+    WHITE  = rl_colors.white
+    LIGHT  = _rl_colour("#f3f4ff")
+
+    h1 = ParagraphStyle("H1", parent=styles["Heading1"],
+                         textColor=WHITE, fontSize=16, leading=20, spaceAfter=4)
+    h2 = ParagraphStyle("H2", parent=styles["Heading2"],
+                         textColor=PURPLE, fontSize=12, leading=15, spaceBefore=12, spaceAfter=4)
+    body = ParagraphStyle("Body", parent=styles["Normal"],
+                           textColor=DARK, fontSize=9, leading=13)
+    small = ParagraphStyle("Small", parent=styles["Normal"],
+                            textColor=MUTED, fontSize=8, leading=11)
+    centre = ParagraphStyle("Centre", parent=styles["Normal"],
+                             alignment=TA_CENTER, fontSize=9, leading=13)
+
+    PRIORITY_COLOUR = {
+        "critical": RED, "high": AMBER, "medium": BLUE,
+        "low": MUTED, "skip": MUTED, "review": GREEN,
+    }
+
+    story = []
+    today = date.today().strftime("%B %d, %Y")
+
+    # ── Header banner ─────────────────────────────────────────────────────────
+    banner_data = [[Paragraph(
+        f"<b>📊 Your Personalised Study Plan</b><br/>"
+        f"<font size='10'>{profile.student_name} · {profile.exam_target} · {today}</font>",
+        h1,
+    )]]
+    banner_table = Table(banner_data, colWidths=[doc.width])
+    banner_table.setStyle(TableStyle([
+        ("BACKGROUND",  (0, 0), (-1, -1), PURPLE),
+        ("ROWPADDING",  (0, 0), (-1, -1), 10),
+        ("TOPPADDING",  (0, 0), (-1, -1), 12),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
+        ("ROUNDEDCORNERS", [8]),
+    ]))
+    story.append(banner_table)
+    story.append(Spacer(1, 0.4 * cm))
+
+    # ── Study setup summary (4-box KPI row) ───────────────────────────────────
+    story.append(Paragraph("Study Setup", h2))
+    kpi_data = [
+        ["Exam Target", "Study Budget", "Hours / Week", "Duration"],
+        [
+            Paragraph(f"<b>{profile.exam_target}</b>", centre),
+            Paragraph(f"<b>{profile.total_budget_hours:.0f} h</b>", centre),
+            Paragraph(f"<b>{profile.hours_per_week:.0f} h</b>", centre),
+            Paragraph(f"<b>{profile.weeks_available} weeks</b>", centre),
+        ],
+    ]
+    kpi_w = doc.width / 4
+    kpi_table = Table(kpi_data, colWidths=[kpi_w] * 4)
+    kpi_table.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (-1, 0), PURPLE),
+        ("TEXTCOLOR",     (0, 0), (-1, 0), WHITE),
+        ("BACKGROUND",    (0, 1), (-1, 1), LIGHT),
+        ("FONTNAME",      (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE",      (0, 0), (-1, 0), 8),
+        ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+        ("ROWPADDING",    (0, 0), (-1, -1), 6),
+        ("GRID",          (0, 0), (-1, -1), 0.5, rl_colors.lightgrey),
+        ("ROUNDEDCORNERS", [4]),
+    ]))
+    story.append(kpi_table)
+    story.append(Spacer(1, 0.3 * cm))
+
+    # Role / goal
+    if profile.background:
+        story.append(Paragraph(f"<b>Background:</b> {profile.background[:200]}", body))
+    if hasattr(profile, "goal") and profile.goal:
+        story.append(Paragraph(f"<b>Goal:</b> {profile.goal[:200]}", body))
+    story.append(Spacer(1, 0.3 * cm))
+
+    # ── Domain readiness table ─────────────────────────────────────────────────
+    story.append(Paragraph("Domain Readiness", h2))
+    story.append(HRFlowable(width="100%", thickness=1, color=PURPLE))
+    story.append(Spacer(1, 0.15 * cm))
+
+    dr_header = ["Domain", "Weight", "Confidence", "Level", "Priority"]
+    dr_rows   = [dr_header]
+    for dp in profile.domain_profiles:
+        prio_cell = Paragraph(
+            dp.priority.title(),
+            ParagraphStyle("P", parent=body,
+                           textColor=PRIORITY_COLOUR.get(dp.priority, DARK)),
+        )
+        dr_rows.append([
+            dp.domain_name.replace("Implement ", "").replace(" Solutions", ""),
+            f"{dp.exam_weight * 100:.0f}%",
+            f"{dp.confidence_score * 100:.0f}%",
+            dp.knowledge_level.replace("_", " ").title(),
+            prio_cell,
+        ])
+    col_w = [doc.width * f for f in [0.38, 0.12, 0.14, 0.18, 0.18]]
+    dr_table = Table(dr_rows, colWidths=col_w)
+    dr_table.setStyle(TableStyle([
+        ("BACKGROUND",  (0, 0), (-1, 0), PURPLE),
+        ("TEXTCOLOR",   (0, 0), (-1, 0), WHITE),
+        ("FONTNAME",    (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE",    (0, 0), (-1, -1), 8),
+        ("ALIGN",       (1, 0), (-1, -1), "CENTER"),
+        ("ALIGN",       (0, 0), (0, -1), "LEFT"),
+        ("ROWPADDING",  (0, 0), (-1, -1), 5),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, LIGHT]),
+        ("GRID",        (0, 0), (-1, -1), 0.4, rl_colors.lightgrey),
+    ]))
+    story.append(dr_table)
+
+    # ── Study Plan tasks ───────────────────────────────────────────────────────
+    if plan and plan.tasks:
+        story.append(Spacer(1, 0.4 * cm))
+        story.append(Paragraph("Study Plan Schedule", h2))
+        story.append(HRFlowable(width="100%", thickness=1, color=PURPLE))
+        story.append(Spacer(1, 0.15 * cm))
+
+        sp_header = ["Domain", "Weeks", "Hours", "Priority", "Starting Level"]
+        sp_rows   = [sp_header]
+        for t in plan.tasks:
+            week_str = (f"{t.start_week}–{t.end_week}"
+                        if t.start_week != t.end_week else str(t.start_week))
+            prio_cell = Paragraph(
+                t.priority.title(),
+                ParagraphStyle("P2", parent=body,
+                               textColor=PRIORITY_COLOUR.get(t.priority, DARK)),
+            )
+            sp_rows.append([
+                t.domain_name.replace("Implement ", "").replace(" Solutions", ""),
+                f"Wk {week_str}",
+                f"{t.total_hours:.0f} h",
+                prio_cell,
+                t.knowledge_level.replace("_", " ").title(),
+            ])
+        _domain_h = sum(t.total_hours for t in plan.tasks)
+        _review_h = max(0.0, profile.total_budget_hours - _domain_h)
+        sp_rows.append([
+            "🏁 Review & Practice Exam",
+            f"Wk {plan.review_start_week}",
+            f"{_review_h:.0f} h",
+            Paragraph("Review", ParagraphStyle("P3", parent=body, textColor=GREEN)),
+            "—",
+        ])
+        sp_rows.append([
+            Paragraph("<b>TOTAL</b>", body),
+            f"1–{plan.total_weeks}",
+            Paragraph(f"<b>{profile.total_budget_hours:.0f} h</b>", body),
+            "—", "—",
+        ])
+        col_w2 = [doc.width * f for f in [0.34, 0.13, 0.12, 0.18, 0.23]]
+        sp_table = Table(sp_rows, colWidths=col_w2)
+        sp_table.setStyle(TableStyle([
+            ("BACKGROUND",  (0, 0), (-1, 0), PURPLE),
+            ("TEXTCOLOR",   (0, 0), (-1, 0), WHITE),
+            ("FONTNAME",    (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE",    (0, 0), (-1, -1), 8),
+            ("ALIGN",       (1, 0), (-1, -1), "CENTER"),
+            ("ALIGN",       (0, 0), (0, -1), "LEFT"),
+            ("ROWPADDING",  (0, 0), (-1, -1), 5),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, LIGHT]),
+            ("GRID",        (0, 0), (-1, -1), 0.4, rl_colors.lightgrey),
+        ]))
+        story.append(sp_table)
+
+    # ── Learning Path summary ─────────────────────────────────────────────────
+    if lp and lp.all_modules:
+        story.append(Spacer(1, 0.4 * cm))
+        story.append(Paragraph("Curated Learning Path", h2))
+        story.append(HRFlowable(width="100%", thickness=1, color=PURPLE))
+        story.append(Spacer(1, 0.15 * cm))
+        story.append(Paragraph(
+            f"<b>{len(lp.all_modules)} modules curated</b> · "
+            f"Estimated time: <b>{lp.total_hours_est:.0f} h</b> "
+            f"({lp.total_hours_est/max(profile.total_budget_hours,1)*100:.0f}% of budget)",
+            body,
+        ))
+        story.append(Spacer(1, 0.15 * cm))
+
+        lp_header = ["Module", "Duration", "Difficulty", "Type"]
+        lp_rows   = [lp_header]
+        for m in lp.all_modules[:30]:  # cap at 30 rows
+            lp_rows.append([
+                Paragraph(m.title, ParagraphStyle("Lp", parent=body, fontSize=7.5)),
+                f"{m.duration_min} min",
+                m.difficulty.title(),
+                m.module_type.replace("-", " ").title(),
+            ])
+        if len(lp.all_modules) > 30:
+            lp_rows.append([f"… and {len(lp.all_modules) - 30} more modules", "", "", ""])
+
+        col_w3 = [doc.width * f for f in [0.52, 0.14, 0.17, 0.17]]
+        lp_table = Table(lp_rows, colWidths=col_w3)
+        lp_table.setStyle(TableStyle([
+            ("BACKGROUND",  (0, 0), (-1, 0), PURPLE),
+            ("TEXTCOLOR",   (0, 0), (-1, 0), WHITE),
+            ("FONTNAME",    (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE",    (0, 0), (-1, -1), 7.5),
+            ("ALIGN",       (1, 0), (-1, -1), "CENTER"),
+            ("ALIGN",       (0, 0), (0, -1), "LEFT"),
+            ("ROWPADDING",  (0, 0), (-1, -1), 4),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, LIGHT]),
+            ("GRID",        (0, 0), (-1, -1), 0.4, rl_colors.lightgrey),
+        ]))
+        story.append(lp_table)
+
+    # ── Risk domains callout ──────────────────────────────────────────────────
+    if profile.risk_domains:
+        story.append(Spacer(1, 0.4 * cm))
+        story.append(Paragraph("⚠ Risk Domains — Priority Focus Areas", h2))
+        risk_names = [
+            d.domain_name for d in profile.domain_profiles
+            if d.domain_id in profile.risk_domains
+        ]
+        story.append(Paragraph(
+            "These domains have high exam weight but low current confidence. "
+            "Allocate extra study time here first: " +
+            ", ".join(r.replace("Implement ", "") for r in risk_names),
+            body,
+        ))
+
+    # ── Footer ─────────────────────────────────────────────────────────────────
+    story.append(Spacer(1, 0.6 * cm))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=rl_colors.lightgrey))
+    story.append(Paragraph(
+        f"Generated by <b>Cert Prep Multi-Agent System</b> · Microsoft Agents League · {today}",
+        ParagraphStyle("Footer", parent=styles["Normal"],
+                       textColor=MUTED, fontSize=7.5, alignment=TA_CENTER),
+    ))
+
+    doc.build(story)
+    return buf.getvalue()
+
+
+def generate_assessment_pdf(
+    profile: "LearnerProfile",
+    snap: "ProgressSnapshot",
+    assessment: "ReadinessAssessment",
+) -> bytes:
+    """
+    Build a weekly progress report PDF.
+    Returns raw PDF bytes.
+    """
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors as rl_colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable,
+    )
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4,
+        leftMargin=1.8 * cm, rightMargin=1.8 * cm,
+        topMargin=1.8 * cm, bottomMargin=1.8 * cm,
+    )
+
+    styles = getSampleStyleSheet()
+    PURPLE = _rl_colour("#5C2D91")
+    DARK   = _rl_colour("#1f2937")
+    MUTED  = _rl_colour("#6b7280")
+    GREEN  = _rl_colour("#107c10")
+    RED    = _rl_colour("#d13438")
+    AMBER  = _rl_colour("#ca5010")
+    BLUE   = _rl_colour("#0078d4")
+    WHITE  = rl_colors.white
+    LIGHT  = _rl_colour("#f3f4ff")
+
+    h1  = ParagraphStyle("H1", parent=styles["Heading1"],
+                          textColor=WHITE, fontSize=16, leading=20, spaceAfter=4)
+    h2  = ParagraphStyle("H2", parent=styles["Heading2"],
+                          textColor=PURPLE, fontSize=12, leading=15, spaceBefore=12, spaceAfter=4)
+    body = ParagraphStyle("Body", parent=styles["Normal"],
+                           textColor=DARK, fontSize=9, leading=13)
+    small = ParagraphStyle("Small", parent=styles["Normal"],
+                            textColor=MUTED, fontSize=8, leading=11)
+    centre = ParagraphStyle("Centre", parent=styles["Normal"],
+                             textColor=DARK, alignment=TA_CENTER, fontSize=9)
+
+    STATUS_COLOUR = {
+        "ahead":    GREEN,
+        "on_track": BLUE,
+        "behind":   AMBER,
+        "critical": RED,
+    }
+    NUDGE_COLOUR = {
+        "danger":  RED,
+        "warning": AMBER,
+        "info":    BLUE,
+        "success": GREEN,
+    }
+
+    story = []
+    today = date.today().strftime("%B %d, %Y")
+
+    # ── Header banner ─────────────────────────────────────────────────────────
+    verdict_hex = assessment.verdict_colour
+    banner_data = [[Paragraph(
+        f"<b>📊 Weekly Progress Report</b><br/>"
+        f"<font size='10'>{profile.student_name} · {profile.exam_target} · {today}</font>",
+        h1,
+    )]]
+    banner_table = Table(banner_data, colWidths=[doc.width])
+    banner_table.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (-1, -1), PURPLE),
+        ("ROWPADDING",    (0, 0), (-1, -1), 10),
+        ("TOPPADDING",    (0, 0), (-1, -1), 12),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
+    ]))
+    story.append(banner_table)
+    story.append(Spacer(1, 0.4 * cm))
+
+    # ── KPI row: Readiness | Go/No-Go | Hours ─────────────────────────────────
+    kpi_data = [
+        ["Readiness Score", "Exam Decision", "Hours Studied", "Budget Remaining"],
+        [
+            Paragraph(f"<b><font color='{verdict_hex}'>{assessment.readiness_pct:.0f}%</font></b><br/>"
+                      f"<font size='8'>{assessment.verdict_label}</font>", centre),
+            Paragraph(f"<b><font color='{assessment.go_nogo_colour}'>{assessment.exam_go_nogo}</font></b>",
+                      centre),
+            Paragraph(f"<b>{snap.total_hours_spent:.0f} h</b><br/>"
+                      f"<font size='8'>of {profile.total_budget_hours:.0f} h "
+                      f"({assessment.hours_progress_pct:.0f}%)</font>", centre),
+            Paragraph(f"<b>{assessment.hours_remaining:.0f} h</b><br/>"
+                      f"<font size='8'>{assessment.weeks_remaining} weeks left</font>", centre),
+        ],
+    ]
+    kpi_w = doc.width / 4
+    kpi_table = Table(kpi_data, colWidths=[kpi_w] * 4)
+    kpi_table.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (-1, 0), PURPLE),
+        ("TEXTCOLOR",     (0, 0), (-1, 0), WHITE),
+        ("FONTNAME",      (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE",      (0, 0), (-1, 0), 8),
+        ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+        ("ROWPADDING",    (0, 0), (-1, -1), 6),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [LIGHT]),
+        ("GRID",          (0, 0), (-1, -1), 0.5, rl_colors.lightgrey),
+    ]))
+    story.append(kpi_table)
+    story.append(Spacer(1, 0.15 * cm))
+    story.append(Paragraph(f"Exam decision reason: {assessment.go_nogo_reason[:120]}", small))
+
+    # ── Domain status table ────────────────────────────────────────────────────
+    story.append(Spacer(1, 0.3 * cm))
+    story.append(Paragraph("Domain Progress", h2))
+    story.append(HRFlowable(width="100%", thickness=1, color=PURPLE))
+    story.append(Spacer(1, 0.15 * cm))
+
+    ds_header = ["Domain", "Expected", "Your Rating", "Gap", "Status"]
+    ds_rows   = [ds_header]
+    for ds in assessment.domain_status:
+        status_cell = Paragraph(
+            ds.status.replace("_", " ").title(),
+            ParagraphStyle("DS", parent=body,
+                           textColor=STATUS_COLOUR.get(ds.status, DARK)),
+        )
+        stars = "★" * ds.actual_rating + "☆" * (5 - ds.actual_rating)
+        gap_str = f"{ds.gap:+.1f}"
+        gap_cell = Paragraph(
+            gap_str,
+            ParagraphStyle("Gap", parent=body,
+                           textColor=GREEN if ds.gap >= 0 else RED),
+        )
+        ds_rows.append([
+            ds.domain_name.replace("Implement ", "").replace(" Solutions", ""),
+            f"{ds.expected_rating:.1f}/5",
+            f"{stars} ({ds.actual_rating}/5)",
+            gap_cell,
+            status_cell,
+        ])
+    col_w4 = [doc.width * f for f in [0.33, 0.12, 0.22, 0.12, 0.21]]
+    ds_table = Table(ds_rows, colWidths=col_w4)
+    ds_table.setStyle(TableStyle([
+        ("BACKGROUND",  (0, 0), (-1, 0), PURPLE),
+        ("TEXTCOLOR",   (0, 0), (-1, 0), WHITE),
+        ("FONTNAME",    (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE",    (0, 0), (-1, -1), 8),
+        ("ALIGN",       (1, 0), (-1, -1), "CENTER"),
+        ("ALIGN",       (0, 0), (0, -1), "LEFT"),
+        ("ROWPADDING",  (0, 0), (-1, -1), 5),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, LIGHT]),
+        ("GRID",        (0, 0), (-1, -1), 0.4, rl_colors.lightgrey),
+    ]))
+    story.append(ds_table)
+
+    # ── Nudges ─────────────────────────────────────────────────────────────────
+    if assessment.nudges:
+        story.append(Spacer(1, 0.4 * cm))
+        story.append(Paragraph("🔔 Study Insights & Nudges", h2))
+        story.append(HRFlowable(width="100%", thickness=1, color=PURPLE))
+        story.append(Spacer(1, 0.15 * cm))
+        for n in assessment.nudges[:5]:
+            n_colour = NUDGE_COLOUR.get(n.level.value, MUTED)
+            clean_msg = n.message.replace("**", "")
+            nudge_row = [[Paragraph(
+                f"<b>{n.title}</b><br/>"
+                f"<font size='8' color='#{hex(int(n_colour.red * 255))[2:].zfill(2)}"
+                f"{hex(int(n_colour.green * 255))[2:].zfill(2)}"
+                f"{hex(int(n_colour.blue * 255))[2:].zfill(2)}'>"
+                f"{clean_msg[:180]}</font>",
+                ParagraphStyle("N", parent=body, textColor=DARK),
+            )]]
+            nudge_table = Table(nudge_row, colWidths=[doc.width])
+            nudge_table.setStyle(TableStyle([
+                ("BACKGROUND",  (0, 0), (-1, -1), LIGHT),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING",  (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ("BOX",         (0, 0), (-1, -1), 0.5, rl_colors.lightgrey),
+            ]))
+            story.append(nudge_table)
+            story.append(Spacer(1, 0.15 * cm))
+
+    # ── Practice exam summary ─────────────────────────────────────────────────
+    story.append(Spacer(1, 0.2 * cm))
+    story.append(Paragraph("Practice Exam Status", h2))
+    pe_done = {"yes": "✓ Completed", "some": "◑ Partially done", "no": "✗ Not yet taken"}.get(
+        snap.done_practice_exam, "Unknown"
+    )
+    pe_score = (f"  ·  Score: {snap.practice_score_pct}%"
+                if snap.practice_score_pct is not None else "")
+    story.append(Paragraph(f"{pe_done}{pe_score}", body))
+    if snap.notes:
+        story.append(Paragraph(f"<i>Student notes:</i> {snap.notes[:200]}", small))
+
+    # ── Footer ─────────────────────────────────────────────────────────────────
+    story.append(Spacer(1, 0.6 * cm))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=rl_colors.lightgrey))
+    story.append(Paragraph(
+        f"Generated by <b>Cert Prep Multi-Agent System</b> · Microsoft Agents League · {today}",
+        ParagraphStyle("Footer", parent=styles["Normal"],
+                       textColor=MUTED, fontSize=7.5, alignment=TA_CENTER),
+    ))
+
+    doc.build(story)
+    return buf.getvalue()
+
+
+# ─── Intake welcome email (HTML body) ────────────────────────────────────────
+
+def generate_intake_summary_html(
+    profile: "LearnerProfile",
+    plan=None,
+    lp=None,
+) -> str:
+    """
+    Returns an HTML email body to send immediately after a learner
+    completes the intake form and their study plan is generated.
+    """
+    today = date.today().strftime("%B %d, %Y")
+
+    domain_rows_html = ""
+    for dp in profile.domain_profiles:
+        conf_pct = int(dp.confidence_score * 100)
+        bar_color = ("#107c10" if conf_pct >= 70 else
+                     "#ca5010" if conf_pct >= 40 else "#d13438")
+        domain_rows_html += f"""
+        <tr>
+          <td style="padding:6px 10px;border-bottom:1px solid #eee;">
+            {dp.domain_name.replace("Implement ", "").replace(" Solutions", "")}
+          </td>
+          <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:center;">
+            {dp.exam_weight * 100:.0f}%
+          </td>
+          <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:center;">
+            <span style="color:{bar_color};font-weight:600;">{conf_pct}%</span>
+          </td>
+          <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:center;">
+            {dp.priority.title()}
+          </td>
+        </tr>"""
+
+    plan_html = ""
+    if plan and plan.tasks:
+        rows = ""
+        for t in plan.tasks:
+            w = f"Wk {t.start_week}–{t.end_week}" if t.start_week != t.end_week else f"Wk {t.start_week}"
+            rows += f"""
+            <tr>
+              <td style="padding:5px 8px;border-bottom:1px solid #eee;">
+                {t.domain_name.replace("Implement ", "").replace(" Solutions","")}</td>
+              <td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:center;">{w}</td>
+              <td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:center;">{t.total_hours:.0f} h</td>
+              <td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:center;">{t.priority.title()}</td>
+            </tr>"""
+        plan_html = f"""
+        <h3 style="color:#5C2D91;margin:16px 0 8px;">📅 Study Plan Schedule</h3>
+        <table style="width:100%;border-collapse:collapse;background:white;
+                      border-radius:8px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+          <thead>
+            <tr style="background:#5C2D91;color:white;">
+              <th style="padding:7px 8px;text-align:left;">Domain</th>
+              <th style="padding:7px 8px;text-align:center;">Weeks</th>
+              <th style="padding:7px 8px;text-align:center;">Hours</th>
+              <th style="padding:7px 8px;text-align:center;">Priority</th>
+            </tr>
+          </thead>
+          <tbody>{rows}</tbody>
+        </table>"""
+
+    lp_html = ""
+    if lp and lp.all_modules:
+        lp_html = f"""
+        <div style="margin:16px 0;padding:12px 16px;background:#eef6ff;
+                    border-left:4px solid #0078d4;border-radius:6px;">
+          <b>📚 Learning Path:</b> {len(lp.all_modules)} curated MS Learn modules ·
+          Estimated study time: <b>{lp.total_hours_est:.0f} h</b>
+          ({lp.total_hours_est / max(profile.total_budget_hours,1)*100:.0f}% of your budget).
+          Open the app to browse all modules with direct links.
+        </div>"""
+
+    return textwrap.dedent(f"""
+    <!DOCTYPE html>
+    <html>
+    <body style="font-family:Segoe UI,Arial,sans-serif;max-width:640px;margin:auto;
+                 background:#f9f9f9;padding:20px;">
+      <div style="background:linear-gradient(135deg,#5C2D91,#B4009E);color:white;
+                  padding:20px 24px;border-radius:12px;margin-bottom:20px;">
+        <h2 style="margin:0;">🎓 Your Study Plan is Ready!</h2>
+        <p style="margin:4px 0 0;opacity:0.85;">
+          {profile.student_name} · {profile.exam_target} · {today}
+        </p>
+      </div>
+
+      <div style="display:flex;gap:12px;margin-bottom:16px;">
+        <div style="flex:1;background:white;border-left:4px solid #5C2D91;
+                    border-radius:8px;padding:12px 16px;box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+          <div style="font-size:0.7rem;color:#888;font-weight:600;text-transform:uppercase;">Study Budget</div>
+          <div style="font-size:1.4rem;font-weight:700;color:#5C2D91;">{profile.total_budget_hours:.0f} h</div>
+          <div style="font-size:0.8rem;color:#555;">{profile.hours_per_week:.0f} h/wk × {profile.weeks_available} wks</div>
+        </div>
+        <div style="flex:1;background:white;border-left:4px solid #0078d4;
+                    border-radius:8px;padding:12px 16px;box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+          <div style="font-size:0.7rem;color:#888;font-weight:600;text-transform:uppercase;">Exam Target</div>
+          <div style="font-size:1.1rem;font-weight:700;color:#0078d4;">{profile.exam_target}</div>
+          <div style="font-size:0.8rem;color:#555;">{len(profile.domain_profiles)} domains assessed</div>
+        </div>
+        <div style="flex:1;background:white;border-left:4px solid #107c10;
+                    border-radius:8px;padding:12px 16px;box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+          <div style="font-size:0.7rem;color:#888;font-weight:600;text-transform:uppercase;">Risk Domains</div>
+          <div style="font-size:1.4rem;font-weight:700;color:#107c10;">{len(profile.risk_domains)}</div>
+          <div style="font-size:0.8rem;color:#555;">flagged for extra focus</div>
+        </div>
+      </div>
+
+      <h3 style="color:#5C2D91;margin:16px 0 8px;">📊 Domain Readiness Snapshot</h3>
+      <table style="width:100%;border-collapse:collapse;background:white;
+                    border-radius:8px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.06);">
+        <thead>
+          <tr style="background:#5C2D91;color:white;">
+            <th style="padding:7px 10px;text-align:left;">Domain</th>
+            <th style="padding:7px 10px;text-align:center;">Weight</th>
+            <th style="padding:7px 10px;text-align:center;">Confidence</th>
+            <th style="padding:7px 10px;text-align:center;">Priority</th>
+          </tr>
+        </thead>
+        <tbody>{domain_rows_html}</tbody>
+      </table>
+
+      {plan_html}
+      {lp_html}
+
+      <div style="margin:20px 0;padding:12px 16px;background:#FFF8E1;
+                  border-left:4px solid #F57C00;border-radius:6px;">
+        <b>📎 Your full study plan PDF is attached</b> — save it for offline reference.
+      </div>
+
+      <p style="margin-top:24px;font-size:0.8rem;color:#888;text-align:center;">
+        Generated by <b>Cert Prep Agent</b> · Microsoft Agents League ·
+        <a href="http://localhost:8501" style="color:#5C2D91;">Open app</a>
+      </p>
+    </body>
+    </html>
+    """).strip()

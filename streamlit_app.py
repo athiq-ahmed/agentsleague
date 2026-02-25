@@ -91,6 +91,8 @@ from cert_prep.b1_2_progress_agent import (
     ProgressAgent, ProgressSnapshot, DomainProgress,
     ReadinessAssessment, DomainStatusLine, Nudge,
     generate_weekly_summary, attempt_send_email,
+    generate_profile_pdf, generate_assessment_pdf,
+    generate_intake_summary_html,
     NudgeLevel, ReadinessVerdict,
 )
 from cert_prep.b1_1_learning_path_curator import LearningPathCuratorAgent, LearningPath, LearningModule
@@ -2246,6 +2248,26 @@ if submitted:
         _trace_obj = st.session_state["trace"]
         save_trace(_student_name, _json_mod.dumps(_trace_obj.__dict__, default=str))
 
+    # ── Auto-email: send study plan + PDF on first intake ─────────────────────
+    _intake_email = raw.email.strip() if raw.email else ""
+    _smtp_ready   = bool(os.getenv("SMTP_USER", "")) and bool(os.getenv("SMTP_PASS", ""))
+    if _intake_email and _smtp_ready:
+        try:
+            _intake_html = generate_intake_summary_html(profile, plan, learning_path)
+            _intake_pdf  = generate_profile_pdf(profile, plan, learning_path)
+            _pdf_fname   = f"StudyPlan_{_student_name.replace(' ','_')}_{profile.exam_target.split()[0]}.pdf"
+            _subj        = f"Your {profile.exam_target} Study Plan is Ready — {_student_name}"
+            _ok_i, _msg_i = attempt_send_email(
+                _intake_email, _subj, _intake_html,
+                pdf_bytes=_intake_pdf, pdf_filename=_pdf_fname,
+            )
+            if _ok_i:
+                st.success(f"📧 Study plan emailed to **{_intake_email}** with PDF attached!")
+            else:
+                st.info(f"✉️ Email not sent ({_msg_i}). Use the Download PDF button in the Profile tab.")
+        except Exception as _email_exc:
+            st.info(f"✉️ Auto-email skipped: {_email_exc}")
+
 
 # ─── Results ─────────────────────────────────────────────────────────────────
 if "profile" in st.session_state:
@@ -2736,6 +2758,58 @@ if "profile" in st.session_state:
             <li style="font-size:0.875rem;color:#1B1B1B;line-height:1.55;">{_b4}</li>
           </ul>
         </div>""", unsafe_allow_html=True)
+
+        # ── Download / Email Study Plan PDF ──────────────────────────────────
+        st.markdown("---")
+        st.markdown("### 📄 Study Plan Report")
+        _pdf_col1, _pdf_col2, _pdf_col3 = st.columns([1, 1, 2])
+        with _pdf_col1:
+            try:
+                _plan_obj = st.session_state.get("plan")
+                _lp_obj   = st.session_state.get("learning_path")
+                _pdf_data = generate_profile_pdf(profile, _plan_obj, _lp_obj)
+                _pdf_name = f"StudyPlan_{profile.student_name.replace(' ','_')}_{profile.exam_target.split()[0]}.pdf"
+                st.download_button(
+                    label="⬇️ Download PDF",
+                    data=_pdf_data,
+                    file_name=_pdf_name,
+                    mime="application/pdf",
+                    use_container_width=True,
+                )
+            except Exception as _pdf_err:
+                st.caption(f"PDF unavailable: {_pdf_err}")
+        with _pdf_col2:
+            _profile_email = getattr(profile, "email", "") or st.session_state.get("user_email", "")
+            _email_to_send = st.text_input(
+                "Email address",
+                value=_profile_email,
+                placeholder="you@example.com",
+                key="profile_pdf_email",
+                label_visibility="collapsed",
+            )
+        with _pdf_col3:
+            if st.button("📤 Email Study Plan PDF", key="profile_send_pdf", use_container_width=True):
+                if not _email_to_send:
+                    st.error("Enter an email address first.")
+                else:
+                    try:
+                        _plan_obj2 = st.session_state.get("plan")
+                        _lp_obj2   = st.session_state.get("learning_path")
+                        _pdf_bytes2 = generate_profile_pdf(profile, _plan_obj2, _lp_obj2)
+                        _html_body2 = generate_intake_summary_html(profile, _plan_obj2, _lp_obj2)
+                        _subj2      = f"Your {profile.exam_target} Study Plan — {profile.student_name}"
+                        _fname2     = f"StudyPlan_{profile.student_name.replace(' ','_')}_{profile.exam_target.split()[0]}.pdf"
+                        with st.spinner("Sending…"):
+                            _ok2, _msg2 = attempt_send_email(
+                                _email_to_send, _subj2, _html_body2,
+                                pdf_bytes=_pdf_bytes2, pdf_filename=_fname2,
+                            )
+                        if _ok2:
+                            st.success(f"✅ {_msg2}")
+                        else:
+                            st.warning(f"⚠️ {_msg2}")
+                    except Exception as _e2:
+                        st.error(f"Failed: {_e2}")
 
     # ── Tab 2: Study Setup ────────────────────────────────────────────────────
     with tab_plan:
@@ -3703,27 +3777,40 @@ if "profile" in st.session_state:
 
                 st.markdown("---")
 
-                # ── Email Weekly Summary ──────────────────────────────────────
-                st.markdown("### 📧 Weekly Summary Email")
+                # ── Email / Download Weekly Report ───────────────────────────
+                st.markdown("### 📧 Weekly Progress Report")
                 _email_addr = st.session_state.get("user_email", "")
 
-                _ec1, _ec2 = st.columns([2, 1])
-                with _ec1:
+                _erow1, _erow2, _erow3 = st.columns([2.2, 1.1, 1.1])
+                with _erow1:
                     _send_to = st.text_input(
                         "Send report to",
                         value=_email_addr,
                         placeholder="you@example.com",
                         key="send_email_input",
-                        help="Enter your email to receive a weekly HTML summary report.",
+                        help="Enter your email to receive the weekly progress report with PDF attached.",
                     )
-                with _ec2:
-                    st.markdown("<div style='margin-top:28px;'></div>",
-                                unsafe_allow_html=True)
+                with _erow2:
+                    st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
                     _do_send = st.button(
-                        "📤 Send Weekly Report",
+                        "📤 Email + PDF",
                         type="primary",
                         use_container_width=True,
                     )
+                with _erow3:
+                    st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
+                    try:
+                        _prog_pdf  = generate_assessment_pdf(profile, _snap, _asmt)
+                        _prog_fname = f"ProgressReport_{profile.student_name.replace(' ','_')}.pdf"
+                        st.download_button(
+                            label="⬇️ Download PDF",
+                            data=_prog_pdf,
+                            file_name=_prog_fname,
+                            mime="application/pdf",
+                            use_container_width=True,
+                        )
+                    except Exception as _pe:
+                        st.caption(f"PDF error: {_pe}")
 
                 if _do_send:
                     if not _send_to:
@@ -3735,8 +3822,18 @@ if "profile" in st.session_state:
                             f"{profile.student_name} — "
                             f"Readiness {_asmt.readiness_pct:.0f}%"
                         )
+                        try:
+                            _pdf_attach  = generate_assessment_pdf(profile, _snap, _asmt)
+                            _pdf_attach_name = f"ProgressReport_{profile.student_name.replace(' ','_')}.pdf"
+                        except Exception:
+                            _pdf_attach      = None
+                            _pdf_attach_name = "ProgressReport.pdf"
                         with st.spinner("Sending email…"):
-                            _ok, _msg = attempt_send_email(_send_to, _subject, _html_body)
+                            _ok, _msg = attempt_send_email(
+                                _send_to, _subject, _html_body,
+                                pdf_bytes=_pdf_attach,
+                                pdf_filename=_pdf_attach_name,
+                            )
                         if _ok:
                             st.success(f"✅ {_msg}")
                         else:
@@ -3745,22 +3842,35 @@ if "profile" in st.session_state:
                                 "**Email preview** is shown below — copy-paste or "
                                 "screenshot it to share manually."
                             )
-                            # Always show preview when send fails
                             with st.expander("📄 Preview weekly report email", expanded=True):
                                 _html_body = generate_weekly_summary(profile, _snap, _asmt)
                                 st.markdown(_html_body, unsafe_allow_html=True)
 
-                # Preview button (always available)
+                # Preview (always available)
                 with st.expander("👁️ Preview weekly report (no email needed)"):
                     _html_prev = generate_weekly_summary(profile, _snap, _asmt)
                     st.markdown(_html_prev, unsafe_allow_html=True)
-                    st.download_button(
-                        label="⬇️ Download report as HTML",
-                        data=_html_prev.encode("utf-8"),
-                        file_name=f"weekly_report_{profile.student_name.replace(' ','_')}.html",
-                        mime="text/html",
-                        use_container_width=True,
-                    )
+                    _prev_col1, _prev_col2 = st.columns(2)
+                    with _prev_col1:
+                        st.download_button(
+                            label="⬇️ Download as HTML",
+                            data=_html_prev.encode("utf-8"),
+                            file_name=f"weekly_report_{profile.student_name.replace(' ','_')}.html",
+                            mime="text/html",
+                            use_container_width=True,
+                        )
+                    with _prev_col2:
+                        try:
+                            _prev_pdf = generate_assessment_pdf(profile, _snap, _asmt)
+                            st.download_button(
+                                label="⬇️ Download as PDF",
+                                data=_prev_pdf,
+                                file_name=f"ProgressReport_{profile.student_name.replace(' ','_')}.pdf",
+                                mime="application/pdf",
+                                use_container_width=True,
+                            )
+                        except Exception as _prev_pe:
+                            st.caption(f"PDF error: {_prev_pe}")
 
     # ── Tab 6: Knowledge Check (Assessment Agent) ────────────────────────────
     with tab_quiz:
