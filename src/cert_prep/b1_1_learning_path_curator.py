@@ -236,6 +236,368 @@ _LEARN_CATALOGUE: dict[str, list[tuple]] = {
             "openai-dalle",
         ),
     ],
+
+    # ── DP-100: Azure Data Scientist Associate ────────────────────────────────
+    "ml_solution_design": [
+        (
+            "Introduction to Azure Machine Learning",
+            "https://learn.microsoft.com/en-us/training/modules/intro-to-azure-machine-learning-service/",
+            60, "beginner", "module", "core",
+            "intro-aml",
+        ),
+        (
+            "Make data available in Azure Machine Learning",
+            "https://learn.microsoft.com/en-us/training/modules/make-data-available-azure-machine-learning/",
+            45, "intermediate", "module", "core",
+            "aml-data-assets",
+        ),
+        (
+            "Work with compute resources in Azure Machine Learning",
+            "https://learn.microsoft.com/en-us/training/modules/work-with-compute-in-aml/",
+            40, "intermediate", "module", "core",
+            "aml-compute",
+        ),
+        (
+            "Design an Azure Machine Learning operations solution",
+            "https://learn.microsoft.com/en-us/training/modules/design-machine-learning-operations-solution/",
+            50, "advanced", "module", "supplemental",
+            "aml-mlops-design",
+        ),
+    ],
+    "explore_train_models": [
+        (
+            "Train models with scripts in Azure Machine Learning",
+            "https://learn.microsoft.com/en-us/training/modules/train-model-command-job-azure-machine-learning/",
+            60, "intermediate", "module", "core",
+            "aml-train-scripts",
+        ),
+        (
+            "Use AutoML to train a classification or regression model",
+            "https://learn.microsoft.com/en-us/training/modules/use-automated-machine-learning/",
+            55, "beginner", "module", "core",
+            "aml-automl",
+        ),
+        (
+            "Tune hyperparameters with Azure Machine Learning",
+            "https://learn.microsoft.com/en-us/training/modules/perform-hyperparameter-tuning-azure-machine-learning-pipelines/",
+            55, "intermediate", "module", "core",
+            "aml-hyperparam",
+        ),
+        (
+            "Run pipelines in Azure Machine Learning",
+            "https://learn.microsoft.com/en-us/training/modules/run-pipelines-azure-machine-learning/",
+            50, "intermediate", "module", "core",
+            "aml-pipelines",
+        ),
+        (
+            "Evaluate & improve models using Responsible AI dashboard",
+            "https://learn.microsoft.com/en-us/training/modules/use-responsible-ai-dashboard-azure-machine-learning/",
+            40, "intermediate", "module", "supplemental",
+            "aml-rai-dashboard",
+        ),
+    ],
+    "prepare_deployment": [
+        (
+            "Track model training with MLflow in Azure Machine Learning",
+            "https://learn.microsoft.com/en-us/training/modules/train-models-training-mlflow-jobs/",
+            45, "intermediate", "module", "core",
+            "aml-mlflow-tracking",
+        ),
+        (
+            "Register an MLflow model in Azure Machine Learning",
+            "https://learn.microsoft.com/en-us/training/modules/register-mlflow-model-azure-machine-learning/",
+            40, "intermediate", "module", "core",
+            "aml-mlflow-register",
+        ),
+        (
+            "Deploy a model to a managed online endpoint",
+            "https://learn.microsoft.com/en-us/training/modules/deploy-model-managed-online-endpoint/",
+            50, "intermediate", "module", "core",
+            "aml-online-endpoint",
+        ),
+    ],
+    "deploy_retrain": [
+        (
+            "Deploy a model to a batch endpoint",
+            "https://learn.microsoft.com/en-us/training/modules/deploy-model-batch-endpoint/",
+            45, "intermediate", "module", "core",
+            "aml-batch-endpoint",
+        ),
+        (
+            "Monitor models in Azure Machine Learning",
+            "https://learn.microsoft.com/en-us/training/modules/monitor-models-azure-machine-learning/",
+            40, "intermediate", "module", "core",
+            "aml-monitor",
+        ),
+        (
+            "Monitor data and model quality in production pipelines",
+            "https://learn.microsoft.com/en-us/training/modules/monitor-data-drift-azure-machine-learning/",
+            45, "advanced", "module", "supplemental",
+            "aml-data-drift",
+        ),
+    ],
+
+    # ── AI-900: Azure AI Fundamentals ─────────────────────────────────────────
+    "ai_workloads": [
+        (
+            "Get started with AI on Azure",
+            "https://learn.microsoft.com/en-us/training/modules/get-started-ai-fundamentals/",
+            45, "beginner", "module", "core",
+            "ai900-get-started",
+        ),
+        (
+            "Responsible AI principles and practices",
+            "https://learn.microsoft.com/en-us/training/modules/responsible-ai-principles/",
+            30, "beginner", "module", "core",
+            "ai900-responsible-ai",
+        ),
+    ],
+    "ml_fundamentals": [
+        (
+            "Explore Azure Machine Learning fundamentals",
+            "https://learn.microsoft.com/en-us/training/modules/use-automated-machine-learning/",
+            60, "beginner", "module", "core",
+            "ai900-ml-fundamentals",
+        ),
+        (
+            "Train and evaluate regression models",
+            "https://learn.microsoft.com/en-us/training/modules/train-evaluate-regression-models/",
+            65, "beginner", "module", "supplemental",
+            "ai900-regression",
+        ),
+        (
+            "Train and evaluate classification models",
+            "https://learn.microsoft.com/en-us/training/modules/train-evaluate-classification-models/",
+            60, "beginner", "module", "supplemental",
+            "ai900-classification",
+        ),
+    ],
+    "cv_fundamentals": [
+        (
+            "Explore computer vision in Microsoft Azure",
+            "https://learn.microsoft.com/en-us/training/modules/explore-computer-vision-microsoft-azure/",
+            50, "beginner", "module", "core",
+            "ai900-cv-fundamentals",
+        ),
+        (
+            "Analyze images with Azure AI Vision",
+            "https://learn.microsoft.com/en-us/training/modules/analyze-images/",
+            45, "beginner", "module", "supplemental",
+            "ai900-analyze-images",
+        ),
+    ],
+    "nlp_fundamentals": [
+        (
+            "Explore natural language processing",
+            "https://learn.microsoft.com/en-us/training/modules/explore-natural-language-processing/",
+            50, "beginner", "module", "core",
+            "ai900-nlp-fundamentals",
+        ),
+        (
+            "Analyze text with Azure AI Language",
+            "https://learn.microsoft.com/en-us/training/modules/analyze-text-with-text-analytics-service/",
+            45, "beginner", "module", "supplemental",
+            "ai900-text-analytics",
+        ),
+    ],
+    "genai_fundamentals": [
+        (
+            "Fundamentals of Generative AI",
+            "https://learn.microsoft.com/en-us/training/modules/fundamentals-generative-ai/",
+            45, "beginner", "module", "core",
+            "ai900-genai",
+        ),
+        (
+            "Fundamentals of Azure OpenAI Service",
+            "https://learn.microsoft.com/en-us/training/modules/explore-azure-openai/",
+            40, "beginner", "module", "core",
+            "ai900-azure-openai",
+        ),
+        (
+            "Fundamentals of Responsible Generative AI",
+            "https://learn.microsoft.com/en-us/training/modules/responsible-generative-ai/",
+            35, "beginner", "module", "supplemental",
+            "ai900-responsible-genai",
+        ),
+    ],
+
+    # ── AZ-204: Azure Developer Associate ─────────────────────────────────────
+    "compute_solutions": [
+        (
+            "Explore Azure App Service",
+            "https://learn.microsoft.com/en-us/training/modules/explore-azure-app-service/",
+            50, "intermediate", "module", "core",
+            "az204-app-service",
+        ),
+        (
+            "Implement Azure Functions",
+            "https://learn.microsoft.com/en-us/training/modules/implement-azure-functions/",
+            55, "intermediate", "module", "core",
+            "az204-functions",
+        ),
+        (
+            "Explore containerised solutions with Azure Container Instances",
+            "https://learn.microsoft.com/en-us/training/modules/create-run-container-images-azure-container-instances/",
+            45, "intermediate", "module", "core",
+            "az204-containers",
+        ),
+        (
+            "Deploy containerised workloads to Azure Kubernetes Service",
+            "https://learn.microsoft.com/en-us/training/modules/aks-deploy-container-app/",
+            60, "advanced", "module", "supplemental",
+            "az204-aks",
+        ),
+    ],
+    "azure_storage": [
+        (
+            "Develop solutions that use Azure Blob storage",
+            "https://learn.microsoft.com/en-us/training/modules/work-azure-blob-storage/",
+            55, "intermediate", "module", "core",
+            "az204-blob",
+        ),
+        (
+            "Develop solutions that use Azure Cosmos DB",
+            "https://learn.microsoft.com/en-us/training/modules/develop-solutions-that-use-azure-cosmos-db/",
+            60, "intermediate", "module", "core",
+            "az204-cosmos",
+        ),
+        (
+            "Develop for Azure Cache for Redis",
+            "https://learn.microsoft.com/en-us/training/modules/develop-for-azure-cache-for-redis/",
+            40, "intermediate", "module", "supplemental",
+            "az204-redis",
+        ),
+    ],
+    "azure_security": [
+        (
+            "Implement authentication and authorisation using Microsoft Identity",
+            "https://learn.microsoft.com/en-us/training/modules/implement-authentication-by-using-microsoft-authentication-library/",
+            50, "intermediate", "module", "core",
+            "az204-auth-msal",
+        ),
+        (
+            "Implement secure Azure solutions with Key Vault and Managed Identity",
+            "https://learn.microsoft.com/en-us/training/modules/implement-azure-key-vault/",
+            50, "intermediate", "module", "core",
+            "az204-key-vault",
+        ),
+        (
+            "Implement API Management policies",
+            "https://learn.microsoft.com/en-us/training/modules/explore-api-management/",
+            45, "intermediate", "module", "supplemental",
+            "az204-apim",
+        ),
+    ],
+    "monitoring_optimize": [
+        (
+            "Instrument solutions to support monitoring and logging",
+            "https://learn.microsoft.com/en-us/training/modules/instrument-apps-with-azure-monitor/",
+            45, "intermediate", "module", "core",
+            "az204-monitor",
+        ),
+        (
+            "Integrate caching and content delivery",
+            "https://learn.microsoft.com/en-us/training/modules/develop-for-storage-cdns/",
+            35, "intermediate", "module", "supplemental",
+            "az204-cdn",
+        ),
+    ],
+    "azure_services_integration": [
+        (
+            "Develop event-based solutions with Event Grid and Event Hubs",
+            "https://learn.microsoft.com/en-us/training/modules/develop-event-based-solutions/",
+            45, "intermediate", "module", "core",
+            "az204-event-grid",
+        ),
+        (
+            "Develop message-based solutions with Service Bus and Queue Storage",
+            "https://learn.microsoft.com/en-us/training/modules/discover-azure-message-queue/",
+            45, "intermediate", "module", "core",
+            "az204-service-bus",
+        ),
+    ],
+
+    # ── AZ-305: Azure Solutions Architect Expert ──────────────────────────────
+    "identity_governance": [
+        (
+            "Design authentication and authorisation solutions",
+            "https://learn.microsoft.com/en-us/training/modules/design-authentication-authorization-solutions/",
+            65, "advanced", "module", "core",
+            "az305-auth",
+        ),
+        (
+            "Design a governance solution with Azure Policy and Management Groups",
+            "https://learn.microsoft.com/en-us/training/modules/enterprise-scale-organization/",
+            55, "advanced", "module", "core",
+            "az305-governance",
+        ),
+        (
+            "Design for cost optimisation and monitoring",
+            "https://learn.microsoft.com/en-us/training/modules/design-monitor-solution/",
+            50, "advanced", "module", "supplemental",
+            "az305-monitor-cost",
+        ),
+    ],
+    "data_storage_solutions": [
+        (
+            "Design a data storage solution for relational data",
+            "https://learn.microsoft.com/en-us/training/modules/design-data-storage-solution-for-relational-data/",
+            60, "advanced", "module", "core",
+            "az305-relational-db",
+        ),
+        (
+            "Design a data storage solution for non-relational data",
+            "https://learn.microsoft.com/en-us/training/modules/design-data-storage-solution-for-non-relational-data/",
+            55, "advanced", "module", "core",
+            "az305-non-relational-db",
+        ),
+        (
+            "Design data integration solutions",
+            "https://learn.microsoft.com/en-us/training/modules/design-data-integration/",
+            50, "advanced", "module", "supplemental",
+            "az305-data-integration",
+        ),
+    ],
+    "business_continuity": [
+        (
+            "Design a solution for backup and disaster recovery",
+            "https://learn.microsoft.com/en-us/training/modules/design-solution-for-backup-disaster-recovery/",
+            55, "advanced", "module", "core",
+            "az305-bcdr",
+        ),
+        (
+            "Design for high availability",
+            "https://learn.microsoft.com/en-us/training/modules/design-for-high-availability/",
+            45, "advanced", "module", "core",
+            "az305-ha",
+        ),
+    ],
+    "infrastructure_solutions": [
+        (
+            "Design a compute solution",
+            "https://learn.microsoft.com/en-us/training/modules/design-compute-solution/",
+            60, "advanced", "module", "core",
+            "az305-compute",
+        ),
+        (
+            "Design a network solution",
+            "https://learn.microsoft.com/en-us/training/modules/design-network-solutions/",
+            65, "advanced", "module", "core",
+            "az305-network",
+        ),
+        (
+            "Design an application architecture",
+            "https://learn.microsoft.com/en-us/training/modules/design-application-architecture/",
+            60, "advanced", "module", "core",
+            "az305-app-arch",
+        ),
+        (
+            "Design migrations to Azure",
+            "https://learn.microsoft.com/en-us/training/modules/design-migrations/",
+            55, "advanced", "module", "supplemental",
+            "az305-migrations",
+        ),
+    ],
 }
 
 # Priority bump for risk domains
