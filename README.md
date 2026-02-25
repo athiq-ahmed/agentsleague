@@ -545,7 +545,43 @@ SMTP_FROM=CertPrep AI <you@gmail.com>
 > **Roadmap — Azure Communication Services:** future upgrade to a managed sender domain (`DoNotReply@<guid>.azurecomm.net`) via the `azure-communication-email` SDK. Setup when ready: Azure portal → **Communication Services** → add **Email Communication Service** sub-resource → provision or verify a domain → copy the connection string to `AZURE_COMM_CONNECTION_STRING`. See `docs/TODO.md` backlog task B-05.
 
 ---
+## 🧪 Unit Tests
 
+**249 tests · ~1 second · zero Azure credentials required**
+
+All tests run fully in mock mode — no `.env` file, no Azure OpenAI keys, no internet needed.  
+The suite covers every agent, all 17 guardrail rules, data models, PDF generation, and the end-to-end pipeline.
+
+| Test file | Tests | What it covers |
+|---|---|---|
+| `tests/test_guardrails_full.py` | 71 | All 17 guardrail rules G-01 → G-17 (BLOCK / WARN / INFO) |
+| `tests/test_models.py` | 28 | Data models, Pydantic contracts, exam registry (9 families) |
+| `tests/test_assessment_agent.py` | 24 | Question generation, scoring logic, domain sampling |
+| `tests/test_study_plan_agent.py` | 23 | Plan structure, Largest Remainder allocation, budget compliance |
+| `tests/test_pdf_generation.py` | 20 | PDF bytes output, HTML email generation, field safety |
+| `tests/test_progress_agent.py` | 17 | Readiness formula, GO/NO-GO/BORDERLINE verdicts |
+| `tests/test_pipeline_integration.py` | 14 | End-to-end 8-agent chain with typed handoffs |
+| `tests/test_cert_recommendation_agent.py` | 13 | Recommendation paths, confidence thresholds |
+| `tests/test_learning_path_curator.py` | 13 | Module curation, domain-to-resource mapping |
+| Existing (guardrails, config, agents) | 25 | Baseline guardrails, config loading, agent instantiation |
+
+### Run the test suite
+
+```powershell
+# Full suite with colour output (recommended)
+.\run_tests.ps1
+
+# Or directly with pytest
+pytest tests/ -v --tb=short
+```
+
+### Expected output
+
+```
+249 passed in ~1.12s
+```
+
+---
 ## � PDF Reports & Demo Caching
 
 The `ProgressAgent` generates two PDF report types via **reportlab**:
