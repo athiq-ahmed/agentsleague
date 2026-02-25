@@ -2148,28 +2148,31 @@ else:
         if "email_input" not in dir():
             email_input = prefill.get("email", st.session_state.get("user_email", ""))
 
-        # ── Button gate: enabled once a demo scenario is selected OR background is filled ──
         _has_demo_prefill = bool(st.session_state.get("sidebar_prefill", ""))
         _has_bg_text = bool(background_text.strip())
-        _btn_disabled = (not is_returning) and (not _has_demo_prefill) and (not _has_bg_text)
 
         _submit_label = "💾 Save & Regenerate Plan" if is_returning else "🎯 Create My AI Study Plan"
         submitted = st.form_submit_button(
             _submit_label,
             type="primary",
             use_container_width=True,
-            disabled=_btn_disabled,
         )
-        if _btn_disabled:
-            st.caption("👆 Select a demo scenario from the sidebar **or** tell us about your background above to unlock.")
-        else:
-            st.caption("You can adjust your preferences anytime.")
+        st.caption("You can adjust your preferences anytime.")
 
 
 # ─── Handle submit ────────────────────────────────────────────────────────────
 if submitted:
+    # ── Required-field validation (runs after submit so Streamlit can read form values)
+    _val_errors = []
     if not student_name.strip():
-        st.error("Please enter the student's name.")
+        _val_errors.append("**Name** — please enter your name (or use a demo scenario from the sidebar).")
+    if not background_text.strip() and not _has_demo_prefill:
+        _val_errors.append("**Your AI & Cloud Background** — please describe your experience so the agents can build a personalised plan.")
+    if _val_errors:
+        st.error(
+            "Please fix the following before generating your plan:\n\n"
+            + "\n".join(f"• {e}" for e in _val_errors)
+        )
         st.stop()
 
     raw = RawStudentInput(
