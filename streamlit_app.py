@@ -2813,7 +2813,7 @@ if "profile" in st.session_state:
         st.markdown("---")
         st.markdown("### 📄 Study Plan Report")
         _smtp_cfg = _is_real_value(os.getenv("SMTP_USER", "")) and _is_real_value(os.getenv("SMTP_PASS", ""))
-        _pdf_cols = st.columns([1, 1, 2]) if _smtp_cfg else st.columns([1])
+        _pdf_cols = st.columns([1, 1, 2])
         with _pdf_cols[0]:
             try:
                 _plan_obj = st.session_state.get("plan")
@@ -2833,43 +2833,50 @@ if "profile" in st.session_state:
                 )
             except Exception as _pdf_err:
                 st.caption(f"PDF unavailable: {_pdf_err}")
-        if _smtp_cfg:
-            with _pdf_cols[1]:
-                _profile_email = getattr(profile, "email", "") or st.session_state.get("user_email", "")
-                _email_to_send = st.text_input(
-                    "Email address",
-                    value=_profile_email,
-                    placeholder="you@example.com",
-                    key="profile_pdf_email",
-                    label_visibility="collapsed",
-                )
-            with _pdf_cols[2]:
-                if st.button("📤 Email Study Plan PDF", key="profile_send_pdf", use_container_width=True):
-                    if not _email_to_send:
-                        st.error("Enter an email address first.")
-                    else:
-                        try:
-                            _plan_obj2 = st.session_state.get("plan")
-                            _lp_obj2   = st.session_state.get("learning_path")
-                            _pdf_bytes2 = _get_or_generate_pdf(
-                                st.session_state.get("sidebar_prefill"), "profile",
-                                generate_profile_pdf, profile, _plan_obj2, _lp_obj2,
-                                st.session_state.get("raw"),
+        with _pdf_cols[1]:
+            _profile_email = getattr(profile, "email", "") or st.session_state.get("user_email", "")
+            _email_to_send = st.text_input(
+                "Email address",
+                value=_profile_email,
+                placeholder="you@example.com",
+                key="profile_pdf_email",
+                label_visibility="collapsed",
+                disabled=not _smtp_cfg,
+            )
+        with _pdf_cols[2]:
+            _email_btn_clicked = st.button(
+                "📤 Email Study Plan PDF",
+                key="profile_send_pdf",
+                use_container_width=True,
+                disabled=not _smtp_cfg,
+                help="Configure SMTP_USER & SMTP_PASS in .env to enable email delivery" if not _smtp_cfg else None,
+            )
+            if _email_btn_clicked:
+                if not _email_to_send:
+                    st.error("Enter an email address first.")
+                else:
+                    try:
+                        _plan_obj2 = st.session_state.get("plan")
+                        _lp_obj2   = st.session_state.get("learning_path")
+                        _pdf_bytes2 = _get_or_generate_pdf(
+                            st.session_state.get("sidebar_prefill"), "profile",
+                            generate_profile_pdf, profile, _plan_obj2, _lp_obj2,
+                            st.session_state.get("raw"),
+                        )
+                        _html_body2 = generate_intake_summary_html(profile, _plan_obj2, _lp_obj2)
+                        _subj2      = f"Your {profile.exam_target} Study Plan — {profile.student_name}"
+                        _fname2     = f"StudyPlan_{profile.student_name.replace(' ','_')}_{profile.exam_target.split()[0]}.pdf"
+                        with st.spinner("Sending…"):
+                            _ok2, _msg2 = attempt_send_email(
+                                _email_to_send, _subj2, _html_body2,
+                                pdf_bytes=_pdf_bytes2, pdf_filename=_fname2,
                             )
-                            _html_body2 = generate_intake_summary_html(profile, _plan_obj2, _lp_obj2)
-                            _subj2      = f"Your {profile.exam_target} Study Plan — {profile.student_name}"
-                            _fname2     = f"StudyPlan_{profile.student_name.replace(' ','_')}_{profile.exam_target.split()[0]}.pdf"
-                            with st.spinner("Sending…"):
-                                _ok2, _msg2 = attempt_send_email(
-                                    _email_to_send, _subj2, _html_body2,
-                                    pdf_bytes=_pdf_bytes2, pdf_filename=_fname2,
-                                )
-                            if _ok2:
-                                st.success(f"✅ {_msg2}")
-                            else:
-                                st.warning(f"⚠️ Email failed — {_msg2}")
-                        except Exception as _e2:
-                            st.error(f"Failed: {_e2}")
+                        if _ok2:
+                            st.success(f"✅ {_msg2}")
+                        else:
+                            st.warning(f"⚠️ Email failed — {_msg2}")
+                    except Exception as _e2:
+                        st.error(f"Failed: {_e2}")
 
     # ── Tab 2: Study Setup ────────────────────────────────────────────────────
     with tab_plan:
