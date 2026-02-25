@@ -1704,12 +1704,12 @@ with _tgl_c2:
             f'''<div style="display:inline-flex;align-items:center;gap:8px;
                   background:linear-gradient(135deg,#e8f5e9 0%,#f0fff4 100%);
                   border:1px solid #a5d6a7;border-radius:20px;
-                  padding:5px 14px;margin-top:4px;">
-              <span style="width:8px;height:8px;border-radius:50%;
-                    background:{GREEN};display:inline-block;
+                  padding:5px 14px;margin-top:6px;line-height:1.4;">
+              <span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;
+                    background:{GREEN};display:inline-block;vertical-align:middle;
                     box-shadow:0 0 0 2px #a5d6a7;"></span>
-              <span style="font-size:0.8rem;font-weight:700;color:{GREEN};letter-spacing:0.01em;">{_pill_label}</span>
-              <span style="font-size:0.72rem;color:{TEXT_MUTED};">{_pill_sub}</span>
+              <span style="font-size:0.8rem;font-weight:700;color:{GREEN};letter-spacing:0.01em;line-height:1;">{_pill_label}</span>
+              <span style="font-size:0.72rem;color:{TEXT_MUTED};line-height:1;">{_pill_sub}</span>
             </div>''',
             unsafe_allow_html=True,
         )
@@ -1718,12 +1718,12 @@ with _tgl_c2:
             f'''<div style="display:inline-flex;align-items:center;gap:8px;
                   background:linear-gradient(135deg,#FFF8E1 0%,#FFFDE7 100%);
                   border:1px solid #FFD54F;border-radius:20px;
-                  padding:5px 14px;margin-top:4px;">
-              <span style="width:8px;height:8px;border-radius:50%;
-                    background:#FB8C00;display:inline-block;
+                  padding:5px 14px;margin-top:6px;line-height:1.4;">
+              <span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;
+                    background:#FB8C00;display:inline-block;vertical-align:middle;
                     box-shadow:0 0 0 2px #FFD54F;"></span>
-              <span style="font-size:0.8rem;font-weight:700;color:#E65100;letter-spacing:0.01em;">Mock Mode</span>
-              <span style="font-size:0.72rem;color:#BF360C;">No credentials needed</span>
+              <span style="font-size:0.8rem;font-weight:700;color:#E65100;letter-spacing:0.01em;line-height:1;">Mock Mode</span>
+              <span style="font-size:0.72rem;color:#BF360C;line-height:1;">No credentials needed</span>
             </div>''',
             unsafe_allow_html=True,
         )
@@ -1792,7 +1792,7 @@ if use_live:
         "text-transform:uppercase;color:" + _panel_border + ";"
         "background:" + _header_badge_bg + ";"
         "border:1px solid " + _panel_border + "55;"
-        "border-radius:20px;padding:3px 10px;white-space:nowrap;'>☁️ Azure Services</span>"
+        "border-radius:20px;padding:4px 12px;white-space:nowrap;line-height:1;display:inline-flex;align-items:center;'>☁️ Azure Services</span>"
         "</div>"
 
         # ── Table column headers
@@ -1821,7 +1821,8 @@ if use_live:
             _ev    = "<span style='color:#B0BEC5;font-size:0.72rem;'>—</span>"
             _badge = ("<span style='font-size:0.65rem;font-weight:600;color:#2E7D32;"
                       "background:#E8F5E9;border:1px solid #A5D6A7;"
-                      "border-radius:20px;padding:3px 10px;'>● connected</span>")
+                      "border-radius:20px;padding:4px 12px;line-height:1;"
+                      "display:inline-flex;align-items:center;white-space:nowrap;'>● connected</span>")
         else:
             _dot   = "<span style='display:inline-block;width:10px;height:10px;border-radius:50%;background:#BDBDBD;'></span>"
             _nc    = "#C62828" if _svc_req else "#5D4037"
@@ -1831,11 +1832,13 @@ if use_live:
             if _svc_req:
                 _badge = ("<span style='font-size:0.65rem;font-weight:600;color:#C62828;"
                           "background:#FFEBEE;border:1px solid #EF9A9A;"
-                          "border-radius:20px;padding:3px 10px;'>✕ required</span>")
+                          "border-radius:20px;padding:4px 12px;line-height:1;"
+                          "display:inline-flex;align-items:center;white-space:nowrap;'>✕ required</span>")
             else:
                 _badge = ("<span style='font-size:0.65rem;font-weight:600;color:#9E9E9E;"
                           "background:#F5F5F5;border:1px solid #BDBDBD;"
-                          "border-radius:20px;padding:3px 10px;'>○ optional</span>")
+                          "border-radius:20px;padding:4px 12px;line-height:1;"
+                          "display:inline-flex;align-items:center;white-space:nowrap;'>○ optional</span>")
 
         _tbl += (
             "<tr style='background:" + _row_bg + ";" + _row_sep + "'>"
