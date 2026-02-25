@@ -228,7 +228,7 @@
 - [x] Creative login page (glassmorphism + gradient design)
 - [x] Folder cleanup + archive of old planning files
 - [x] Agent orchestration patterns documented (Sequential Pipeline, Typed Handoff, HITL Gates, Conditional Routing)
-- [x] Judge playbook created (`docs/judge_playbook.md`)
+- [x] Q&A Playbook created (`docs/qna_playbook.md`)
 - [x] Guardrails documented across README, architecture, and judge playbook
 - [x] `.env` updated — all 15 Azure service fields across 6 sections
 - [x] `.env.example` created — safe committed template (placeholders only)
@@ -257,9 +257,20 @@
 - [x] Demo cohort seeded — 5 additional students (Marcus Johnson/AZ-204, Sarah Williams/AI-900, David Kim/AZ-305, Fatima Al-Rashid/AI-102, Jordan Baptiste/DP-100) via `src/cert_prep/seed_demo_data.py`
 - [x] `docs/technical_documentation.md` — merged comprehensive 22-section doc (arch + tech doc combined, all agents, algorithms, guardrails, testing, deployment)
 - [x] `docs/user_flow.md` — rewritten as 8 prose scenario walkthroughs S1–S8 (no broken mermaid)
-- [x] `docs/judge_playbook.md` — updated agent inventory, guardrail table, URL allowlist, exam families count
+- [x] `docs/qna_playbook.md` — updated agent inventory, guardrail table, URL allowlist, exam families count
 - [x] `docs/demo_guide.md` — updated tab names (6 tabs), button labels, exam catalogue to 9 families
 - [x] `docs/user_guide.md` — updated from 7-tab to 6-tab structure with correct tab names
+- [x] `exam_weight_pct` AttributeError fixed in Recommendations tab (`getattr` fallback + equal-weight distribution) — commit `cb78946`
+- [x] Comprehensive tab/page audit — all 4256 lines of `streamlit_app.py` + `pages/1_Admin_Dashboard.py` audited
+- [x] Serialization hardening — `_dc_filter()` helper; all 6 `*_from_dict` helpers now filter unknown keys via `dataclasses.fields()` — schema-evolution safe
+- [x] Safe enum coercion — `ReadinessVerdict` / `NudgeLevel` casting wrapped with membership check; fallback to `NEEDS_WORK`/`INFO`
+- [x] Per-exam domain weights — `ProgressAgent.assess()` now calls `get_exam_domains(profile.exam_target)` for correct weights per exam
+- [x] Checklist key bug fixed — `hash(_item)[:8]` (TypeError) changed to `abs(hash(_item))`
+- [x] Admin Dashboard `NumberColumn` type fix — `risk_count` fallback changed from `"—"` (str) to `None`
+- [x] `tests/test_serialization_helpers.py` — 25 new tests: `_dc_filter`, enum coercion, all 6 `*_from_dict` round-trips with extra/missing keys
+- [x] `tests/test_progress_agent.py` extended — 9 new tests: 5-exam parametrized readiness, per-exam weight validation, fallback weight smoke test
+- [x] `docs/unit_test_scenarios.md` — created; full catalogue of all 289 test scenarios (easy/medium/hard/edge cases) — authoritative reference for "do unit test" runs
+- [x] All docs updated — README.md, qna_playbook.md, technical_documentation.md, lessons.md — test count 289, new What's New entries, Project Documentation table, 25 best practices, unit_test_scenarios.md created
 
 ---
 
@@ -275,7 +286,7 @@
 | T-09 | Wire `azure-ai-evaluation` SDK for agent quality metrics | 🔲 NOT STARTED | `AgentStep`/`RunTrace` already schema-compatible; needs `pip install azure-ai-evaluation` + eval harness |
 | T-10 | Record demo video (3–5 min) | 🔲 NOT STARTED | New learner → profile → plan → quiz → recommendation; show Admin Dashboard trace + G-16 PII |
 | T-11 | Deploy to Streamlit Cloud with service principal secrets | 🔲 NOT STARTED | Add `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID` to Streamlit Cloud secrets |
-| T-12 | Docs overhaul | ✅ DONE | Merged `technical_architecture.md` + `technical_documentation.md`; rewrote `user_flow.md` (prose); updated `judge_playbook.md`, `demo_guide.md`, `user_guide.md` |
+| T-12 | Docs overhaul | ✅ DONE | Merged `technical_architecture.md` + `technical_documentation.md`; rewrote `user_flow.md` (prose); updated `qna_playbook.md`, `demo_guide.md`, `user_guide.md`, created `unit_test_scenarios.md` |
 
 ### Backlog — Should Do
 

@@ -9,18 +9,42 @@ A **production-grade multi-agent AI system** for personalised Microsoft certific
 
 ---
 
-## � What's New
+## 📁 Project Documentation
+
+All documents follow **snake_case** naming (e.g. `user_guide.md`, `qna_playbook.md`). `README.md` and `TODO.md` use the conventional uppercase.
+
+| Document | Path | Purpose |
+|----------|------|---------|
+| **README** | [`README.md`](README.md) | Project overview, architecture, setup, competition alignment |
+| **Architecture** | [`docs/architecture.md`](docs/architecture.md) | Deep-dive: data flow, algorithms, DB schema, design decisions |
+| **Technical Documentation** | [`docs/technical_documentation.md`](docs/technical_documentation.md) | Agent internals, Pydantic contracts, guardrail rules, API reference |
+| **User Guide** | [`docs/user_guide.md`](docs/user_guide.md) | End-to-end walkthrough for learners using the app |
+| **User Flow** | [`docs/user_flow.md`](docs/user_flow.md) | Step-by-step user journey and screen transitions |
+| **Demo Guide** | [`docs/demo_guide.md`](docs/demo_guide.md) | How to run the live demo; persona scripts; mock mode setup |
+| **Q&A Playbook** | [`docs/qna_playbook.md`](docs/qna_playbook.md) | Judge / reviewer Q&A; scoring dimensions; design rationale |
+| **Unit Test Scenarios** | [`docs/unit_test_scenarios.md`](docs/unit_test_scenarios.md) | All test scenarios by difficulty: easy → medium → hard → edge cases |
+| **Lessons Learned** | [`docs/lessons.md`](docs/lessons.md) | Decisions, pivots, and trade-offs made during development |
+| **Azure AI Cost Guide** | [`docs/azure_ai_cost_guide.md`](docs/azure_ai_cost_guide.md) | Token costs, mock vs live mode, budget tips |
+| **TODO** | [`docs/TODO.md`](docs/TODO.md) | Azure service setup checklist and roadmap items |
+
+---
+
+## 🆕 What's New
 
 | Date | Change | Details |
 |------|--------|---------|
-| **Latest** | **Demo PDF cache system** | `demo_pdfs/` folder + `_get_or_generate_pdf()` helper — demo personas (Alex/Priyanka) serve PDFs from disk on repeat clicks; real users always regenerate fresh reports |
-| **Latest** | **PDF generation stability** | Fixed `AttributeError` crashes in `generate_profile_pdf()` and `generate_intake_summary_html()`: `background_text`/`goal_text` now sourced from `RawStudentInput`; `exam_weight`/`priority` derived from `EXAM_DOMAINS` registry + confidence thresholds |
-| **Latest** | **Technical documentation** | Added `docs/technical_documentation.md` — 850-line deep-dive into agent internals, algorithms, data models, orchestration patterns and system architecture |
-| **Latest** | **Email HTML fix** | `generate_intake_summary_html()` (used by "Email Study Plan PDF" button) fixed for same PDF field bugs |
+| **2026-02-25** | **Comprehensive audit — 289 tests** | Full proactive audit of every tab, block, and section; 5 bugs fixed; 34 new tests added (`test_serialization_helpers.py` + extended `test_progress_agent.py`); suite grown 255 → **289 passing** |
+| **2026-02-25** | **Serialization hardening** | `_dc_filter()` helper added; all 6 `*_from_dict` helpers silently drop unknown keys — prevents `TypeError` crashes on schema-evolution round-trips from SQLite |
+| **2026-02-25** | **Safe enum coercion** | `ReadinessVerdict` / `NudgeLevel` casts fall back to `NEEDS_WORK`/`INFO` instead of raising `ValueError` on stale stored values |
+| **2026-02-25** | **Per-exam domain weights** | `ProgressAgent.assess()` now calls `get_exam_domains(profile.exam_target)` — DP-100, AZ-204, AZ-305, AI-900 readiness uses correct per-exam weights |
+| **2026-02-25** | **Checklist key fix** | Booking-checklist `st.checkbox` key simplified from `hash()[:8]` (TypeError) to `abs(hash(_item))` |
+| **2026-02-25** | **Admin Dashboard type fix** | `history_df` `risk_count` fallback changed from `"—"` (str) to `None` so `NumberColumn` renders cleanly |
+| **2026-02-25** | **`exam_weight_pct` fix** | `Recommendations` tab: `getattr` fallback with equal-weight distribution (commit `cb78946`) |
+| **Earlier** | **Demo PDF cache system** | `demo_pdfs/` folder + `_get_or_generate_pdf()` — demo personas serve PDFs from disk on repeat clicks |
+| **Earlier** | **PDF generation stability** | Fixed `AttributeError` crashes in `generate_profile_pdf()` and `generate_intake_summary_html()` |
+| **Earlier** | **Technical documentation** | Added `docs/technical_documentation.md` — 850-line deep-dive into agent internals, algorithms, data models |
 | **Earlier** | **9-cert registry** | Expanded from 5 to 9 exam families with full domain-weight matrices |
 | **Earlier** | **Email digest** | SMTP simplified to env-vars only — no UI config needed |
-| **Earlier** | **Badge alignment** | Fixed sidebar mode badge layout on Windows + Streamlit Cloud |
-
 ---
 
 ## �🏅 Competition Alignment
@@ -31,7 +55,75 @@ A **production-grade multi-agent AI system** for personalised Microsoft certific
 | **Reasoning & Multi-step Thinking** | 25% | ✅ 8-agent pipeline with typed handoffs; conditional routing (score ≥ 70% → GO, < 70% → remediation loop); Planner–Executor + Critic patterns |
 | **Creativity & Originality** | 15% | ✅ Exam-agnostic domain registry; Largest Remainder allocation algorithm; configurable readiness formula; concurrent agent fan-out via ThreadPoolExecutor |
 | **User Experience & Presentation** | 15% | ✅ 7-tab Streamlit UI; Admin Dashboard with per-agent reasoning trace; Gantt / radar / bar charts; mock mode for zero-credential demo; optional email for weekly digest |
-| **Reliability & Safety** | 20% | ✅ 17-rule GuardrailsPipeline (BLOCK/WARN/INFO); BLOCK halts pipeline via st.stop(); URL trust guard; content heuristic filter; SQLite persistence |
+| **Reliability & Safety** | 20% | ✅ 17-rule GuardrailsPipeline (BLOCK/WARN/INFO); BLOCK halts pipeline via st.stop(); URL trust guard; content heuristic filter; SQLite persistence; **289 automated tests** |
+
+---
+
+## ✅ Engineering Best Practices
+
+This project applies **25+ production-grade best practices** across testing, security, reliability, and AI safety:
+
+| Category | Practice | Status |
+|----------|----------|--------|
+| **Testing** | 289 automated tests across 14 modules (unit + integration) | ✅ |
+| **Testing** | Schema-evolution safe deserialization (`_dc_filter` key guard) | ✅ |
+| **Testing** | Parametrized tests for all 5 exam families | ✅ |
+| **Testing** | Edge-case coverage: empty inputs, None values, unknown enum values | ✅ |
+| **AI Safety** | 17-rule guardrail pipeline — BLOCK, WARN, INFO levels | ✅ |
+| **AI Safety** | PII detection (7 regex patterns) blocks submission | ✅ |
+| **AI Safety** | URL trust allowlist — no hallucinated links reach the UI | ✅ |
+| **AI Safety** | Safe enum coercion — stale DB values fall back gracefully | ✅ |
+| **Reliability** | 3-tier fallback: Foundry SDK → Azure OpenAI → Mock | ✅ |
+| **Reliability** | Concurrent agent fan-out (`ThreadPoolExecutor`) with timeout | ✅ |
+| **Reliability** | All `*_from_dict` helpers filter unknown keys (no future-schema crashes) | ✅ |
+| **Reliability** | `getattr` with safe defaults for all optional model fields | ✅ |
+| **Security** | Credentials in `.env` only — gitignored, never committed | ✅ |
+| **Security** | PIN hashed SHA-256 before SQLite storage | ✅ |
+| **Security** | Demo personas use synthetic data only | ✅ |
+| **Observability** | Per-run `RunTrace` with agent steps, timing, and token counts | ✅ |
+| **Observability** | Admin Dashboard with guardrail audit and reasoning trace | ✅ |
+| **Code Quality** | Pydantic v2 typed contracts at every agent boundary | ✅ |
+| **Code Quality** | `dataclasses.fields()` filtering on all deserialization helpers | ✅ |
+| **Code Quality** | snake_case naming convention across all docs and modules | ✅ |
+| **UX** | Graceful degradation — broken DB fields never crash the UI | ✅ |
+| **UX** | Exam-specific domain weights (not AI-102 hardcoded) for all 9 certs | ✅ |
+| **Documentation** | 10 living docs covering architecture, user guide, Q&A, cost, lessons | ✅ |
+| **Documentation** | Unit test scenarios doc with easy/medium/hard/edge-case coverage | ✅ |
+| **CI/CD** | Auto-deploy to Streamlit Cloud on `git push` to `master` | ✅ |
+
+---
+
+## ✅ Engineering Best Practices
+
+This project applies **25+ production-grade best practices** across testing, security, reliability, and AI safety:
+
+| Category | Practice | Status |
+|----------|----------|--------|
+| **Testing** | 289 automated tests across 14 modules (unit + integration) | ✅ |
+| **Testing** | Schema-evolution safe deserialization (`_dc_filter` key guard) | ✅ |
+| **Testing** | Parametrized tests for all 5 exam families | ✅ |
+| **Testing** | Edge-case coverage: empty inputs, None values, unknown enum values | ✅ |
+| **AI Safety** | 17-rule guardrail pipeline — BLOCK, WARN, INFO levels | ✅ |
+| **AI Safety** | PII detection (7 regex patterns) blocks submission | ✅ |
+| **AI Safety** | URL trust allowlist — no hallucinated links reach the UI | ✅ |
+| **AI Safety** | Safe enum coercion — stale DB values fall back gracefully | ✅ |
+| **Reliability** | 3-tier fallback: Foundry SDK → Azure OpenAI → Mock | ✅ |
+| **Reliability** | Concurrent agent fan-out (`ThreadPoolExecutor`) with timeout | ✅ |
+| **Reliability** | All `*_from_dict` helpers filter unknown keys (no future-schema crashes) | ✅ |
+| **Reliability** | `getattr` with safe defaults for all optional model fields | ✅ |
+| **Security** | Credentials in `.env` only — gitignored, never committed | ✅ |
+| **Security** | PIN hashed SHA-256 before SQLite storage | ✅ |
+| **Security** | Demo personas use synthetic data only | ✅ |
+| **Observability** | Per-run `RunTrace` with agent steps, timing, and token counts | ✅ |
+| **Observability** | Admin Dashboard with guardrail audit and reasoning trace | ✅ |
+| **Code Quality** | Pydantic v2 typed contracts at every agent boundary | ✅ |
+| **Code Quality** | `dataclasses.fields()` filtering on all deserialization helpers | ✅ |
+| **Code Quality** | snake_case naming convention across all docs and modules | ✅ |
+| **UX** | Graceful degradation — broken DB fields never crash the UI | ✅ |
+| **UX** | Exam-specific domain weights for all 9 certs (not AI-102 hardcoded) | ✅ |
+| **Documentation** | 10 living docs covering architecture, user guide, Q&A, cost, lessons | ✅ |
+| **Documentation** | Unit test scenarios doc with easy/medium/hard/edge-case coverage | ✅ |
+| **CI/CD** | Auto-deploy to Streamlit Cloud on `git push` to `master` | ✅ |
 
 ---
 
@@ -547,38 +639,43 @@ SMTP_FROM=CertPrep AI <you@gmail.com>
 ---
 ## 🧪 Unit Tests
 
-**249 tests · ~1 second · zero Azure credentials required**
+**289 tests · ~2 seconds · zero Azure credentials required**
 
 All tests run fully in mock mode — no `.env` file, no Azure OpenAI keys, no internet needed.  
-The suite covers every agent, all 17 guardrail rules, data models, PDF generation, and the end-to-end pipeline.
+The suite covers every agent, all 17 guardrail rules, data models, PDF generation, serialization round-trips, and the end-to-end pipeline.
+
+See [`docs/unit_test_scenarios.md`](docs/unit_test_scenarios.md) for the full catalogue of all 289 test scenarios categorised by difficulty. When running tests, that file is the authoritative reference — it maps every test to its scenario, inputs, and expected outcome.
 
 | Test file | Tests | What it covers |
 |---|---|---|
 | `tests/test_guardrails_full.py` | 71 | All 17 guardrail rules G-01 → G-17 (BLOCK / WARN / INFO) |
-| `tests/test_models.py` | 28 | Data models, Pydantic contracts, exam registry (9 families) |
+| `tests/test_models.py` | 29 | Data models, Pydantic contracts, exam registry (9 families) |
 | `tests/test_assessment_agent.py` | 24 | Question generation, scoring logic, domain sampling |
 | `tests/test_study_plan_agent.py` | 23 | Plan structure, Largest Remainder allocation, budget compliance |
 | `tests/test_pdf_generation.py` | 20 | PDF bytes output, HTML email generation, field safety |
-| `tests/test_progress_agent.py` | 17 | Readiness formula, GO/NO-GO/BORDERLINE verdicts |
+| **`tests/test_serialization_helpers.py`** | **25** | **`_dc_filter`, enum coercion safety, all 6 `*_from_dict` round-trips with extra/missing keys (NEW)** |
+| `tests/test_progress_agent.py` | 26 | Readiness formula, verdicts, per-exam domain weights, 5-exam parametrized (extended) |
 | `tests/test_pipeline_integration.py` | 14 | End-to-end 8-agent chain with typed handoffs |
 | `tests/test_cert_recommendation_agent.py` | 13 | Recommendation paths, confidence thresholds |
 | `tests/test_learning_path_curator.py` | 13 | Module curation, domain-to-resource mapping |
-| Existing (guardrails, config, agents) | 25 | Baseline guardrails, config loading, agent instantiation |
+| `tests/test_guardrails.py` | 17 | G-16 PII patterns, harmful keyword blocker |
+| `tests/test_config.py` | 10 | Settings loading, placeholder detection |
+| `tests/test_agents.py` | 4 | Mock profiler basic outputs |
 
 ### Run the test suite
 
 ```powershell
-# Full suite with colour output (recommended)
-.\run_tests.ps1
+# Full suite
+.venv\Scripts\python.exe -m pytest tests/ -q
 
-# Or directly with pytest
-pytest tests/ -v --tb=short
+# Verbose with short tracebacks
+.venv\Scripts\python.exe -m pytest tests/ -v --tb=short
 ```
 
 ### Expected output
 
 ```
-249 passed in ~1.12s
+289 passed in ~2.00s
 ```
 
 ---
@@ -726,7 +823,7 @@ Alignment with the [Starter Kit README](https://github.com/microsoft/agentsleagu
 | Content safety + input validation | ✅ | G-01..G-17 guardrails pipeline |
 | Evaluation / telemetry | ✅ | `AgentStep`/`RunTrace` + 25 pytest tests |
 | `.gitignore` per starter kit guidelines | ✅ | `.env`, `.azure/`, `.secrets/` excluded |
-| GitHub repository with full documentation | ✅ | [athiq-ahmed/agentsleague](https://github.com/athiq-ahmed/agentsleague) — `README.md`, `docs/architecture.md`, `docs/technical_documentation.md`, `docs/user_flow.md`, `docs/judge_playbook.md` |
+| GitHub repository with full documentation | ✅ | [athiq-ahmed/agentsleague](https://github.com/athiq-ahmed/agentsleague) — `README.md` + 9 docs under `docs/` (see **Project Documentation** section below) |
 
 ---
 

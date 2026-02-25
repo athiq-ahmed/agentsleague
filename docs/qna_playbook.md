@@ -1,6 +1,6 @@
-# Judge Playbook — Certification Preparation Multi-Agent System
+# Q&A Playbook — Certification Preparation Multi-Agent System
 
-> This document is designed for competition judges evaluating the Certification Preparation entry for Agents League 2026. It explains the multi-agent architecture, key design decisions, scoring dimensions, and answers to likely technical questions.
+> Designed for competition judges and technical reviewers evaluating the Certification Preparation entry for Agents League 2026. Covers multi-agent architecture, key design decisions, scoring dimensions, and frequently asked technical questions.
 
 ---
 
@@ -303,7 +303,7 @@ Orchestrator: AI Foundry Thread + Assistant API
 - SQLite (local file)
 - Mock profiler (rule engine) + Azure OpenAI optional; three-tier fallback (Foundry SDK → OpenAI → mock)
 - Streamlit Community Cloud
-- 9 exam families, 249 unit tests, 6-tab Streamlit UI
+- 9 exam families, 289 unit tests, 6-tab Streamlit UI
 
 ### Phase 2 — Production MVP
 - Azure Cosmos DB replaces SQLite
@@ -335,7 +335,7 @@ Orchestrator: AI Foundry Thread + Assistant API
 |---|---|---|---|
 | Technical Innovation | 25 | 23 | 8-agent pipeline, LR allocation algorithm, 17-rule guardrail framework, HITL gates, PDF report generation |
 | Azure Services Usage | 20 | 18 | GPT-4o live mode, AI Foundry roadmap, 8 services documented |
-| Problem Impact | 20 | 19 | Real problem (cert failure rate), personalised plans, booking readiness gate; 5-exam catalogue |
+| Problem Impact | 20 | 19 | Real problem (cert failure rate), personalised plans, booking readiness gate; 9-exam catalogue |
 | Demo Quality | 20 | 18 | 7 seeded demo students across 9 exam families, Gantt + radar charts, PDF download, Admin audit dashboard |
 | Code Quality | 15 | 13 | Typed models (Pydantic), guardrail separation, parallel execution evidence |
 | **Total** | **100** | **91** | |

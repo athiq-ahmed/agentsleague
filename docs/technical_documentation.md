@@ -42,7 +42,7 @@ The Certification Preparation Multi-Agent System is a **production-grade agentic
 - **Deterministic algorithms** — resource allocation (Largest Remainder), readiness scoring (weighted formula), and domain sampling are fully reproducible
 - **Zero-credential demo mode** — the full 8-agent pipeline runs on rule-based mock agents; Azure credentials are additive, not required
 - **Exam-agnostic registry** — adding a new certification requires only a new entry in `EXAM_DOMAINS`; no agent code changes needed
-- **Testable by design** — 249 unit tests pass in under 2 seconds with no Azure credentials, no network calls, and no side effects
+- **Testable by design** — 289 unit tests pass in under 2 seconds with no Azure credentials, no network calls, and no side effects
 - **Three-tier fallback** — LLM calls automatically fall back from Foundry SDK → OpenAI direct → rule-based mock, so the app never fails due to missing credentials
 
 ---
@@ -143,7 +143,7 @@ The Certification Preparation Multi-Agent System is a **production-grade agentic
 | Visualisation | Plotly | 5.x | Interactive Gantt, radar, bar charts; Streamlit native |
 | PDF generation | ReportLab | 4.x | Programmatic PDF; no browser dependency |
 | Database | SQLite (`sqlite3` stdlib) | built-in | Zero-dependency; schema portable to Cosmos DB |
-| Testing | pytest | 8.x | 249 tests; no Azure credentials required |
+| Testing | pytest | 8.x | 289 tests; no Azure credentials required |
 | Concurrency | `ThreadPoolExecutor` | stdlib | Parallel fan-out for independent agents |
 | Email | `smtplib` + `MIMEMultipart` | stdlib | Works with any SMTP relay |
 
@@ -1109,7 +1109,7 @@ Demo scenarios are defined in `_PREFILL_SCENARIOS`. When a sidebar scenario card
 
 ## 18. Testing Architecture
 
-**249 tests · < 2 seconds · zero Azure credentials required**
+**289 tests · ~2 seconds · zero Azure credentials required**
 
 All tests run in mock mode using rule-based agents. No database writes, no network calls, no side effects.
 

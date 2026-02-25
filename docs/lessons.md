@@ -85,3 +85,32 @@
 5. **Config stub tagging** — stub config classes that are not yet wired to implementations must be tagged `# [STUB — not wired in production]` so they are not mistakenly documented as active.
 6. **Check folder conventions first** — before creating any new file, run `Get-ChildItem docs/` to confirm where similar files live; never create a new top-level folder for documentation.
 7. **Explicit bullet traceability** — when documenting "best practices", number and individually map each upstream requirement bullet to code evidence rather than writing a summary; gaps must be explicitly labelled.
+
+---
+
+### Lesson 8 — Comprehensive Tab/Page Audit: Schema-Evolution Safety & Per-Exam Domain Weights
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-02-25 |
+| **Session commit** | `997dde7` |
+| **Tests before** | 255 passing |
+| **Tests after** | 289 passing (+34) |
+
+**Root causes & fixes applied:**
+
+| # | Bug | Root Cause | Fix |
+|---|-----|-----------|-----|
+| 1 | `*_from_dict` helpers crash on schema-evolved SQLite JSON | `**d` unpacking passes all keys including unknown ones added by future schema changes | Added `_dc_filter(cls, d)` helper using `dataclasses.fields()` to whitelist only valid keys; applied to all 6 helpers |
+| 2 | `ReadinessVerdict(d["verdict"])` raises `ValueError` on stale stored values | Enum cast has no safety fallback | Added membership check: `if raw_val in {e.value for e in ReadinessVerdict}` before cast; fallback to `NEEDS_WORK` |
+| 3 | `NudgeLevel(n["level"])` same issue | Same | Added membership check with fallback to `NudgeLevel.INFO` |
+| 4 | `hash(_item)[:8]` TypeError in booking checklist | `hash()` returns `int`, not subscriptable | Simplified to `abs(hash(_item))` |
+| 5 | Admin Dashboard `history_df` `risk_count = "—"` (str) breaks `NumberColumn` | Mixed types in pandas column with typed column config | Changed fallback to `None` (pandas treats as NaN → NumberColumn renders blank correctly) |
+| 6 | `ProgressAgent.assess()` uses `_DOMAIN_WEIGHT` (AI-102 only) for all exams | Module-level dict built from `EXAM_DOMAINS` only | Changed to call `get_exam_domains(profile.exam_target)` inside `assess()` to build per-exam weight map |
+
+**Key learnings:**
+- Always use `dataclasses.fields()` filtering before `**dict` unpacking into constructors — never assume JSON from persistent storage matches the current schema
+- Enum casts from persisted strings must be validated before calling the constructor; use `.value` membership sets
+- `hash()` always returns `int` in Python — never subscriptable
+- Mixed-type pandas columns should use `None`/`np.nan` as empty value, never strings, when the column is typed
+- Per-exam domain weights must be resolved at call time, not at module import time, for multi-cert systems
