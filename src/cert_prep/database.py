@@ -274,152 +274,154 @@ _SEED_STUDENTS: list[dict] = [
             "rationale": "Strong foundation; Data Scientist cert is a natural progression."
         }),
     },
-    # ── Student 2: Marcus Chen — DP-100, Intermediate, partial completion, CONDITIONAL GO ──
+    # ── Student 2: Priyanka Sharma — DP-100 demo scenario, data scientist, CONDITIONAL GO ──
     {
-        "name": "Marcus Chen",
+        "name": "Priyanka Sharma",
         "pin": "1234",
         "exam_target": "DP-100",
         "badge": "📊",
         "profile_json": json.dumps({
-            "student_name": "Marcus Chen",
+            "student_name": "Priyanka Sharma",
             "exam_target": "DP-100",
             "experience_level": "intermediate",
-            "learning_style": "adaptive",
+            "learning_style": "lab_first",
             "hours_per_week": 8.0,
-            "weeks_available": 10,
-            "total_budget_hours": 80.0,
+            "weeks_available": 6,
+            "total_budget_hours": 48.0,
             "domain_profiles": [
-                {"domain_id": "ml_solution_design",  "domain_name": "Design & Prepare an ML Solution",   "knowledge_level": "moderate", "confidence_score": 0.60, "skip_recommended": False, "notes": "Familiar with Azure ML workspace; compute setup needs practice."},
-                {"domain_id": "explore_train_models", "domain_name": "Explore Data & Train Models",        "knowledge_level": "strong",   "confidence_score": 0.82, "skip_recommended": True,  "notes": "Data science background; pandas, scikit-learn proficient."},
-                {"domain_id": "prepare_deployment",   "domain_name": "Prepare a Model for Deployment",    "knowledge_level": "weak",     "confidence_score": 0.38, "skip_recommended": False, "notes": "MLflow and model packages are unfamiliar territory."},
-                {"domain_id": "deploy_retrain",       "domain_name": "Deploy & Retrain a Model",          "knowledge_level": "weak",     "confidence_score": 0.35, "skip_recommended": False, "notes": "Online endpoints need hands-on. Flag as highest risk."}
+                {"domain_id": "ml_solution_design",  "domain_name": "Design & Prepare an ML Solution",   "knowledge_level": "moderate", "confidence_score": 0.65, "skip_recommended": False, "notes": "Azure ML workspace familiar from experiments; advanced compute setup needs practice."},
+                {"domain_id": "explore_train_models", "domain_name": "Explore Data & Train Models",        "knowledge_level": "strong",   "confidence_score": 0.85, "skip_recommended": True,  "notes": "5 years with pandas, scikit-learn, Jupyter; confident in data exploration and training."},
+                {"domain_id": "prepare_deployment",   "domain_name": "Prepare a Model for Deployment",    "knowledge_level": "weak",     "confidence_score": 0.38, "skip_recommended": False, "notes": "MLflow tracking and model packaging are new; needs dedicated lab time."},
+                {"domain_id": "deploy_retrain",       "domain_name": "Deploy & Retrain a Model",          "knowledge_level": "weak",     "confidence_score": 0.35, "skip_recommended": False, "notes": "Managed online endpoints and data drift detection are unfamiliar. Highest risk domain."}
             ],
             "modules_to_skip": ["Explore Data & Train Models"],
             "risk_domains": ["prepare_deployment", "deploy_retrain"],
-            "analogy_map": {"scikit-learn pipelines": "Azure ML pipelines"},
-            "recommended_approach": "Skip data exploration since Marcus has strong ML background. Focus weeks 1–6 on deployment and retraining patterns.",
-            "engagement_notes": "Marcus is self-directed; provide weekly challenge labs and monitor progress checkpoints."
+            "analogy_map": {"scikit-learn pipelines": "Azure ML pipelines", "pandas EDA": "Azure ML data assets"},
+            "recommended_approach": "Skip Explore & Train module — Priyanka has strong data science foundations. Concentrate 6 weeks on Azure ML deployment, MLflow, and retraining patterns.",
+            "engagement_notes": "Priyanka prefers video tutorials followed by hands-on labs. Provide scenario-based challenges referencing her analytics background."
         }),
         "raw_input_json": json.dumps({
-            "student_name": "Marcus Chen",
+            "student_name": "Priyanka Sharma",
             "exam_target": "DP-100",
-            "background_text": "Data scientist with 3 years Python and ML experience, new to Azure ML platform",
-            "existing_certs": ["DP-900"],
+            "background_text": "5 years in data analytics with Python and SQL. Experienced with scikit-learn, Jupyter notebooks and Azure ML experiments. Looking to formalise ML skills on Azure.",
+            "existing_certs": ["AZ-900", "AI-900"],
             "hours_per_week": 8.0,
-            "weeks_available": 10,
-            "concern_topics": ["MLflow", "Managed endpoints", "Data drift"],
-            "preferred_style": "Mixed theory and practice",
-            "goal_text": "Certify cloud ML skills for a new job application",
-            "email": ""
+            "weeks_available": 6,
+            "concern_topics": ["Azure Machine Learning", "hyperparameter tuning", "model deployment", "MLflow", "data drift"],
+            "preferred_style": "Video tutorials and hands-on labs",
+            "goal_text": "Earn DP-100 to move into an Azure ML Engineer role",
+            "email": "priyanka.sharma@demo.com"
         }),
         "plan_json": json.dumps({
             "weeks": [
-                {"week": 1, "focus": "Azure ML workspace + compute deep dive", "hours": 8},
-                {"week": 2, "focus": "AutoML and responsible AI dashboards",    "hours": 8},
-                {"week": 3, "focus": "MLflow tracking and model registration",  "hours": 8},
-                {"week": 4, "focus": "Scoring scripts and deployment packages", "hours": 8},
-                {"week": 5, "focus": "Managed endpoints — online and batch",    "hours": 8},
-                {"week": 6, "focus": "Model monitoring and data drift labs",    "hours": 8},
-                {"week": 7, "focus": "Retraining pipelines",                   "hours": 8},
-                {"week": 8, "focus": "Mock exams and gap analysis",             "hours": 8},
-                {"week": 9, "focus": "Weak area remediation",                  "hours": 8},
-                {"week": 10,"focus": "Final practice tests",                   "hours": 8}
+                {"week": 1, "focus": "Azure ML workspace setup + compute resources",    "hours": 8},
+                {"week": 2, "focus": "AutoML + hyperparameter tuning + responsible AI",  "hours": 8},
+                {"week": 3, "focus": "MLflow tracking and model registration",           "hours": 8},
+                {"week": 4, "focus": "Scoring scripts + managed online endpoints",       "hours": 8},
+                {"week": 5, "focus": "Batch endpoints + model monitoring + data drift", "hours": 8},
+                {"week": 6, "focus": "Full mock exams + targeted remediation",          "hours": 8}
             ],
-            "total_hours": 80,
-            "strategy": "Skip known-strong areas; double down on deployment track."
+            "total_hours": 48,
+            "strategy": "Skip Explore & Train. Video-first then hands-on lab consolidation each week."
         }),
         "progress_snapshot_json": json.dumps({
             "domains_completed": ["ml_solution_design", "explore_train_models"],
             "domains_in_progress": ["prepare_deployment"],
             "domains_not_started": ["deploy_retrain"],
-            "hours_logged": 40,
-            "labs_completed": 9
+            "hours_logged": 28,
+            "labs_completed": 7
         }),
         "progress_assessment_json": json.dumps({
-            "readiness_pct": 62,
+            "readiness_pct": 64,
             "exam_go_nogo": "CONDITIONAL GO",
-            "strengths": ["Explore Data & Train Models"],
+            "strengths": ["Explore Data & Train Models", "Design & Prepare an ML Solution"],
             "gaps": ["Deploy & Retrain a Model"],
-            "recommended_action": "Complete managed endpoints module before booking."
+            "recommended_action": "Complete managed endpoints and data drift labs then book the exam."
         }),
-        "assessment_json": json.dumps({"questions_attempted": 35, "correct": 25}),
-        "assessment_result_json": json.dumps({"score_pct": 71, "passed": True}),
+        "assessment_json": json.dumps({"questions_attempted": 40, "correct": 29}),
+        "assessment_result_json": json.dumps({"score_pct": 73, "passed": True}),
         "cert_recommendation_json": json.dumps({
             "primary": "DP-100",
             "next_recommended": "AI-102",
-            "rationale": "After DP-100, Azure AI Engineer cert would complete the ML + AI portfolio."
+            "rationale": "Combining Azure Data Scientist with Azure AI Engineer would complete a full ML + AI cloud portfolio."
         }),
     },
-    # ── Student 3: Priya Sharma — AI-900, Beginner, full pipeline, GO ──────────
+    # ── Student 3: Alex Chen — AI-102 demo scenario, complete beginner, CONDITIONAL GO ──
     {
-        "name": "Priya Sharma",
+        "name": "Alex Chen",
         "pin": "1234",
-        "exam_target": "AI-900",
-        "badge": "🌟",
+        "exam_target": "AI-102",
+        "badge": "🌱",
         "profile_json": json.dumps({
-            "student_name": "Priya Sharma",
-            "exam_target": "AI-900",
+            "student_name": "Alex Chen",
+            "exam_target": "AI-102",
             "experience_level": "beginner",
-            "learning_style": "linear",
-            "hours_per_week": 6.0,
-            "weeks_available": 5,
-            "total_budget_hours": 30.0,
+            "learning_style": "lab_first",
+            "hours_per_week": 12.0,
+            "weeks_available": 10,
+            "total_budget_hours": 120.0,
             "domain_profiles": [
-                {"domain_id": "ai_workloads",       "domain_name": "AI Workloads & Considerations",          "knowledge_level": "weak",     "confidence_score": 0.42, "skip_recommended": False, "notes": "Basic awareness of AI from news; no hands-on experience."},
-                {"domain_id": "ml_fundamentals",    "domain_name": "Fundamental Principles of ML on Azure",  "knowledge_level": "unknown",  "confidence_score": 0.25, "skip_recommended": False, "notes": "No prior ML exposure; start from fundamentals."},
-                {"domain_id": "cv_fundamentals",    "domain_name": "Computer Vision Workloads on Azure",      "knowledge_level": "unknown",  "confidence_score": 0.20, "skip_recommended": False, "notes": "Unfamiliar; needs conceptual grounding first."},
-                {"domain_id": "nlp_fundamentals",   "domain_name": "NLP Workloads on Azure",                 "knowledge_level": "weak",     "confidence_score": 0.35, "skip_recommended": False, "notes": "Uses chatbots daily; understands intent at a user level."},
-                {"domain_id": "genai_fundamentals", "domain_name": "Generative AI Workloads on Azure",        "knowledge_level": "weak",     "confidence_score": 0.38, "skip_recommended": False, "notes": "Familiar with ChatGPT concepts; needs Azure-specific knowledge."}
+                {"domain_id": "plan_manage",          "domain_name": "Plan & Manage Azure AI Solutions",              "knowledge_level": "unknown",  "confidence_score": 0.18, "skip_recommended": False, "notes": "No prior Azure experience; governance and monitoring entirely new."},
+                {"domain_id": "computer_vision",      "domain_name": "Implement Computer Vision Solutions",           "knowledge_level": "unknown",  "confidence_score": 0.22, "skip_recommended": False, "notes": "Heard of computer vision but never used an API; start from basics."},
+                {"domain_id": "nlp",                  "domain_name": "Implement NLP Solutions",                      "knowledge_level": "weak",     "confidence_score": 0.30, "skip_recommended": False, "notes": "Basic Python string manipulation; no NLP library experience."},
+                {"domain_id": "document_intelligence","domain_name": "Implement Document Intelligence & Knowledge Mining","knowledge_level": "unknown","confidence_score": 0.15, "skip_recommended": False, "notes": "Completely new area; needs conceptual introduction before labs."},
+                {"domain_id": "conversational_ai",    "domain_name": "Implement Conversational AI Solutions",         "knowledge_level": "unknown",  "confidence_score": 0.20, "skip_recommended": False, "notes": "Uses chatbots as a consumer; no development experience."},
+                {"domain_id": "generative_ai",        "domain_name": "Implement Generative AI Solutions",             "knowledge_level": "weak",     "confidence_score": 0.32, "skip_recommended": False, "notes": "Familiar with ChatGPT from personal use; needs Azure-specific grounding."}
             ],
             "modules_to_skip": [],
-            "risk_domains": ["ml_fundamentals", "cv_fundamentals"],
-            "analogy_map": {},
-            "recommended_approach": "Start with AI Workloads concepts to build vocabulary. Use Microsoft Learn modules in sequence with daily 1-hour sessions.",
-            "engagement_notes": "Priya is motivated by career change. Short daily sessions with milestone celebrations will keep engagement high."
+            "risk_domains": ["plan_manage", "document_intelligence", "conversational_ai"],
+            "analogy_map": {"Python APIs": "Azure AI service SDKs"},
+            "recommended_approach": "Alex needs foundational grounding in all domains. Start with Plan & Manage to build Azure vocabulary. Use step-by-step tutorials before each lab.",
+            "engagement_notes": "Alex is motivated by breaking into AI engineering. Keep sessions hands-on; celebrate each lab completion. 12 hrs/week for 10 weeks gives ample time."
         }),
         "raw_input_json": json.dumps({
-            "student_name": "Priya Sharma",
-            "exam_target": "AI-900",
-            "background_text": "Business analyst with no prior coding or cloud experience, curious about AI",
+            "student_name": "Alex Chen",
+            "exam_target": "AI-102",
+            "background_text": "Recent computer science graduate, basic Python skills, no cloud or Azure experience at all.",
             "existing_certs": [],
-            "hours_per_week": 6.0,
-            "weeks_available": 5,
-            "concern_topics": ["Machine learning", "Neural networks"],
-            "preferred_style": "Step-by-step structured learning",
-            "goal_text": "Start AI career transition from business analysis",
-            "email": ""
+            "hours_per_week": 12.0,
+            "weeks_available": 10,
+            "concern_topics": ["Azure Cognitive Services", "Azure OpenAI", "Bot Service"],
+            "preferred_style": "Hands-on labs and step-by-step tutorials",
+            "goal_text": "Break into AI engineering as a first job after graduation",
+            "email": "alex.chen@demo.com"
         }),
         "plan_json": json.dumps({
             "weeks": [
-                {"week": 1, "focus": "AI concepts and workload types",         "hours": 6},
-                {"week": 2, "focus": "ML fundamentals on Azure ML Studio",     "hours": 6},
-                {"week": 3, "focus": "Computer Vision + NLP demo labs",        "hours": 6},
-                {"week": 4, "focus": "Generative AI and Azure OpenAI overview","hours": 6},
-                {"week": 5, "focus": "Practice tests and exam readiness",      "hours": 6}
+                {"week": 1,  "focus": "Azure fundamentals + AI services overview",         "hours": 12},
+                {"week": 2,  "focus": "Plan & Manage — security, monitoring, responsible AI","hours": 12},
+                {"week": 3,  "focus": "Computer Vision — Azure AI Vision + Custom Vision",   "hours": 12},
+                {"week": 4,  "focus": "NLP — Language Studio + CLU + sentiment analysis",   "hours": 12},
+                {"week": 5,  "focus": "Document Intelligence — Form Recognizer labs",        "hours": 12},
+                {"week": 6,  "focus": "Azure AI Search + knowledge mining",                 "hours": 12},
+                {"week": 7,  "focus": "Conversational AI — Bot Framework Composer",          "hours": 12},
+                {"week": 8,  "focus": "Generative AI — Azure OpenAI + prompt engineering",   "hours": 12},
+                {"week": 9,  "focus": "Full mock exam 1 + gap analysis",                    "hours": 12},
+                {"week": 10, "focus": "Targeted remediation + final mock exam",              "hours": 12}
             ],
-            "total_hours": 30,
-            "strategy": "Microsoft Learn path with short daily sessions; no coding required."
+            "total_hours": 120,
+            "strategy": "Tutorial-first then lab for each domain. 10-week timeline gives room for remediation."
         }),
         "progress_snapshot_json": json.dumps({
-            "domains_completed": ["ai_workloads", "ml_fundamentals", "cv_fundamentals", "nlp_fundamentals"],
-            "domains_in_progress": ["genai_fundamentals"],
-            "domains_not_started": [],
-            "hours_logged": 27,
-            "labs_completed": 8
+            "domains_completed": ["plan_manage", "computer_vision", "nlp"],
+            "domains_in_progress": ["document_intelligence"],
+            "domains_not_started": ["conversational_ai", "generative_ai"],
+            "hours_logged": 52,
+            "labs_completed": 11
         }),
         "progress_assessment_json": json.dumps({
-            "readiness_pct": 83,
-            "exam_go_nogo": "GO",
-            "strengths": ["AI Workloads", "NLP Fundamentals"],
-            "gaps": [],
-            "recommended_action": "Complete GenAI module then book the exam — you're ready!"
+            "readiness_pct": 58,
+            "exam_go_nogo": "CONDITIONAL GO",
+            "strengths": ["Computer Vision", "NLP Solutions"],
+            "gaps": ["Conversational AI", "Generative AI"],
+            "recommended_action": "Complete Bot Service and Azure OpenAI modules before booking the exam."
         }),
-        "assessment_json": json.dumps({"questions_attempted": 30, "correct": 26}),
-        "assessment_result_json": json.dumps({"score_pct": 87, "passed": True}),
+        "assessment_json": json.dumps({"questions_attempted": 40, "correct": 26}),
+        "assessment_result_json": json.dumps({"score_pct": 65, "passed": True}),
         "cert_recommendation_json": json.dumps({
-            "primary": "AI-900",
-            "next_recommended": "AI-102",
-            "rationale": "Great foundation. AI-102 is the logical next step after AI-900."
+            "primary": "AI-102",
+            "next_recommended": "AZ-204",
+            "rationale": "After AI-102, Azure Developer Associate would build the full cloud engineering foundation for an entry-level role."
         }),
     },
     # ── Student 4: James O'Brien — AZ-305, Advanced Azure, progress only, NOT YET ─────
