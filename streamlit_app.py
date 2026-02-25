@@ -2680,15 +2680,21 @@ if "profile" in st.session_state:
         )
 
         _y_max = max(_weight_pct) * 1.30
+        _ann_colour = "#27ae60" if _predicted_total >= _pass_mark else "#d13438"
+        _ann_suffix = (
+            "above pass mark \u2713"
+            if _predicted_total >= _pass_mark
+            else f"below pass mark \u2014 need {_pass_mark - _predicted_total:.0f}pt more"
+        )
         bar_fig.update_layout(
             barmode="group",
             bargroupgap=0.10,
             bargap=0.30,
             height=460,
-            margin=dict(l=10, r=20, t=55, b=120),
+            margin=dict(l=10, r=20, t=55, b=80),
             xaxis=dict(
                 tickfont=dict(size=10, family="Segoe UI"),
-                tickangle=-35,
+                tickangle=0,
                 automargin=True,
                 showgrid=False,
             ),
@@ -2709,12 +2715,10 @@ if "profile" in st.session_state:
                 bordercolor="#e0e0e0", borderwidth=1,
             ),
             annotations=[dict(
-                text=f"🎯 Predicted total: <b>{_predicted_total:.0f} / 100</b>"
-                     + (f" — <span style='color:#27ae60'>above pass mark ✓</span>" if _predicted_total >= _pass_mark
-                        else f" — <span style='color:#d13438'>below pass mark, need {_pass_mark - _predicted_total:.0f}pt more</span>"),
-                xref="paper", yref="paper", x=0, y=-0.32,
+                text=f"🎯 Predicted total: <b>{_predicted_total:.0f} / 100</b> — {_ann_suffix}",
+                xref="paper", yref="paper", x=0, y=-0.22,
                 showarrow=False, align="left",
-                font=dict(size=12, family="Segoe UI"),
+                font=dict(size=12, family="Segoe UI", color=_ann_colour),
             )],
             uniformtext_minsize=8,
             uniformtext_mode="hide",
