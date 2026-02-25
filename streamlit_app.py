@@ -978,6 +978,15 @@ st.markdown(f"""
     white-space: nowrap; flex-shrink: 0; letter-spacing: 0.02em;
   }}
   .sb-sc-card.active .sbc-badge {{ color: #fff; background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.4); }}
+  .sb-sc-card.disabled {{
+    opacity: 0.35;
+    background: rgba(0,0,0,0.18);
+    border-color: rgba(255,255,255,0.12);
+    cursor: not-allowed;
+    filter: grayscale(40%);
+  }}
+  .sb-sc-card.disabled .sbc-title {{ color: rgba(255,255,255,0.45); }}
+  .sb-sc-card.disabled .sbc-badge {{ color: rgba(255,255,255,0.35); background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.15); }}
   div.element-container:has(.sb-sc-card) {{
     margin-bottom: 0 !important; padding-bottom: 0 !important;
   }}
@@ -1467,7 +1476,7 @@ _configured_svcs  = [(n, env) for n, ok, env, _ in _svc_checks if ok]
 
 # ── Session-state toggle (user can override auto-detected mode) ───────────────
 if "live_mode_toggle" not in st.session_state:
-    st.session_state["live_mode_toggle"] = _env_live
+    st.session_state["live_mode_toggle"] = False  # always start in Mock mode; user opts in to Live
 
 # Respect FORCE_MOCK_MODE env var — never allow live if it's set
 if _force_mock:
@@ -1522,7 +1531,14 @@ with st.sidebar:
         _alex_active    = _active_prefill == "alex"
         _jordan_active  = _active_prefill == "priyanka"
 
-        _alex_cls = "sb-sc-card active" if _alex_active else "sb-sc-card"
+        # active → bright; other card selected → dim with disabled style
+        _alex_cls   = ("sb-sc-card active"   if _alex_active
+                       else ("sb-sc-card disabled" if _jordan_active
+                             else "sb-sc-card"))
+        _jordan_cls = ("sb-sc-card active"   if _jordan_active
+                       else ("sb-sc-card disabled" if _alex_active
+                             else "sb-sc-card"))
+
         st.markdown(f'''
         <div class="{_alex_cls}">
           <span class="sbc-icon">🌱</span>
@@ -1536,7 +1552,6 @@ with st.sidebar:
                 st.session_state["sidebar_prefill"] = "alex"
                 st.rerun()
 
-        _jordan_cls = "sb-sc-card active" if _jordan_active else "sb-sc-card"
         st.markdown(f'''
         <div class="{_jordan_cls}">
           <span class="sbc-icon">🏆</span>
