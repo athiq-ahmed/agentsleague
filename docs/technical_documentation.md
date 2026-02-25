@@ -1,226 +1,332 @@
-# 🔧 Technical Documentation — CertPrep Multi-Agent System
+# Technical Documentation — Certification Preparation Multi-Agent System
 
-> Comprehensive reference for developers and architects. Covers data models, every agent, orchestration patterns, guardrails, algorithms, persistence, Azure integration, and the UI architecture.
+> **Audience:** Engineers, architects, and technical reviewers.  
+> **Scope:** Complete reference covering system topology, architecture, data models, every agent, core algorithms, guardrails, database schema, orchestration patterns, Azure integration, responsible AI, testing, performance, security, and deployment.
 
 ---
 
 ## Table of Contents
 
-1. [System Overview](#1-system-overview)
-2. [Technology Stack](#2-technology-stack)
-3. [Data Models](#3-data-models)
-4. [Guardrails Framework](#4-guardrails-framework)
-5. [Input Processing — Intake Form](#5-input-processing--intake-form)
-6. [Agent: Learner Profiler (B1)](#6-agent-learner-profiler-b1)
-7. [Agent: Study Plan (B1.1)](#7-agent-study-plan-b11)
-8. [Agent: Learning Path Curator (B1.1)](#8-agent-learning-path-curator-b11)
-9. [Agent: Progress Tracker (B1.2)](#9-agent-progress-tracker-b12)
-10. [Agent: Assessment (B2)](#10-agent-assessment-b2)
-11. [Agent: Cert Recommendation (B3)](#11-agent-cert-recommendation-b3)
-12. [Orchestration and Concurrency](#12-orchestration-and-concurrency)
-13. [HITL Gates](#13-hitl-gates)
-14. [SQLite Persistence Layer](#14-sqlite-persistence-layer)
-15. [Session State Management](#15-session-state-management)
-16. [Mock vs Live Mode](#16-mock-vs-live-mode)
-17. [Admin Dashboard](#17-admin-dashboard)
-18. [Multi-Cert Support](#18-multi-cert-support)
-19. [UI Architecture](#19-ui-architecture)
-20. [Security and Safety](#20-security-and-safety)
-21. [Performance Characteristics](#21-performance-characteristics)
-22. [Deployment](#22-deployment)
+1. [Executive Summary](#1-executive-summary)
+2. [System Topology](#2-system-topology)
+3. [Technology Stack](#3-technology-stack)
+4. [Data Models](#4-data-models)
+5. [Guardrails Framework](#5-guardrails-framework)
+6. [Agent Pipeline — Deep Dive](#6-agent-pipeline--deep-dive)
+7. [Core Algorithms](#7-core-algorithms)
+8. [Orchestration and Concurrency](#8-orchestration-and-concurrency)
+9. [Human-in-the-Loop Gates](#9-human-in-the-loop-gates)
+10. [SQLite Persistence Layer](#10-sqlite-persistence-layer)
+11. [Session State Lifecycle](#11-session-state-lifecycle)
+12. [Mock vs Live Mode](#12-mock-vs-live-mode)
+13. [Azure AI Foundry Integration](#13-azure-ai-foundry-integration)
+14. [Observability and Tracing](#14-observability-and-tracing)
+15. [Multi-Certification Support](#15-multi-certification-support)
+16. [UI Architecture](#16-ui-architecture)
+17. [Responsible AI Model](#17-responsible-ai-model)
+18. [Testing Architecture](#18-testing-architecture)
+19. [Performance Characteristics](#19-performance-characteristics)
+20. [Security Model](#20-security-model)
+21. [Deployment Options](#21-deployment-options)
+22. [Migration and Roadmap](#22-migration-and-roadmap)
 
 ---
 
-## 1. System Overview
+## 1. Executive Summary
 
-The CertPrep Multi-Agent System is a Streamlit application that orchestrates seven specialised AI agents to produce a personalised Microsoft certification study plan. The system implements a **supervisor–worker** pattern where `streamlit_app.py` acts as the orchestrator, calling each agent in a strict ordered pipeline with HITL (Human-in-the-Loop) gates between phases.
+The Certification Preparation Multi-Agent System is a **production-grade agentic AI application** that guides learners through a personalised Microsoft certification preparation journey. It orchestrates **8 specialised agents** in a typed sequential and concurrent pipeline, enforces **17 responsible AI guardrail rules**, and delivers personalised study plans, adaptive quizzes, and exam-readiness verdicts for **9 Microsoft exam families**.
 
-### Pipeline Phases
+**Key design principles:**
+
+- **Typed handoffs at every boundary** — no raw text or unvalidated dicts cross agent borders; every message is a Pydantic `BaseModel` or dataclass
+- **Deterministic algorithms** — resource allocation (Largest Remainder), readiness scoring (weighted formula), and domain sampling are fully reproducible
+- **Zero-credential demo mode** — the full 8-agent pipeline runs on rule-based mock agents; Azure credentials are additive, not required
+- **Exam-agnostic registry** — adding a new certification requires only a new entry in `EXAM_DOMAINS`; no agent code changes needed
+- **Testable by design** — 249 unit tests pass in under 2 seconds with no Azure credentials, no network calls, and no side effects
+- **Three-tier fallback** — LLM calls automatically fall back from Foundry SDK → OpenAI direct → rule-based mock, so the app never fails due to missing credentials
+
+---
+
+## 2. System Topology
 
 ```
-Phase 0: Auth guard (login screen)
-Phase 1: Intake (form capture + guardrails G-01..G-05)
-Phase 2: Profiling (b1_mock_profiler or LearnerProfilingAgent via GPT-4o)
-Phase 3: Parallel planning (StudyPlanAgent + LearningPathCuratorAgent)
-Phase 4: HITL Gate 1 (progress check-in → ReadinessAssessment)
-Phase 5: HITL Gate 2 (mock quiz → AssessmentResult)
-Phase 6: Recommendation (CertRecommendationAgent)
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  Browser (Student)                                                           │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │  Streamlit Web UI  (streamlit_app.py)                                │   │
+│  │  ┌──────────────┐  ┌──────────────────────────────────────────────┐ │   │
+│  │  │   Sidebar    │  │  Main Panel — 6 Tabs                         │ │   │
+│  │  │  Login       │  │  Profile · Study Setup · Learning Path ·     │ │   │
+│  │  │  Scenarios   │  │  Progress · Quiz · Certification Advice      │ │   │
+│  │  │  Mode badge  │  └──────────────────────────────────────────────┘ │   │
+│  │  └──────────────┘                                                    │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────────────────────┘
+                           │  RawStudentInput (Pydantic)
+                           ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  GuardrailsPipeline  [G-01 → G-05]  Input validation + content safety       │
+│                        BLOCK → st.stop()  │  PASS → continue                │
+└──────────────────────────────────────────────────────────────────────────────┘
+                           │  PASS
+                           ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  B0 — LearnerProfilingAgent   (three-tier fallback)                          │
+│  ┌────────────────┐  ┌────────────────────┐  ┌──────────────────────────┐   │
+│  │  Tier 1        │  │  Tier 2            │  │  Tier 3                  │   │
+│  │  Foundry SDK   │─▶│  AzureOpenAI API   │─▶│  Rule-based mock         │   │
+│  │  AIProjectClient│  │  gpt-4o JSON mode  │  │  (always available)      │   │
+│  └────────────────┘  └────────────────────┘  └──────────────────────────┘   │
+└──────────────────────────────────────────────────────────────────────────────┘
+                           │  LearnerProfile (Pydantic)
+                           ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  GuardrailsPipeline  [G-06 → G-08]  Profile integrity check                 │
+└──────────────────────────────────────────────────────────────────────────────┘
+                           │  PASS
+               ┌───────────┴──────────────┐
+               ▼  Thread A                ▼  Thread B
+ ┌─────────────────────────┐  ┌──────────────────────────────┐
+ │  B1.1a StudyPlanAgent   │  │  B1.1b LearningPathCurator   │
+ │  Largest Remainder      │  │  MS Learn module mapping     │
+ │  allocation algorithm   │  │  + G-17 URL trust check      │
+ └─────────────────────────┘  └──────────────────────────────┘
+               │                           │
+               └───────────┬───────────────┘
+                           ▼
+                     ┌──────────┐
+                     │  SQLite  │  cert_prep_data.db
+                     └──────────┘
+                           │
+                           ▼  (HITL Gate 1 — user submits progress form)
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  B1.2 — ProgressAgent                                                        │
+│  readiness = 0.55 × confidence + 0.25 × hours_utilisation + 0.20 × practice │
+└──────────────────────────────────────────────────────────────────────────────┘
+                           │  ReadinessAssessment
+                           ▼
+                ┌─────────────────────┐
+                │  Conditional Router │
+                └─────────────────────┘
+       ≥ 70%    │    50–70%     │    < 50%
+                ▼               ▼               ▼
+          GO verdict    CONDITIONAL GO     NOT YET
+                │               │               │
+                └───────────────┘               └──── rebuild plan → B1.1a
+                           │
+                           ▼  (HITL Gate 2 — user submits 30-question quiz)
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  B2 — AssessmentAgent   30-question domain-weighted quiz bank                │
+└──────────────────────────────────────────────────────────────────────────────┘
+                           │  AssessmentResult
+                           ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  B3 — CertRecommendationAgent   next-cert path + booking checklist           │
+└──────────────────────────────────────────────────────────────────────────────┘
+                           │
+                           ▼  persisted to SQLite, rendered in all 6 tabs
 ```
 
-Every phase boundary is protected by the guardrails framework. The pipeline is **non-speculative** — it only runs the next phase when the current phase has passed all guardrails.
+---
+
+## 3. Technology Stack
+
+### Core Runtime
+
+| Component | Technology | Version | Rationale |
+|-----------|-----------|---------|-----------|
+| Language | Python | 3.11 | Latest stable; `tomllib` stdlib; match statements |
+| Web framework | Streamlit | 1.35+ | Python-native; built-in session state; rapid AI demos |
+| Data validation | Pydantic v2 | 2.x | Strict typed contracts at every agent boundary |
+| LLM (live) | Azure OpenAI `gpt-4o` | 2025-01-01-preview | JSON-mode; 128K context; enterprise SLA |
+| Agent SDK | `azure-ai-projects` | latest | Azure AI Foundry Agent Service for `LearnerProfilingAgent` |
+| Visualisation | Plotly | 5.x | Interactive Gantt, radar, bar charts; Streamlit native |
+| PDF generation | ReportLab | 4.x | Programmatic PDF; no browser dependency |
+| Database | SQLite (`sqlite3` stdlib) | built-in | Zero-dependency; schema portable to Cosmos DB |
+| Testing | pytest | 8.x | 249 tests; no Azure credentials required |
+| Concurrency | `ThreadPoolExecutor` | stdlib | Parallel fan-out for independent agents |
+| Email | `smtplib` + `MIMEMultipart` | stdlib | Works with any SMTP relay |
+
+### Development Toolchain
+
+| Tool | Purpose |
+|------|---------|
+| Visual Studio Code | Primary IDE throughout development |
+| GitHub Copilot | AI-assisted code generation, refactoring, and test scaffolding |
+| python-dotenv | `.env` file loading for local secrets management |
 
 ---
 
-## 2. Technology Stack
-
-| Layer | Component | Choice | Reason |
-|---|---|---|---|
-| UI | Streamlit 1.35+ | Python-native web UI | Rapid iteration, Pythonic |
-| LLM | Azure OpenAI (GPT-4o) | Structured JSON output | response_format=json_object |
-| Data | SQLite | Embedded DB | Zero-infra for competition |
-| Data | Pydantic v2 | Model validation | type-safe contracts |
-| Visualisation | Plotly | Radar + Gantt charts | Interactive HTML |
-| Concurrency | ThreadPoolExecutor | Parallel agents | I/O-bound calls |
-| Guardrails | Custom framework | 17 rules | Safety + correctness |
-| Auth | Custom (st.session_state) | Demo-grade | Login persona system |
-| PDF reports | reportlab | Profile + Progress PDFs | Zero cloud dependency |
-| Email | smtplib (MIMEMultipart) | SMTP with PDF attachment | Works with any SMTP relay |
-
----
-
-## 3. Data Models
+## 4. Data Models
 
 All models are defined in `src/cert_prep/models.py`.
 
-### 3.1 RawStudentInput
+### 4.1 RawStudentInput
 
-Raw form data captured from the intake form. Immutable dataclass.
+Raw form data captured from the intake form. Validated dataclass — the entry point for the entire pipeline.
 
 ```python
 @dataclass
 class RawStudentInput:
-    student_name:    str          # Display name
+    student_name:    str          # display name
     exam_target:     str          # e.g. "AI-102"
-    background_text: str          # 20-500 character free text
+    background_text: str          # free-form experience description
     existing_certs:  list[str]    # e.g. ["AZ-900", "AI-900"]
-    hours_per_week:  float        # 1–80
-    weeks_available: int          # 1–52
+    hours_per_week:  float        # 1–80 (G-03 enforced)
+    weeks_available: int          # 1–52 (G-04 enforced)
     concern_topics:  list[str]    # up to 8 user-selected topics
     preferred_style: str          # from STYLE_OPTIONS
     goal_text:       str          # free text motivation
-    email:           str = ""     # optional contact email
+    email:           str = ""     # optional, for weekly digest
 ```
 
-### 3.2 LearnerProfile
+### 4.2 DomainProfile
 
-Output of Phase 2 (profiling). Captures per-domain readiness.
+Per-domain readiness within a `LearnerProfile`.
+
+```python
+@dataclass
+class DomainProfile:
+    domain_id:         str    # e.g. "computer_vision"
+    domain_name:       str    # e.g. "Implement Computer Vision Solutions"
+    confidence_score:  float  # 0.0–1.0 (G-07 enforced)
+    knowledge_level:   DomainKnowledge   # UNKNOWN / WEAK / MODERATE / STRONG
+    priority:          str    # HIGH / MEDIUM / LOW
+    skill_gaps:        list[str]
+    recommended_focus: str
+```
+
+### 4.3 LearnerProfile
+
+Output of Phase 2 (profiling). Captures per-domain readiness for all downstream agents.
 
 ```python
 @dataclass
 class LearnerProfile:
     student_name:      str
     exam_target:       str
-    experience_level:  ExperienceLevel       # BEGINNER / INTERMEDIATE / ADVANCED
-    domain_profiles:   list[DomainProfile]   # one per exam domain
-    risk_domains:      list[str]             # domain IDs needing attention
-    metadata:          dict                  # profiler version, strategy used
+    experience_level:  ExperienceLevel   # BEGINNER / INTERMEDIATE / ADVANCED_AZURE / EXPERT_ML
+    learning_style:    LearningStyle     # LINEAR / LAB_FIRST / REFERENCE / ADAPTIVE
+    domain_profiles:   list[DomainProfile]   # one per exam domain (G-06 enforced)
+    risk_domains:      list[str]             # domain IDs with confidence < 0.40
+    background_text:   str
+    goal_text:         str
+    email:             str
+    role:              str
+    metadata:          dict   # profiler version, strategy used
 ```
 
-### 3.3 DomainProfile
+### 4.4 StudyTask and StudyPlan
 
-Per-domain assessment within a LearnerProfile.
+Output of `StudyPlanAgent`.
 
 ```python
 @dataclass
-class DomainProfile:
-    domain_id:         str    # e.g. "D1"
-    domain_name:       str    # e.g. "Plan and Manage Azure AI Solution"
-    confidence_score:  float  # 0.0–1.0
-    skill_gaps:        list[str]
-    recommended_focus: str
-```
+class StudyTask:
+    domain_id:       str
+    domain_name:     str
+    start_week:      int          # G-09: must be ≤ end_week
+    end_week:        int
+    hours_allocated: float        # from Largest Remainder algorithm
+    priority:        str          # HIGH / MEDIUM / LOW
+    knowledge_level: DomainKnowledge
+    resources:       list[str]    # resource type descriptions
+    activities:      list[str]    # specific task descriptions
 
-### 3.4 StudyPlan
-
-Output of StudyPlanAgent. Contains week-by-week schedule.
-
-```python
 @dataclass
 class StudyPlan:
-    student_name:   str
-    exam_target:    str
-    weekly_blocks:  list[WeekBlock]
-    total_hours:    float
-    prereq_gaps:    list[str]    # certs user should have first
-    notes:          str
+    student_name:       str
+    exam_target:        str
+    total_weeks:        int
+    hours_per_week:     int
+    total_budget_hours: float     # = total_weeks × hours_per_week
+    tasks:              list[StudyTask]
+    prereq_gap:         bool      # True if missing recommended prerequisites
+    prereq_certs:       list[str] # recommended prerequisite certifications
+    notes:              str
 ```
 
-### 3.5 WeekBlock
+### 4.5 LearningModule and LearningPath
 
-One row of the Gantt chart.
+Output of `LearningPathCuratorAgent`.
 
 ```python
 @dataclass
-class WeekBlock:
-    week_number:  int
-    domain_id:    str
-    domain_name:  str
-    hours:        float
-    activities:   list[str]    # specific tasks
-```
+class LearningModule:
+    domain_id:     str
+    domain_name:   str
+    title:         str
+    url:           str       # G-17 trust-validated before persist
+    module_type:   str       # "module" / "learning path" / "lab"
+    duration_hrs:  float
+    priority:      int       # 1 = highest
 
-### 3.6 LearningPath
-
-Output of LearningPathCuratorAgent.
-
-```python
 @dataclass
 class LearningPath:
     student_name:  str
     exam_target:   str
     modules:       list[LearningModule]
     total_modules: int
+    total_hours:   float
 ```
 
-### 3.7 LearningModule
+### 4.6 ProgressSnapshot and ReadinessAssessment
 
-Individual MS Learn path within a LearningPath.
-
-```python
-@dataclass
-class LearningModule:
-    domain_id:    str
-    domain_name:  str
-    title:        str
-    url:          str       # validated by G-17
-    duration_hrs: float
-    priority:     int       # 1 = highest
-```
-
-### 3.8 ProgressSnapshot
-
-Gate 1 user input capture.
+Input and output of `ProgressAgent` (HITL Gate 1).
 
 ```python
 @dataclass
 class ProgressSnapshot:
     student_name:   str
-    hours_spent:    float         # G-11: >= 0
-    domain_ratings: dict[str,int] # G-12: all in [1,5]
-    practice_score: int           # G-13: in [0,100]
+    hours_spent:    float          # G-11: ≥ 0
+    domain_ratings: dict[str,int]  # domain_id → 1–5 (G-12 enforced)
+    practice_score: int            # 0–100 (G-13 enforced)
     notes:          str
-```
 
-### 3.9 ReadinessAssessment
-
-Output of ProgressAgent from Phase 4.
-
-```python
 @dataclass
 class ReadinessAssessment:
     readiness_pct:  float          # 0–100
-    verdict:        str            # "READY" | "NOT YET" | "BOARDING"
-    weak_domains:   list[str]
-    recommendation: str
+    exam_go_nogo:   str            # "GO" / "CONDITIONAL GO" / "NOT YET"
+    weak_domains:   list[str]      # domain IDs below threshold
+    go_nogo_reason: str
+    nudges:         list[str]      # specific actionable recommendations
+    verdict:        str            # alias for exam_go_nogo
 ```
 
-### 3.10 AssessmentResult
+### 4.7 Assessment and AssessmentResult
 
-Output of AssessmentAgent from Phase 5.
+Input and output of `AssessmentAgent` (HITL Gate 2).
 
 ```python
 @dataclass
+class QuizQuestion:
+    question_id:    str
+    question_text:  str
+    options:        dict[str, str]   # {"A": "...", "B": "...", "C": "...", "D": "..."}
+    correct_answer: str              # "A" / "B" / "C" / "D"
+    domain_id:      str
+    difficulty:     str              # BEGINNER / INTERMEDIATE / ADVANCED
+    explanation:    str              # shown post-submission
+
+@dataclass
+class Assessment:
+    questions: list[QuizQuestion]   # 30 questions, domain-weighted
+
+@dataclass
 class AssessmentResult:
-    score_pct:      float
-    domain_scores:  dict[str, float]   # domain_id → pct
-    pass_fail:      str                # "PASS" | "FAIL"
-    weak_domains:   list[str]
-    question_count: int
+    total_score:     float           # 0–100, weighted by domain
+    passed:          bool            # total_score >= 70
+    domain_scores:   dict[str,float] # domain_id → percentage
+    score_pct:       float           # alias for total_score
+    pass_fail:       str             # "PASS" / "FAIL"
+    correct_count:   int
+    total_questions: int
+    weak_domains:    list[str]       # domains scored < 70%
 ```
 
-### 3.11 CertRecommendation
+### 4.8 CertRecommendation
 
-Output of CertRecommendationAgent from Phase 6.
+Output of `CertRecommendationAgent`.
 
 ```python
 @dataclass
@@ -230,286 +336,261 @@ class CertRecommendation:
     next_cert:          str
     booking_checklist:  list[str]
     consolidation_plan: str
-    remediation_steps:  list[str]    # non-empty when ready_to_book=False
+    remediation_steps:  list[str]   # non-empty when ready_to_book=False
+```
+
+### 4.9 Enumerations
+
+```python
+class DomainKnowledge(str, Enum):
+    UNKNOWN  = "unknown"
+    WEAK     = "weak"
+    MODERATE = "moderate"
+    STRONG   = "strong"
+
+class LearningStyle(str, Enum):
+    LINEAR    = "linear"
+    LAB_FIRST = "lab_first"
+    REFERENCE = "reference"
+    ADAPTIVE  = "adaptive"
+
+class ExperienceLevel(str, Enum):
+    BEGINNER       = "beginner"
+    INTERMEDIATE   = "intermediate"
+    ADVANCED_AZURE = "advanced_azure"
+    EXPERT_ML      = "expert_ml"
 ```
 
 ---
 
-## 4. Guardrails Framework
+## 5. Guardrails Framework
 
-Defined in `src/cert_prep/guardrails.py`. Implements a two-level safety system.
+Defined in `src/cert_prep/guardrails.py`. Implements the **Façade pattern** — it wraps every agent boundary without any agent being aware of it.
 
-### 4.1 Violation Levels
+### 5.1 Violation Levels
+
+| Level | UI Effect | Pipeline Effect |
+|-------|----------|----------------|
+| **BLOCK** | `st.error()` — red banner | `st.stop()` — pipeline halts; user must fix the input |
+| **WARN** | `st.warning()` — amber banner | Pipeline continues; violation logged to SQLite |
+| **INFO** | `st.info()` — blue banner | Pipeline continues; purely informational |
+
+### 5.2 All 17 Rules
+
+| Code | Check Method | Level | Rule Description |
+|------|-------------|-------|-----------------|
+| G-01 | `check_input` | WARN | Background text is empty — profiling accuracy may be limited |
+| G-02 | `check_input` | BLOCK | Exam target not found in `EXAM_DOMAINS` registry |
+| G-03 | `check_input` | BLOCK | `hours_per_week` outside range [1, 80] |
+| G-04 | `check_input` | BLOCK | `weeks_available` outside range [1, 52] |
+| G-05 | `check_input` | INFO | No concern topics provided (optional field) |
+| G-06 | `check_profile` | BLOCK | `domain_profiles` count does not match exam registry domain count |
+| G-07 | `check_profile` | BLOCK | Any `confidence_score` outside [0.0, 1.0] |
+| G-08 | `check_profile` | WARN | `risk_domains` contains IDs not in the exam's domain registry |
+| G-09 | `check_plan` | BLOCK | Any task has `start_week > end_week` |
+| G-10 | `check_plan` | WARN | Total allocated hours exceed 110% of `total_budget_hours` |
+| G-11 | `check_progress` | BLOCK | `hours_spent` is negative |
+| G-12 | `check_progress` | BLOCK | Any domain self-rating outside [1, 5] |
+| G-13 | `check_progress` | BLOCK | `practice_exam_score` outside [0, 100] |
+| G-14 | `check_assessment` | WARN | Assessment contains fewer than 5 questions |
+| G-15 | `check_assessment` | BLOCK | Duplicate `question_id` values detected |
+| G-16 | `check_content` | BLOCK/WARN | Harmful keyword (BLOCK) or PII pattern (WARN) in free-text |
+| G-17 | `check_urls` | WARN | URL does not match approved learning domain allowlist |
+
+### 5.3 Application Pattern
 
 ```python
-class GuardrailLevel(Enum):
-    BLOCK = "BLOCK"   # pipeline halts via st.stop()
-    WARN  = "WARN"    # pipeline continues with st.warning()
-    INFO  = "INFO"    # logged only, no user-visible effect
-```
-
-### 4.2 All 17 Rules
-
-| Code | Trigger | Level | Check |
-|------|---------|-------|-------|
-| G-01 | Intake | BLOCK | student_name non-empty after strip |
-| G-02 | Intake | BLOCK | exam_target in EXAM_DOMAIN_REGISTRY |
-| G-03 | Intake | BLOCK | hours_per_week in [1, 80] |
-| G-04 | Intake | BLOCK | weeks_available in [1, 52] |
-| G-05 | Intake | BLOCK | len(background_text) > 10 |
-| G-06 | Profile | BLOCK | len(domain_profiles) == expected_domains(exam) |
-| G-07 | Profile | BLOCK | all confidence_score in [0.0, 1.0] |
-| G-08 | Profile | BLOCK | all risk_domain IDs in registry |
-| G-09 | Study Plan | WARN | total_hours <= budget * 1.1 (10% slack) |
-| G-10 | Study Plan | WARN | all WeekBlock.domain_id in domain_profiles |
-| G-11 | Progress | BLOCK | hours_spent >= 0 |
-| G-12 | Progress | BLOCK | all domain_ratings in [1, 5] |
-| G-13 | Progress | BLOCK | practice_score in [0, 100] |
-| G-14 | Quiz | BLOCK | len(questions) >= 5 |
-| G-15 | Quiz | BLOCK | no duplicate question IDs |
-| G-16 | Content | BLOCK | background_text free of disallowed keywords |
-| G-17 | URL | WARN | all module URLs from learn.microsoft.com or trusted origins |
-
-### 4.3 Application Pattern
-
-```python
-result = run_guardrails_phase("intake", raw)
+result = guardrails.check_input(raw)
 for v in result.violations:
-    if v.level == GuardrailLevel.BLOCK:
-        st.error(f"[{v.code}] {v.message}")
+    if v.level == "BLOCK":
+        st.error(f"⚠️ [{v.code}] {v.message}")
         st.stop()
-    elif v.level == GuardrailLevel.WARN:
+    elif v.level == "WARN":
         st.warning(f"[{v.code}] {v.message}")
+    elif v.level == "INFO":
+        st.info(f"[{v.code}] {v.message}")
+```
+
+### 5.4 G-16 Content Safety Detail
+
+The heuristic content scanner checks free-text fields for:
+- **Harmful keywords** → BLOCK: violence, self-harm, prohibited content (exact word match against blocklist)
+- **SSN pattern** → WARN: regex `\b\d{3}-\d{2}-\d{4}\b`
+- **Credit card pattern** → WARN: regex `\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b`
+- **Email in bio** → WARN: regex `[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`
+
+PII detected via WARN is not forwarded to the LLM in mock mode. In live mode, the WARN banner notifies the user before the LLM call proceeds.
+
+### 5.5 G-17 URL Trust Guard
+
+Approved domain prefixes:
+
+```python
+TRUSTED_URL_PREFIXES = [
+    "https://learn.microsoft.com",
+    "https://docs.microsoft.com",
+    "https://aka.ms",
+    "https://home.pearsonvue.com",
+    "https://certiport.pearsonvue.com",
+]
+```
+
+Any URL outside this list is silently removed from the `LearningPath` before persistence. The WARN banner lists removed URLs for transparency.
+
+---
+
+## 6. Agent Pipeline — Deep Dive
+
+### 6.1 B0 — LearnerProfilingAgent
+
+**File:** `src/cert_prep/b0_intake_agent.py`  
+**Pattern:** Sequential with three-tier fallback  
+**Input:** `RawStudentInput` → **Output:** `LearnerProfile`
+
+The only agent that calls an external LLM. Uses a **three-tier fallback strategy**:
+
+**Tier 1 — Azure AI Foundry Agent Service SDK** (`azure-ai-projects`):  
+Creates a managed Foundry agent with a complete system prompt and conversation thread. Activated when `AZURE_AI_PROJECT_CONNECTION_STRING` is set. Uses `DefaultAzureCredential`.
+
+**Tier 2 — Azure OpenAI direct** (`openai.AzureOpenAI`):  
+Calls `gpt-4o` with `response_format={"type":"json_object"}`. Temperature 0.2 for consistent structured output. Activated when only `AZURE_OPENAI_ENDPOINT` + `AZURE_OPENAI_API_KEY` are set.
+
+**Tier 3 — Rule-based mock engine** (`b1_mock_profiler.py`):  
+No API calls. Deterministic — same input always produces same output.
+
+**Mock profiler — three-pass algorithm:**
+
+```python
+# Pass 1 — Experience Level from background keywords
+keywords = {
+    "beginner": BEGINNER, "no cloud": BEGINNER, "new to": BEGINNER,
+    "data scientist": EXPERT_ML, "machine learning": EXPERT_ML,
+    "developer": INTERMEDIATE, "engineer": INTERMEDIATE,
+    "architect": ADVANCED_AZURE, "azure": ADVANCED_AZURE, "cloud": ADVANCED_AZURE,
+}
+experience = max(match for kw, match in keywords.items() if kw in background.lower())
+
+# Pass 2 — Domain Base Confidence from keyword co-occurrence
+for domain in EXAM_DOMAINS[exam_target]:
+    overlap = count_keyword_overlap(background_text, domain["name"])
+    confidence[domain["id"]] = scale(overlap, min=0.10, max=0.75)
+
+# Pass 3 — Concern Topic Penalty
+for topic in concern_topics:
+    domain_id = map_topic_to_domain(topic)
+    if domain_id:
+        confidence[domain_id] = max(0.05, confidence[domain_id] - 0.15)
+        risk_domains.append(domain_id)
+```
+
+**Live strategy (Tier 2) — System prompt:**
+
+```
+You are a Microsoft certification preparation expert.
+Given a student's background, target exam, and goals, produce a structured
+LearnerProfile JSON with domain confidence scores (0.0–1.0), knowledge levels,
+experience level, risk domains, and learning style recommendation.
+
+Output ONLY valid JSON conforming to this schema: {schema}
 ```
 
 ---
 
-## 5. Input Processing — Intake Form
+### 6.2 B1.1a — StudyPlanAgent
 
-Implemented in `streamlit_app.py` at the intake form section.
+**File:** `src/cert_prep/b1_1_study_plan_agent.py`  
+**Pattern:** Planner–Executor  
+**Input:** `LearnerProfile`, `existing_certs` → **Output:** `StudyPlan`
 
-### 5.1 Pre-fill System
+Allocates total study hours across exam domains using the **Largest Remainder algorithm** (see Section 7). Domains with existing certification coverage are marked `priority=LOW` and allocated minimal hours. Domains with confidence below 0.40 are front-loaded into the first 40% of weeks (remediation-first scheduling).
 
-Demo scenarios are defined as a Python dict `_PREFILL_SCENARIOS`. When the sidebar persona button is clicked, the dict is loaded into `st.session_state["sidebar_prefill"]`. On the next rerender, the form widgets receive `value=prefill.get(field, default)` arguments, causing them to appear pre-filled.
-
-### 5.2 Returning-User Restore
-
-When `is_returning=True` the same prefill mechanism loads values from the persisted `RawStudentInput` stored in SQLite. The intake form is read-only unless `st.session_state["editing_profile"]=True` is set.
-
-### 5.3 Email Field
-
-- Optional field (`str = ""` default)
-- Stored in `RawStudentInput.email`
-- Persisted to SQLite via `save_raw_input()`
-- Visible in read-only profile card and admin dashboard
-- Pre-filled by demo scenarios (e.g. `alex.chen@demo.com`)
-- Saved to `st.session_state["user_email"]` for downstream use
-
----
-
-## 6. Agent: Learner Profiler (B1)
-
-### File
-
-`src/cert_prep/b1_mock_profiler.py` (mock) / `src/cert_prep/b1_1_learning_path_curator.py` (live)
-
-### Responsibility
-
-Transform `RawStudentInput` → `LearnerProfile` with per-domain confidence scores.
-
-### Mock Strategy (Rule Engine)
-
-**Pass 1 — Experience Level:**
-```python
-keywords = {"beginner":0.1, "no cloud":0.1, "new to":0.1,
-            "data scientist":0.55, "developer":0.55,
-            "architect":0.8, "senior":0.8}
-background_lower = background_text.lower()
-score = max(v for k,v in keywords.items() if k in background_lower) or 0.3
-```
-
-**Pass 2 — Domain Base Confidence:**
-- Iterates each domain in `EXAM_DOMAIN_REGISTRY[exam_target]`
-- Checks if domain keywords appear in background_text or existing_certs
-- Assigns base confidence in [0.05, 0.85]
-
-**Pass 3 — Concern Topic Penalty:**
-- Each concern_topic that maps to a domain lowers its confidence by 0.15 (floor 0.05)
-- Adds domain to `risk_domains`
-
-### Live Strategy (Azure OpenAI)
-
-```python
-response = client.chat.completions.create(
-    model   = deployment,
-    messages= [
-        {"role": "system", "content": PROFILER_SYSTEM_PROMPT},
-        {"role": "user",   "content": raw_input_json}
-    ],
-    response_format = {"type": "json_object"},
-    temperature     = 0.2
-)
-profile = LearnerProfile(**json.loads(response.choices[0].message.content))
-```
-
-The system prompt instructs GPT-4o to produce a JSON object conforming to the LearnerProfile schema, with domain IDs matching the exam registry.
-
----
-
-## 7. Agent: Study Plan (B1.1)
-
-### File
-
-`src/cert_prep/b1_1_study_plan_agent.py`
-
-### Responsibility
-
-Allocate `hours_per_week × weeks_available` study hours across domains using **Largest Remainder** allocation.
-
-### Algorithm
-
-```python
-# Step 1: weight each domain by inverse confidence
-weights = {d.domain_id: (1 - d.confidence_score) for d in domain_profiles}
-total_weight = sum(weights.values())
-domain_weights_normalised = {k: v/total_weight for k,v in weights.items()}
-
-# Step 2: Largest Remainder allocation of total_hours across domains
-total_hours = hours_per_week * weeks_available
-raw_alloc   = {d: w * total_hours for d,w in domain_weights_normalised.items()}
-floored     = {d: int(v) for d,v in raw_alloc.items()}
-remainders  = sorted(raw_alloc.items(), key=lambda x: x[1]-int(x[1]), reverse=True)
-deficit     = total_hours - sum(floored.values())
-for i in range(int(deficit)):
-    floored[remainders[i][0]] += 1
-```
-
-**Why Largest Remainder?** Ensures every hour is assigned to exactly one domain. No hours are lost to rounding. The domain with the highest fractional excess gets the next whole hour — this avoids overweighting already-weak domains due to rounding.
-
-### Prerequisite Gap Detection
+**Prerequisite gap detection:**
 
 ```python
 PREREQ_MAP = {
     "AI-102": ["AZ-900"],
     "DP-100": ["AZ-900", "DP-900"],
     "AZ-204": ["AZ-900"],
-    ...
+    "AZ-305": ["AZ-104", "AZ-204"],
+    "SC-100": ["AZ-500", "SC-200"],
 }
-prereq_gaps = [p for p in PREREQ_MAP[exam] if p not in existing_certs]
+prereq_gap = [p for p in PREREQ_MAP.get(exam, []) if p not in existing_certs]
 ```
 
 ---
 
-## 8. Agent: Learning Path Curator (B1.1)
+### 6.3 B1.1b — LearningPathCuratorAgent
 
-### File
+**File:** `src/cert_prep/b1_1_learning_path_curator.py`  
+**Pattern:** Sequential with Critic (G-17 URL validation)  
+**Input:** `LearnerProfile` → **Output:** `LearningPath`
 
-`src/cert_prep/b1_1_learning_path_curator.py`
-
-### Responsibility
-
-Map each domain to 3–5 curated Microsoft Learn modules from `MODULE_CATALOGUE`.
-
-### Module Selection Logic
+Maps each exam domain to 2–4 Microsoft Learn modules from a static curated registry. Selects module type based on learner's `learning_style` (lab-first learners receive labs before videos; reference-style learners receive documentation first). Applies G-17 trust guard — non-approved URLs are stripped before persist.
 
 ```python
 for domain in profile.domain_profiles:
-    if domain.skip_recommended:
-        continue   # user explicitly opted out
     candidates = MODULE_CATALOGUE[exam_target][domain.domain_id]
-    # Sort by: preferred_style match first, then priority ASC
+    # Sort by: preferred style first, then priority ascending
     selected = sorted(candidates,
-                      key=lambda m: (0 if m.tag==preferred_style else 1, m.priority))[:3]
+                      key=lambda m: (0 if m.module_type == preferred_style else 1, m.priority))[:3]
     for m in selected:
-        run_guardrail_G17(m.url)  # URL safety check
-```
-
-### G-17 URL Validation
-
-```python
-TRUSTED_ORIGINS = {
-    "learn.microsoft.com",
-    "docs.microsoft.com",
-    "azure.microsoft.com",
-}
-from urllib.parse import urlparse
-netloc = urlparse(url).netloc.removeprefix("www.")
-if netloc not in TRUSTED_ORIGINS:
-    log_violation(code="G-17", level=WARN, message=f"Unverified URL: {netloc}")
-    return None   # URL excluded
+        if validate_url_G17(m.url):
+            modules.append(m)
 ```
 
 ---
 
-## 9. Agent: Progress Tracker (B1.2)
+### 6.4 B1.2 — ProgressAgent
 
-### File
+**File:** `src/cert_prep/b1_2_progress_agent.py`  
+**Pattern:** Self-Reflection and Iteration  
+**Input:** `ProgressSnapshot`, `LearnerProfile` → **Output:** `ReadinessAssessment`
 
-`src/cert_prep/b1_2_progress_agent.py`
+Computes readiness using the weighted formula (see Section 7). Produces a three-way verdict and per-domain nudges. Also generates two downloadable PDF reports via ReportLab:
 
-### Responsibility
-
-Compute readiness percentage and verdict from HITL Gate 1 input. Generate PDF reports. Send email notifications.
-
-### Readiness Formula
-
-$$\text{readiness} = 0.55 \cdot \bar{c} + 0.25 \cdot h_u + 0.20 \cdot p$$
-
-Where:
-- $\bar{c}$ = mean normalised confidence = $\frac{1}{|D|} \sum_{d \in D} \frac{rating_d - 1}{4}$
-- $h_u$ = hours utilisation = $\frac{hours\_spent}{hours\_per\_week}$ (capped at 1.0)
-- $p$ = practice score proportion = $\frac{practice\_score}{100}$
-
-**Verdict thresholds:**
-- READY: ≥ 0.65 (65%)
-- BOARDING: 0.50–0.64
-- NOT YET: < 0.50
-
-### PDF Report Generation
-
-Three `reportlab`-based PDF generators produce downloadable / emailable reports:
-
-| Function | Contents | Trigger |
-|---|---|---|
-| `generate_profile_pdf(profile, plan, lp)` | Domain confidence scores, study plan Gantt table, learning path module list | Profile tab download / auto-email on intake |
-| `generate_assessment_pdf(profile, snap, asmt)` | Progress snapshot, domain readiness bars, go/no-go verdict | Progress tab download |
-| `generate_intake_summary_html(profile, plan, lp)` | HTML body for the welcome email | Auto-email on intake |
+| Function | Contents |
+|----------|----------|
+| `generate_profile_pdf(profile, plan, lp)` | Domain confidence scores, study plan Gantt table, learning path module list |
+| `generate_assessment_pdf(profile, snap, asmt)` | Progress snapshot, domain readiness bars, go/no-go verdict |
+| `generate_intake_summary_html(profile, plan, lp)` | HTML body for the welcome email |
 
 All three return `bytes` — passed directly to `st.download_button` or to `attempt_send_email(pdf_bytes=...)`.
 
-### SMTP Email
+**Email delivery:**
 
 ```python
 def attempt_send_email(
-    to: str,
-    subject: str,
-    html: str,
+    to: str, subject: str, html: str,
     pdf_bytes: bytes | None = None,
     pdf_filename: str = "report.pdf",
-) -> bool:
+) -> tuple[bool, str]:
+    msg = MIMEMultipart("mixed")
+    msg.attach(MIMEText(html, "html"))
+    if pdf_bytes:
+        attach = MIMEBase("application", "pdf")
+        attach.set_payload(pdf_bytes)
+        encoders.encode_base64(attach)
+        attach.add_header("Content-Disposition", "attachment", filename=pdf_filename)
+        msg.attach(attach)
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as s:
+        s.starttls()
+        s.login(SMTP_USER, SMTP_PASS)
+        s.sendmail(SMTP_FROM, to, msg.as_string())
 ```
 
-The function constructs a `MIMEMultipart` message with an HTML body and an optional `application/pdf` attachment. Required env vars: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`.
+Required env vars: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`.
 
 ---
 
-## 10. Agent: Assessment (B2)
+### 6.5 B2 — AssessmentAgent
 
-### File
+**File:** `src/cert_prep/b2_assessment_agent.py`  
+**Pattern:** Role-based Specialisation + HITL  
+**Input:** `LearnerProfile` → **Output:** `Assessment` (question bank), `AssessmentResult` (after submission)
 
-`src/cert_prep/b2_assessment_agent.py`
+Generates a 30-question mock quiz using domain-weighted sampling (Largest Remainder applied to question counts). Domains with confidence below 0.40 receive a minimum of 3 questions regardless of weight.
 
-### Responsibility
-
-Build a 30-question domain-weighted mock quiz. Score answers. Identify weak domains.
-
-### Question Sampling
-
-Uses the same **Largest Remainder** algorithm as StudyPlanAgent, but allocates 30 questions across domains weighted by `1 - domain_scores`.
-
-Domains where `confidence_score < 0.4` receive at minimum 3 questions regardless of weight (floor guarantee).
-
-### Scoring
+**Scoring:**
 
 ```python
 weighted_score = sum(
@@ -517,336 +598,685 @@ weighted_score = sum(
     for d in domain_scores
 )
 pass_fail = "PASS" if weighted_score >= 70.0 else "FAIL"
-weak_domains = [d for d,s in domain_scores.items() if s < 70.0]
+weak_domains = [d for d, s in domain_scores.items() if s < 70.0]
 ```
 
 ---
 
-## 11. Agent: Cert Recommendation (B3)
+### 6.6 B3 — CertRecommendationAgent
 
-### File
+**File:** `src/cert_prep/b3_cert_recommendation_agent.py`  
+**Pattern:** Decision Tree Planner  
+**Input:** `AssessmentResult`, `LearnerProfile` → **Output:** `CertRecommendation`
 
-`src/cert_prep/b3_cert_recommendation_agent.py`
-
-### Responsibility
-
-Given AssessmentResult, decide next certification and action.
-
-### Next-Cert Logic
+**Next-cert progression path:**
 
 ```python
 SYNERGY_MAP = {
-    "AI-102": "AZ-204",
-    "AZ-204": "AZ-305",
-    "DP-100": "AI-102",
-    "AZ-900": "AI-102",
+    "AI-102": "AZ-204",   "AZ-204": "AZ-305",
+    "DP-100": "AI-102",   "AZ-900": "AI-102",
+    "AI-900": "AI-102",   "AZ-305": "AZ-400",
 }
 next_cert = SYNERGY_MAP.get(current_exam, "AZ-305")
 ```
 
-### Remediation vs Booking Branch
+**Booking vs remediation branch:**
 
 ```python
 if result.score_pct >= 70:
-    return CertRecommendation(ready_to_book=True, next_cert=next_cert,
-                              booking_checklist=[...])
+    return CertRecommendation(
+        ready_to_book=True,
+        next_cert=next_cert,
+        booking_checklist=["Register at Pearson VUE", "Check ID requirements", ...]
+    )
 else:
-    weak = result.weak_domains
-    return CertRecommendation(ready_to_book=False,
-                              remediation_steps=[f"{d}: scored {s:.0f}%, need 70%"
-                                                 for d,s in result.domain_scores.items()
-                                                 if s < 70])
+    return CertRecommendation(
+        ready_to_book=False,
+        remediation_steps=[f"{d}: scored {s:.0f}%, target 70%"
+                            for d, s in result.domain_scores.items() if s < 70]
+    )
 ```
 
 ---
 
-## 12. Orchestration and Concurrency
+## 7. Core Algorithms
 
-### 12.1 Orchestrator Pattern
+### 7.1 Largest Remainder Algorithm
 
-`streamlit_app.py` is the orchestrator. It:
+Used in both `StudyPlanAgent` (allocating study hours) and `AssessmentAgent` (allocating question counts). Guarantees:
+- The total exactly equals the target (no rounding drift)
+- Higher-weight domains receive proportionally more resources
+- Every domain receives at least a minimum allocation
+
+```python
+def largest_remainder(weights: list[float], total: int, minimum: int = 1) -> list[int]:
+    """
+    Distribute `total` units across domains proportionally to `weights`.
+    Guarantees sum(result) == total exactly.
+    """
+    n = len(weights)
+    reserved = minimum * n
+    distributable = total - reserved
+    normalised = [w / sum(weights) for w in weights]
+
+    raw = [n * distributable for n in normalised]
+    floored = [int(r) for r in raw]
+    remainders = sorted(enumerate(raw), key=lambda x: x[1] - int(x[1]), reverse=True)
+
+    deficit = distributable - sum(floored)
+    for j in range(int(deficit)):
+        floored[remainders[j][0]] += 1
+
+    return [floored[i] + minimum for i in range(n)]
+```
+
+**Example — AI-102, 10 weeks, 8 hrs/week = 80 total hours:**
+
+| Domain | Exam Weight | Raw Hours | Floor | +Remainder | Final |
+|--------|------------|-----------|-------|------------|-------|
+| Computer Vision | 0.225 | 18.0 | 18 | — | 18 |
+| NLP | 0.225 | 18.0 | 18 | — | 18 |
+| Plan & Manage | 0.175 | 14.0 | 14 | — | 14 |
+| Document Intelligence | 0.175 | 14.0 | 14 | — | 14 |
+| Conversational AI | 0.100 | 8.0 | 8 | — | 8 |
+| Generative AI | 0.100 | 8.0 | 8 | — | 8 |
+| **Total** | **1.000** | **80.0** | **80** | | **80** ✓ |
+
+**Why not simple rounding?** Simple rounding can produce a total of 79 or 81 when fractional parts accumulate. Largest Remainder is the internationally recognised standard (used in proportional representation voting systems) — it distributes remainder units to the domains with the highest fractional loss, minimising allocation error.
+
+---
+
+### 7.2 Readiness Formula
+
+The readiness percentage combines three independent signals:
+
+$$\text{readiness\\_pct} = 0.55 \times \bar{c} + 0.25 \times h_u + 0.20 \times p$$
+
+Where:
+- $\bar{c}$ = weighted domain confidence score (0–100), weighted by exam domain weights
+- $h_u$ = hours utilisation = $\min\!\left(\frac{\text{hours\_spent}}{\text{total\_budget\_hours}}, 1.0\right) \times 100$ (capped — no bonus for over-studying)
+- $p$ = practice exam score (0–100)
+
+**Routing thresholds:**
+
+| Range | Verdict | Action |
+|-------|---------|--------|
+| ≥ 70 | **GO** | Recommend booking the real exam |
+| 50–69 | **CONDITIONAL GO** | Targeted gap review, then book |
+| < 50 | **NOT YET** | Remediation loop, rebuild study plan |
+
+**Weight rationale:**
+- Confidence (0.55) is the dominant signal — domain knowledge is the primary exam predictor
+- Hours utilisation (0.25) rewards consistent study behaviour
+- Practice score (0.20) is a lagging indicator — useful validation but can be gamed
+
+---
+
+## 8. Orchestration and Concurrency
+
+### 8.1 Orchestrator Pattern
+
+`streamlit_app.py` acts as the orchestrator. It:
 1. Validates phase inputs through guardrails before calling agents
 2. Stores all agent outputs to `st.session_state`
 3. Persists all outputs to SQLite
-4. Records timing metadata per agent step
+4. Records per-agent timing metadata
 5. Drives the 6-tab UI from session state
 
-### 12.2 Parallel Execution
+The pipeline is **non-speculative** — it only runs the next phase when the current phase has passed all guardrails and the human has completed any required HITL gate.
+
+### 8.2 Parallel Execution
+
+`StudyPlanAgent` and `LearningPathCuratorAgent` are fully independent — neither reads the other's output. They run in parallel via `ThreadPoolExecutor`:
 
 ```python
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 import time
 
 t0 = time.perf_counter()
 with ThreadPoolExecutor(max_workers=2) as pool:
-    future_plan = pool.submit(StudyPlanAgent().run, profile)
+    future_plan = pool.submit(StudyPlanAgent().run, profile, existing_certs)
     future_path = pool.submit(LearningPathCuratorAgent().run, profile)
     plan          = future_plan.result()
     learning_path = future_path.result()
 parallel_ms = int((time.perf_counter() - t0) * 1000)
-st.session_state["parallel_agent_ms"] = parallel_ms
 ```
 
-StudyPlanAgent and LearningPathCuratorAgent are independent — neither reads the other's output. Running them in parallel reduces wall-clock latency by ~50%.
+This reduces wall-clock latency by ~50% compared to sequential execution. The parallel execution time is recorded in `AgentStep.parallel_ms` and displayed in the Admin Dashboard.
 
-### 12.3 Agent Trace
+### 8.3 Four Reasoning Patterns
 
-Every agent call logs an `AgentStep`:
-
-```python
-step = AgentStep(
-    run_id       = st.session_state["run_id"],
-    step_index   = next_step_index(),
-    agent_name   = agent.__class__.__name__,
-    input_hash   = sha256(str(inputs))[:8],
-    output_hash  = sha256(str(output))[:8],
-    duration_ms  = elapsed_ms,
-    timestamp    = datetime.utcnow().isoformat(),
-)
-save_agent_step(step)
-```
-
-The trace is viewable in the Admin Dashboard, and also shown in Tab 1 as a collapsible "Agent Trace" expander.
+| Pattern | Where Used |
+|---------|-----------|
+| **Planner–Executor** | `StudyPlanAgent` analyses confidence scores → produces a weekly allocation plan → learner executes the plan |
+| **Critic / Verifier** | `GuardrailsPipeline` verifies every handoff; BLOCK halts the pipeline; independent of all agents |
+| **Self-Reflection and Iteration** | Remediation loop: `ProgressAgent` returns NOT YET → weak domain confidence reset → `StudyPlanAgent` re-runs with updated weights |
+| **Role-based Specialisation** | Each agent has a single bounded responsibility and a distinct typed input/output contract; no agent knows about another's implementation |
 
 ---
 
-## 13. HITL Gates
+## 9. Human-in-the-Loop Gates
+
+Two explicit HITL gates pause the pipeline until the human provides input. Both use `st.stop()` — downstream agents do not run until the gate is completed.
 
 ### Gate 1 — Progress Check-In (Tab 4)
 
-- User inputs: hours spent, per-domain self-ratings, practice score, notes
-- Triggers: ProgressAgent → ReadinessAssessment
-- Non-blocking: low readiness shows a warning but does not stop the user
+The learner self-reports:
+- Hours spent studying so far
+- Domain self-confidence rating (slider 1–5 per domain)
+- Practice exam score (if taken, 0–100)
+- Optional study notes
 
-### Gate 2 — Mock Quiz (Tab 5)
+This snapshot feeds `ProgressAgent`. Without Gate 1, the quiz and certification recommendation tabs are intentionally empty — the system cannot assess readiness without a human-provided progress snapshot.
 
-- User answers: 30 multiple-choice questions (radio buttons)
-- All questions must be answered before submit button activates
-- Triggers: AssessmentAgent scoring → AssessmentResult
-- Feeds into: CertRecommendationAgent in Tab 6
+### Gate 2 — Quiz Submission (Tab 5)
 
-Both gates write to SQLite and to `st.session_state`. On session restore, gates are not shown again if already submitted.
+The learner answers a 30-question adaptive quiz. All questions must be answered before the submit button activates. Submission triggers:
+1. `AssessmentAgent` scores the quiz (weighted domain scoring)
+2. `CertRecommendationAgent` produces the final certification guidance
+
+**Design intent:** Both gates ensure AI output is always grounded in the learner's current real-world state, not built from stale cached data.
 
 ---
 
-## 14. SQLite Persistence Layer
+## 10. SQLite Persistence Layer
 
-### File
+**File:** `src/cert_prep/database.py`  
+**Database file:** `cert_prep_data.db` (created automatically on first run)
 
-`src/cert_prep/database.py`
+### Schema
 
-### Tables
+```sql
+CREATE TABLE students (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    name         TEXT NOT NULL UNIQUE,
+    pin_hash     TEXT NOT NULL,   -- SHA-256 of 4-digit PIN
+    email        TEXT DEFAULT '',
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
-| Table | Purpose | Key Columns |
-|---|---|---|
-| `students` | Auth + persona data | id, name, password_hash, role |
-| `raw_inputs` | Serialised RawStudentInput | student_name, json_blob, created_at |
-| `learner_profiles` | Serialised LearnerProfile | student_name, exam_target, json_blob |
-| `study_plans` | Serialised StudyPlan | student_name, version, json_blob |
-| `learning_paths` | Serialised LearningPath | student_name, exam_target, json_blob |
-| `progress_snapshots` | Serialised ProgressSnapshot | student_name, json_blob |
-| `readiness_assessments` | Serialised ReadinessAssessment | student_name, readiness_pct |
-| `assessment_results` | Serialised AssessmentResult | student_name, score_pct, pass_fail |
-| `cert_recommendations` | Serialised CertRecommendation | student_name, next_cert |
-| `agent_steps` | Observability trace | run_id, step_index, agent_name, duration_ms |
-| `guardrail_violations` | Guardrail audit | code, level, message, student_name |
+CREATE TABLE learner_profiles (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id       INTEGER NOT NULL REFERENCES students(id),
+    exam_target      TEXT NOT NULL,
+    experience_level TEXT,
+    learning_style   TEXT,
+    background_text  TEXT,
+    goal_text        TEXT,
+    role             TEXT,
+    profile_json     TEXT NOT NULL,   -- JSON-serialised LearnerProfile
+    raw_input_json   TEXT,            -- JSON-serialised RawStudentInput
+    created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
-### Connection Management
+CREATE TABLE study_plans (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id         INTEGER NOT NULL REFERENCES students(id),
+    exam_target        TEXT NOT NULL,
+    total_weeks        INTEGER,
+    hours_per_week     INTEGER,
+    prereq_gap         BOOLEAN DEFAULT 0,
+    plan_json          TEXT NOT NULL,   -- JSON-serialised StudyPlan
+    learning_path_json TEXT,            -- JSON-serialised LearningPath
+    version            INTEGER DEFAULT 1,
+    created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
-```python
-DB_PATH = Path(__file__).parent.parent.parent / "certprep.db"
+CREATE TABLE agent_traces (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id       INTEGER REFERENCES students(id),
+    run_id           TEXT UNIQUE NOT NULL,   -- UUID per pipeline run
+    trace_json       TEXT NOT NULL,
+    total_latency_ms REAL,
+    agent_count      INTEGER,
+    mode             TEXT,   -- "mock" / "azure_openai" / "foundry"
+    created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
-def get_connection():
-    return sqlite3.connect(DB_PATH, check_same_thread=False)
+CREATE TABLE guardrail_violations (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id   INTEGER REFERENCES students(id),
+    run_id       TEXT,
+    code         TEXT NOT NULL,   -- "G-03"
+    level        TEXT NOT NULL,   -- "BLOCK" / "WARN" / "INFO"
+    message      TEXT,
+    field        TEXT,            -- which input field triggered
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE progress_snapshots (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id           INTEGER NOT NULL REFERENCES students(id),
+    hours_spent          REAL,
+    practice_exam_score  REAL,
+    domain_ratings_json  TEXT,   -- {"domain_id": 1–5}
+    readiness_pct        REAL,
+    verdict              TEXT,
+    created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
-Concurrent writes from ThreadPoolExecutor are safe because each agent write happens after thread completion (in the orchestrator), not inside the parallel threads.
-
----
-
-## 15. Session State Management
-
-Streamlit rerenders on every user interaction. Session state is the only persistent store within a browser session. Keys are namespaced by feature to avoid collision.
-
-### Lifecycle
-
-1. **Login:** `logged_in`, `login_name`, `user_email` set
-2. **Intake submit:** `raw`, `guardrail_result` set
-3. **Profiling:** `profile` set
-4. **Parallel planning:** `plan`, `learning_path`, `parallel_agent_ms` set
-5. **Gate 1 submit:** `progress_submitted=True`, `progress_snapshot`, `readiness` set
-6. **Gate 2 submit:** `quiz_submitted=True`, `assessment_result` set
-7. **Recommendation:** `cert_recommendation` set
-8. **Edit profile:** `editing_profile=True` set → form shown → `editing_profile` popped on re-submit
-
----
-
-## 16. Mock vs Live Mode
-
-| Aspect | Mock | Live (Azure OpenAI) |
-|---|---|---|
-| Profiling | Rule-based keyword scoring | GPT-4o JSON-structured response |
-| Study plan | Deterministic algorithm | Same deterministic algorithm |
-| Learning path | MODULE_CATALOGUE lookup | Same catalogue lookup |
-| Quiz | Static question bank | Same question bank |
-| Cost | Zero | Azure OpenAI credits |
-| Latency | < 50ms | 2–15 seconds |
-| Reproducibility | 100% deterministic | Stochastic (temp=0.2) |
-| Competition demo | Default visible path | Available via sidebar toggle |
-
-The mock/live switch is per session, set via the sidebar "Azure OpenAI Config" expander.
-
----
-
-## 17. Admin Dashboard
-
-### File
-
-`pages/1_Admin_Dashboard.py`
-
-### Access
-
-URL: `/pages/1_Admin_Dashboard` after login. Admin credentials: `admin` / `agents2026`.
-
-### Data Sources
-
-All data comes from SQLite queries — no in-memory session state is used. This ensures the dashboard reflects all students, not just the currently logged-in session.
-
-### Agent Trace HTML Rendering
+### Key Access Patterns
 
 ```python
-level_colour = {"INFO": "#3b82f6", "WARN": "#f59e0b", "BLOCK": "#ef4444"}
-html = f"""
-<div style="border-left:3px solid {level_colour['INFO']};
-            padding:8px; margin-bottom:6px; background:#1e293b">
-  <strong>{step.agent_name}</strong>
-  <span style="color:#94a3b8;font-size:11px">{step.timestamp} · {step.duration_ms}ms</span>
-  <div>{step.input_summary}</div>
-</div>
-"""
-st.markdown(html, unsafe_allow_html=True)
+db.get_latest_profile(student_id)          # → Row | None
+db.upsert_learner_profile(...)             # insert or update
+db.save_study_plan(student_id, plan, lp)   # atomic save of plan + learning path
+db.log_violation(student_id, run_id, ...)  # non-blocking guardrail log
+db.get_all_students_summary()              # admin: all students + exam targets
+```
+
+Concurrent writes from `ThreadPoolExecutor` are safe because all writes happen after thread completion in the orchestrator — not inside the parallel threads themselves.
+
+---
+
+## 11. Session State Lifecycle
+
+| Key | Type | Populated By | Cleared By |
+|-----|------|-------------|-----------|
+| `logged_in` | bool | Login form | Logout |
+| `student_id` | int | Login / registration | Logout |
+| `student_name` | str | Login | Logout |
+| `user_email` | str | Login / intake form | Logout |
+| `is_demo_user` | bool | Demo card click | Logout |
+| `sidebar_prefill` | str | Scenario card click | New scenario or logout |
+| `is_returning` | bool | SQLite profile check | Logout |
+| `raw` | `RawStudentInput` | Intake form submit | Profile edit submit |
+| `profile` | `LearnerProfile` | After B0 runs | Profile edit submit |
+| `plan` | `StudyPlan` | After B1.1a runs | Regeneration |
+| `learning_path` | `LearningPath` | After B1.1b runs | Regeneration |
+| `progress_submitted` | bool | Progress form submit | Logout |
+| `readiness` | `ReadinessAssessment` | After B1.2 runs | Logout |
+| `quiz_submitted` | bool | Quiz submit | Logout |
+| `assessment` | `Assessment` | After B2 generates quiz | Logout |
+| `assessment_result` | `AssessmentResult` | After B2 scores | Logout |
+| `cert_recommendation` | `CertRecommendation` | After B3 runs | Logout |
+| `run_trace` | `RunTrace` | Accumulated per run | New run |
+| `editing_profile` | bool | Edit button | Form save |
+
+### Session Recovery on Return Visit
+
+```python
+if db.get_latest_profile(student_id):
+    st.session_state["is_returning"] = True
+    profile = LearnerProfile.model_validate_json(row.profile_json)
+    raw     = RawStudentInput.model_validate_json(row.raw_input_json)
+    plan    = StudyPlan.model_validate_json(plan_row.plan_json)
+    # All 6 tabs render immediately — no agent calls needed
 ```
 
 ---
 
-## 18. Multi-Cert Support
+## 12. Mock vs Live Mode
 
-The system fully supports **5 Microsoft certification exams** via `EXAM_DOMAIN_REGISTRY` in `src/cert_prep/models.py`. The Learning Path Catalogue in `b1_1_learning_path_curator.py` covers all 5 exams with 81 curated Microsoft Learn modules.
+| Aspect | Mock Mode | Live Mode (Azure OpenAI) |
+|--------|----------|--------------------------|
+| LLM call | None — rule-based keyword parser | `gpt-4o` JSON-mode completion |
+| Credentials required | None | `AZURE_OPENAI_ENDPOINT` + `AZURE_OPENAI_API_KEY` |
+| Latency (B0 only) | < 50ms | 3–8 seconds |
+| Output contract | Identical `LearnerProfile` | Identical `LearnerProfile` |
+| All downstream agents | Unchanged | Unchanged |
+| Guardrails | All 17 rules active | All 17 rules active |
+| SQLite persistence | Active | Active |
+| Reproducibility | 100% deterministic | Stochastic (temperature 0.2) |
 
-| Exam | Full Name | Domains | Modules |
-|------|-----------|---------|---------|
-| AI-102 | Azure AI Engineer Associate | 6 | 24 |
-| AI-900 | Azure AI Fundamentals | 5 | 15 |
-| AZ-204 | Azure Developer Associate | 5 | 18 |
-| AZ-305 | Azure Solutions Architect Expert | 4 | 16 |
-| DP-100 | Azure Data Scientist Associate | 4 | 16 |
+**Mode detection logic:**
 
 ```python
-# models.py
-EXAM_DOMAIN_REGISTRY: dict[str, list[dict]] = {
-    "AI-102": EXAM_DOMAINS,     # 6 domains
-    "AI-900": AI900_DOMAINS,    # 5 domains
-    "AZ-204": AZ204_DOMAINS,    # 5 domains
-    "DP-100": DP100_DOMAINS,    # 4 domains
-    "AZ-305": AZ305_DOMAINS,    # 4 domains
-}
+def _is_real_value(v: str) -> bool:
+    # Treats placeholder strings like "your-key" or "<endpoint>" as unconfigured
+    return bool(v) and "<" not in v and not v.startswith("your-")
+
+use_live = (
+    _is_real_value(os.getenv("AZURE_OPENAI_ENDPOINT", ""))
+    and _is_real_value(os.getenv("AZURE_OPENAI_API_KEY", ""))
+    and not _force_mock
+)
 ```
-
-Adding a new cert requires:
-1. Adding domain definitions to `models.py` → `EXAM_DOMAIN_REGISTRY`
-2. Adding module catalogue entries to `_LEARN_CATALOGUE` in `b1_1_learning_path_curator.py`
-3. Adding prereq mapping in `StudyPlanAgent._PREREQ_MAP`
-4. Adding synergy mapping in `CertRecommendationAgent.SYNERGY_MAP`
-
-No code changes to agents or orchestrator are needed.
 
 ---
 
-## 19. UI Architecture
+## 13. Azure AI Foundry Integration
+
+When `AZURE_AI_PROJECT_CONNECTION_STRING` is set, `LearnerProfilingAgent` upgrades to the **Azure AI Foundry Agent Service SDK**:
+
+```python
+from azure.ai.projects import AIProjectClient
+from azure.identity import DefaultAzureCredential
+
+client = AIProjectClient.from_connection_string(
+    conn_str=os.getenv("AZURE_AI_PROJECT_CONNECTION_STRING"),
+    credential=DefaultAzureCredential(),
+)
+
+agent = client.agents.create_agent(
+    model="gpt-4o",
+    name="LearnerProfilingAgent",
+    instructions=SYSTEM_PROMPT,
+)
+
+thread = client.agents.create_thread()
+client.agents.create_message(
+    thread.id, role="user",
+    content=json.dumps(raw_input.model_dump())
+)
+run = client.agents.create_and_process_run(thread.id, agent_id=agent.id)
+messages = client.agents.list_messages(thread.id)
+# Parse JSON response → LearnerProfile
+```
+
+The Foundry SDK provides thread management, run lifecycle tracking, and enterprise monitoring through the Azure AI Foundry portal. All other agents use Foundry-compatible typed contracts — they are ready for migration to Foundry-managed agents without redesign.
+
+**Connection string format:**
+
+```
+<region>.api.azureml.ms;<subscription-id>;<resource-group>;<project-name>
+```
+
+**Local authentication:** `az login` once with Azure CLI.  
+**Streamlit Cloud authentication:** Set `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID` as secrets.
+
+---
+
+## 14. Observability and Tracing
+
+Every agent execution is recorded in a `RunTrace` object, persisted to SQLite, and rendered in the Admin Dashboard.
+
+### Trace Data Model
+
+```python
+@dataclass
+class AgentStep:
+    run_id:         str
+    step_index:     int
+    agent_name:     str
+    started_at:     datetime
+    duration_ms:    float
+    input_summary:  str       # truncated to 200 chars
+    output_summary: str       # truncated to 200 chars
+    token_count:    int       # 0 in mock mode
+    parallel_ms:    float     # wall-clock time for parallel fan-out steps
+
+@dataclass
+class RunTrace:
+    run_id:                str    # UUID
+    student_name:          str
+    exam_target:           str
+    mode:                  str    # "mock" / "azure_openai" / "foundry"
+    steps:                 list[AgentStep]
+    total_latency_ms:      float
+    guardrail_violations:  list[GuardrailViolation]
+```
+
+### Admin Dashboard
+
+**File:** `pages/1_Admin_Dashboard.py`  
+**Access:** `/pages/1_Admin_Dashboard` — requires `ADMIN_USERNAME` / `ADMIN_PASSWORD` credentials.
+
+All data comes from SQLite — not from session state — so the dashboard reflects all students across all sessions.
+
+| Section | Data Source | Display |
+|---------|------------|---------|
+| Student Roster | `students` + `learner_profiles` tables | Filtered table with exam targets |
+| Agent Trace Log | `agent_traces` table | Colour-bordered HTML cards per `AgentStep` |
+| Guardrail Audit | `guardrail_violations` table | RED = BLOCK, AMBER = WARN, BLUE = INFO |
+| Mode Badge | `agent_traces.mode` column | Mock or Azure OpenAI / Foundry indicator |
+
+---
+
+## 15. Multi-Certification Support
+
+The system supports **9 Microsoft exam families** via `EXAM_DOMAINS` in `src/cert_prep/config.py`.
+
+| Exam | Full Name | Domain Count |
+|------|-----------|-------------|
+| AI-102 | Azure AI Engineer Associate | 6 |
+| AI-900 | Azure AI Fundamentals | 5 |
+| AZ-204 | Azure Developer Associate | 5 |
+| AZ-305 | Azure Solutions Architect Expert | 4 |
+| AZ-400 | Azure DevOps Engineer Expert | 5 |
+| DP-100 | Azure Data Scientist Associate | 4 |
+| DP-203 | Azure Data Engineer Associate | 4 |
+| SC-100 | Microsoft Cybersecurity Architect | 4 |
+| MS-102 | Microsoft 365 Administrator Expert | 5 |
+
+**Adding a new certification requires changes in exactly 4 places — no agent code changes:**
+
+1. `config.py` — Add domain definitions to `EXAM_DOMAINS`
+2. `b1_1_learning_path_curator.py` — Add MS Learn module entries to `_LEARN_CATALOGUE`
+3. `b1_1_study_plan_agent.py` — Add prerequisite mapping to `_PREREQ_MAP`
+4. `b3_cert_recommendation_agent.py` — Add progression mapping to `SYNERGY_MAP`
+
+---
+
+## 16. UI Architecture
 
 ### Layout
 
 ```
 streamlit_app.py
-├── Sidebar (persona buttons, Azure config expander, nav)
-├── Login screen (3 demo cards + custom login)
-└── Main area
-    ├── Phase 0-2: Intake form → profile spinner
-    └── Phase 3-6: 6-tab navigator
-        ├── Tab 1: Domain Radar + Agent Trace
-        ├── Tab 2: Study Plan Gantt (Plotly)
-        ├── Tab 3: Learning Path module cards
-        ├── Tab 4: [HITL Gate 1 form | Readiness result]
-        ├── Tab 5: [HITL Gate 2 quiz | Score result]
-        └── Tab 6: Cert Recommendation + next cert
+├── Sidebar
+│   ├── Login / Logout
+│   ├── Demo scenario cards (Alex Chen, Priyanka Sharma)
+│   ├── Mode badge (Mock / Azure OpenAI)
+│   └── Azure OpenAI Config expander
+│
+├── Login screen (3 demo cards + custom login form)
+│
+└── Main area (post-login)
+    ├── Top bar (branded header)
+    ├── Credentials notification panel
+    ├── Intake form (new users) / Profile cards (returning users)
+    └── 6-tab navigator (after plan generated)
+        ├── Tab 1: Learner Profile  — Domain radar, confidence scores, score contribution chart, PDF download
+        ├── Tab 2: Study Setup      — Gantt chart, prerequisite gap, weekly breakdown
+        ├── Tab 3: Learning Path    — MS Learn module cards, links, estimated hours
+        ├── Tab 4: Progress         — [HITL Gate 1 form | ReadinessAssessment result]
+        ├── Tab 5: Mock Quiz        — [HITL Gate 2 quiz | Scored result + domain breakdown]
+        └── Tab 6: Certification    — Booking checklist / Remediation plan + next cert
 ```
 
-### Theme
+### Custom Theming
 
-The app uses custom CSS injected via `st.markdown(css, unsafe_allow_html=True)` to implement a dark theme with `#0f172a` background, `#1e293b` card backgrounds, and `#3b82f6` accent.
+The app uses a dark Microsoft-inspired theme applied via CSS injected through `st.markdown(..., unsafe_allow_html=True)`:
+- Background: `#0f172a`
+- Card backgrounds: `#1e293b`
+- Primary accent: `#0078d4` (Microsoft blue)
+- Sidebar gradient: `#1a1a2e` → `#16213e`
 
----
+### Pre-fill System
 
-## 20. Security and Safety
-
-### Content Safety (G-16)
-
-Background text is checked for a keyword list before being used in any prompt or displayed to other users.
-
-### URL Safety (G-17)
-
-All module URLs are validated before display. Only `learn.microsoft.com`, `docs.microsoft.com`, and `azure.microsoft.com` are whitelisted. Unverified URLs are excluded and logged.
-
-### Auth
-
-Demo-grade auth: passwords are compared as plain strings. Production would use PBKDF2 or bcrypt.
-
-### Secrets Management
-
-Azure OpenAI credentials are entered in the sidebar and stored in `st.session_state` (not written to disk). They are passed to `os.environ` only during the LLM call.
+Demo scenarios are defined in `_PREFILL_SCENARIOS`. When a sidebar scenario card is clicked, the scenario key is stored in `st.session_state["sidebar_prefill"]`. On the next render, all form widgets receive `value=prefill.get(field, default)`, appearing pre-filled. The same mechanism loads values for returning users from their persisted `RawStudentInput`.
 
 ---
 
-## 21. Performance Characteristics
+## 17. Responsible AI Model
 
-| Metric | Mock Mode | Live Mode |
-|---|---|---|
-| Intake → first tab rendered | < 200ms | 3–15s (LLM call) |
-| Parallel planning (both agents) | < 50ms | < 50ms (no LLM) |
-| Gate 1 → readiness result | < 20ms | < 20ms |
-| Gate 2 quiz scoring (30q) | < 20ms | < 20ms |
-| SQLite read (restore session) | < 50ms | < 50ms |
-| Admin Dashboard load (10 students) | < 100ms | < 100ms |
+### Seven Principles Applied
 
-ThreadPoolExecutor reduces parallel agent wall-clock time by ~50% vs sequential. Measured timing is recorded in `parallel_agent_ms` and displayed in the Admin Dashboard.
+| Principle | Implementation |
+|-----------|---------------|
+| **Fairness** | Exam-agnostic registry; all 9 exam families receive identical algorithmic treatment; no demographic assumptions in profiling |
+| **Reliability** | Three-tier fallback (Foundry → OpenAI → mock) ensures the application never fails due to Azure service unavailability |
+| **Privacy** | G-16 WARN on PII in background text; PII not forwarded to LLM in mock mode; no personal data stored beyond what the learner explicitly enters |
+| **Inclusivity** | Four learning styles (LAB_FIRST, REFERENCE, ADAPTIVE, LINEAR) with tailored module ordering for each |
+| **Transparency** | Full agent reasoning trace visible in Admin Dashboard; users can inspect which agents ran and what each produced |
+| **Security** | G-16 BLOCK on harmful content; PIN stored as SHA-256 hash; no credentials logged; G-17 URL trust guard on all learning resources |
+| **Accountability** | All guardrail violations logged to SQLite with timestamp and student ID; full audit trail available to admin |
 
 ---
 
-## 22. Deployment
+## 18. Testing Architecture
 
-### Local
+**249 tests · < 2 seconds · zero Azure credentials required**
+
+All tests run in mock mode using rule-based agents. No database writes, no network calls, no side effects.
+
+### Test File Overview
+
+| File | Tests | What It Verifies |
+|------|-------|-----------------|
+| `tests/test_guardrails_full.py` | 71 | All 17 guardrail rules — BLOCK halts, WARN continues, correct message text |
+| `tests/test_models.py` | 28 | Pydantic model validation, enum values, exam registry (all 9 families) |
+| `tests/test_assessment_agent.py` | 24 | Question generation, domain sampling, Largest Remainder, scoring logic |
+| `tests/test_study_plan_agent.py` | 23 | Plan structure, Largest Remainder, budget compliance, priority ordering |
+| `tests/test_pdf_generation.py` | 20 | PDF bytes output, HTML email generation, field safety |
+| `tests/test_progress_agent.py` | 17 | Readiness formula, GO/CONDITIONAL GO/NOT YET verdicts, nudge generation |
+| `tests/test_pipeline_integration.py` | 14 | End-to-end 8-agent chain with typed handoffs |
+| `tests/test_cert_recommendation_agent.py` | 13 | Recommendation paths, booking checklist, remediation output |
+| `tests/test_learning_path_curator.py` | 13 | Module selection, URL trust filtering, learning style adaptation |
+| Baseline (guardrails, config, agents) | 25 | Agent instantiation, config loading, guardrail pipeline initialisation |
+
+### Running Tests
 
 ```powershell
-cd "d:\OneDrive\Athiq\MSFT\Agents League"
-.venv\Scripts\python -m streamlit run streamlit_app.py
+# Full suite with colour output
+.\run_tests.ps1
+
+# Or directly with pytest
+pytest tests/ -v --tb=short
 ```
 
-### Streamlit Community Cloud
+### Test Infrastructure
 
-```
-Repository: https://github.com/athiq-ahmed/agentsleague
-Branch:     master
-Main file:  streamlit_app.py
-Python:     3.11
-```
+```python
+# tests/factories.py — shared factory helpers
+def make_raw_input(**overrides) -> RawStudentInput: ...
+def make_learner_profile(**overrides) -> LearnerProfile: ...
+def make_study_plan(**overrides) -> StudyPlan: ...
 
-### Requirements
-
-```
-streamlit>=1.35
-openai>=1.30
-pydantic>=2.0
-plotly>=5.0
+# tests/conftest.py — session-scope fixtures
+@pytest.fixture(scope="session")
+def ai102_profile() -> LearnerProfile: ...
 ```
 
-All dependencies in `requirements.txt`. No Docker required for demo deployment — Streamlit Community Cloud provisions automatically.
+---
+
+## 19. Performance Characteristics
+
+### Mock Mode
+
+| Stage | Typical Latency |
+|-------|----------------|
+| B0 LearnerProfilingAgent (mock) | < 50ms |
+| B1.1a StudyPlanAgent | < 20ms |
+| B1.1b LearningPathCurator | < 30ms |
+| B1.1a + B1.1b (parallel, wall-clock) | < 30ms |
+| B1.2 ProgressAgent | < 20ms |
+| B2 AssessmentAgent (generate 30 questions) | < 50ms |
+| B3 CertRecommendationAgent | < 20ms |
+| **Full pipeline (mock)** | **< 200ms** |
+
+### Live Mode (Azure OpenAI gpt-4o)
+
+| Stage | Typical Latency |
+|-------|----------------|
+| B0 LearnerProfilingAgent (Azure OpenAI) | 3–8 seconds |
+| All other agents (unchanged) | < 150ms |
+| **Full pipeline (live)** | **4–9 seconds** |
+
+### Demo PDF Caching
+
+Demo persona PDFs (Alex Chen, Priyanka Sharma) are generated once and cached to `demo_pdfs/` on disk. Subsequent clicks serve from disk — ~5ms vs ~500ms for fresh generation. Real user PDFs are always freshly generated.
+
+---
+
+## 20. Security Model
+
+| Concern | Mitigation |
+|---------|-----------|
+| PIN authentication | 4-digit PIN stored as `SHA-256(name + pin)` hash — never plaintext |
+| Credential management | All secrets via `.env` (local) or Streamlit Cloud secrets; never logged or committed to git |
+| Admin access | Separate `ADMIN_USERNAME` / `ADMIN_PASSWORD` in `.env`; admin page rejects non-admin sessions |
+| Content safety | G-16 BLOCK on harmful keyword categories before any LLM call |
+| URL injection | G-17 strips any URL not on the `learn.microsoft.com` allowlist |
+| PII handling | G-16 WARN on SSN, credit card, and email patterns in free-text fields |
+| LLM prompt injection | System prompt is static; user input is a separate `user` message, never interpolated into the system prompt |
+| SQLite isolation | Database file is local to the deployment instance; no external network port exposed |
+| `.env` protection | `.gitignore` excludes `.env`; only `.env.example` with placeholder values is committed |
+
+---
+
+## 21. Deployment Options
+
+### Option 1 — Local Development
+
+```powershell
+git clone https://github.com/athiq-ahmed/agentsleague.git
+cd agentsleague
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+# Copy .env and fill in optional Azure credentials
+streamlit run streamlit_app.py
+# Open http://localhost:8501
+```
+
+### Option 2 — Streamlit Community Cloud (Current Production)
+
+1. Push to GitHub `master` branch
+2. Go to [share.streamlit.io](https://share.streamlit.io) → **New app**
+3. Select repository and `streamlit_app.py` as the entry point
+4. Add secrets under **Settings → Secrets** (paste `.env` contents in TOML format)
+5. Deploys automatically on every push to master
+
+Live URL: [agentsleague.streamlit.app](https://agentsleague.streamlit.app)
+
+### Option 3 — Azure Container Apps (Production Scale)
+
+```dockerfile
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+EXPOSE 8501
+HEALTHCHECK CMD curl -f http://localhost:8501/_stcore/health || exit 1
+CMD ["streamlit", "run", "streamlit_app.py", \
+     "--server.headless=true", \
+     "--server.enableCORS=false", \
+     "--server.port=8501"]
+```
+
+```bash
+# Build and push
+az acr build --registry <acr-name> --image certprep:latest .
+
+# Deploy
+az containerapp create \
+  --name certprep-app \
+  --resource-group rg-agentsleague \
+  --environment certprep-env \
+  --image <acr>.azurecr.io/certprep:latest \
+  --min-replicas 1 --max-replicas 10 \
+  --target-port 8501 \
+  --ingress external \
+  --secrets OPENAI_KEY=<keyvault-ref> \
+  --env-vars AZURE_OPENAI_ENDPOINT=<endpoint> AZURE_OPENAI_API_KEY=secretref:OPENAI_KEY
+```
+
+---
+
+## 22. Migration and Roadmap
+
+### Immediate Migration Paths (No Redesign Required)
+
+| Current | Upgrade Path | Effort | Notes |
+|---------|-------------|--------|-------|
+| SQLite | Azure Cosmos DB for NoSQL | Medium | Schema already portable; swap `database.py` implementation |
+| SMTP email | Azure Communication Services | Low | Replace `attempt_send_email()` with ACS SDK; managed sender domain |
+| Rule-based mock | Full Foundry SDK for all agents | Medium | All contracts already Foundry-compatible; no redesign needed |
+| Streamlit Cloud | Azure Container Apps | Low | Dockerfile ready |
+| Sequential plan + path | `asyncio.gather()` parallel | Low | Both agents already fully independent |
+
+### Roadmap Backlog
+
+| Item | Priority | Notes |
+|------|----------|-------|
+| Microsoft Learn MCP Server integration | High | Live module catalogue via `MCP_MSLEARN_URL` (already wired in config, server not running) |
+| Cosmos DB migration | Medium | Enables multi-region, global scale, and Cosmos DB free tier for competition demo |
+| Real-time adaptive quiz | Medium | Stream questions one at a time; adjust difficulty based on running domain score |
+| Azure Communication Services email | Low | Production-grade deliverability; managed `DoNotReply@…azurecomm.net` sender |
+| Multi-tenant admin | Low | Separate guardrail violation and trace views per organisation |
+| asyncio.gather() parallel fan-out | Low | ~25% latency improvement for live mode; sequential is already fast in mock mode |

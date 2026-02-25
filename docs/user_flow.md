@@ -1,275 +1,209 @@
-# 📊 User Flow — CertPrep Multi-Agent System
+# User Flow — Certification Preparation Multi-Agent System
 
-> Visual flowcharts for all 8 user journeys. Each diagram shows both user actions and the technical events behind them.
-
----
-
-## Scenario Map
-
-`mermaid
-flowchart LR
-    Login([🔑 Login Screen])
-
-    Login -->|New learner| S1[S1 — New Learner\nAI-102 from scratch]
-    Login -->|Returning user| S2[S2 — Returning Learner\nDP-100 on file]
-    Login -->|Azure creds set| S3[S3 — Live Azure\nOpenAI Mode]
-    Login -->|Admin login| S4[S4 — Admin\nAudit Dashboard]
-
-    S1 --> S5[S5 — Remediation\nLoop score less than 70%]
-    S1 --> S6[S6 — Edit Profile]
-    S1 --> S7[S7 — Guardrail BLOCK]
-    S1 --> S8[S8 — PII in Background]
-`
+> **Audience:** Product reviewers, UX evaluators, and stakeholders wanting to understand how learners and administrators interact with the system.  
+> **Format:** Eight scenario-by-scenario prose walkthroughs with step-by-step numbered actions. No diagrams.
 
 ---
 
-## S1 — New Learner, AI-102 from Scratch
+## Table of Contents
 
-The happy path. Mock mode — no Azure credentials needed. ~5 min end-to-end.
-
-`mermaid
-flowchart TD
-    A([Open App]) --> B[Click Alex Chen\ndemo card]
-    B --> C[Session: logged_in=True\nSQLite upsert_student]
-    C --> D[Intake Form\npre-filled via sidebar_prefill]
-
-    D --> G{Guardrails\nG-01 to G-05}
-    G -->|BLOCK| ERR1[st.error + st.stop\nUser fixes form]
-    G -->|PASS| PROF
-
-    subgraph PROF [Learner Profiling — b1_mock_profiler.py]
-        P1[Parse background text\nkeyword rules]
-        P2[Assign ExperienceLevel\nBEGINNER]
-        P3[Set domain confidence\nall UNKNOWN or WEAK]
-        P1 --> P2 --> P3
-    end
-
-    PROF --> G2{Guardrails\nG-06 to G-08}
-    G2 -->|PASS| FAN
-
-    subgraph FAN [Parallel Fan-Out — ThreadPoolExecutor max_workers=2]
-        direction LR
-        SP[Thread A\nStudyPlanAgent\nLargest Remainder\nalgorithm]
-        LC[Thread B\nLearningPathCurator\nMS Learn module\nmapping + G-17]
-    end
-
-    FAN --> DB[(SQLite\nprofile + plan\n+ learning path)]
-    DB --> UI
-
-    subgraph UI [6-Tab UI Renders]
-        T1[Tab 1 Radar chart\n6 domains]
-        T2[Tab 2 Gantt chart\n10 weeks]
-        T3[Tab 3 MS Learn\nmodule cards]
-        T4[Tab 4 HITL Gate 1\nProgress check-in]
-        T5[Tab 5 Mock Quiz\n30 questions]
-        T6[Tab 6 Cert\nRecommendation]
-    end
-
-    T4 -->|Submit progress| PROG[ProgressAgent\nreadiness formula\n0.55 x confidence\n+0.25 x hours\n+0.20 x practice]
-    PROG -->|score 50% or above| T5
-    PROG -->|score below 50%| NOTYET[NOT YET banner\nWeak domains highlighted]
-
-    T5 -->|Submit answers| SCORE[Score 30 questions\nweighted by domain]
-    SCORE -->|70% or above| T6
-    SCORE -->|below 70%| S5([S5 Remediation])
-
-    T6 --> DONE([Ready to book\nNext cert recommendation])
-`
+1. [S1 — New Learner: First-Time Happy Path](#s1--new-learner-first-time-happy-path)
+2. [S2 — Returning Learner: Session Restore](#s2--returning-learner-session-restore)
+3. [S3 — Live Azure OpenAI Mode](#s3--live-azure-openai-mode)
+4. [S4 — Admin Audit Dashboard](#s4--admin-audit-dashboard)
+5. [S5 — Remediation Loop: Score Below Threshold](#s5--remediation-loop-score-below-threshold)
+6. [S6 — Edit Profile: Re-running the Pipeline](#s6--edit-profile-re-running-the-pipeline)
+7. [S7 — Guardrail BLOCK Scenarios](#s7--guardrail-block-scenarios)
+8. [S8 — PII in Background Text](#s8--pii-in-background-text)
 
 ---
 
-## S2 — Returning Learner, DP-100
+## S1 — New Learner: First-Time Happy Path
 
-Profile loaded from SQLite — no agent re-runs unless the user edits.
+**Persona:** Alex Chen — a developer with 2 years of Azure experience targeting the AI-102 exam in 10 weeks, studying 8 hours per week.
 
-`mermaid
-flowchart TD
-    A([Login as Priyanka Sharma]) --> B[SQLite read\nlearner_profiles\nstudy_plan\nlearning_path]
-    B --> C{Data found?}
-    C -->|No| S1([S1 New Learner flow])
-    C -->|Yes| D[Restore session state\nis_returning = True]
+**Preconditions:** No prior account. Mock mode active (no Azure credentials set).
 
-    D --> E[Show read-only\nProfile Cards x3\nno form, no agent calls]
-    E --> F{User action}
+1. Alex opens the app in a browser. The landing screen shows a login panel with three demo persona cards and a custom registration form.
 
-    F -->|View tabs| TABS[All 6 tabs render\nfrom session state\nno re-computation]
-    F -->|Click Edit| S6([S6 Edit Profile flow])
+2. Alex types a chosen username and a 4-digit PIN, then clicks **Register**. The system creates a new account in SQLite, stores the PIN as a SHA-256 hash, and logs Alex in.
 
-    TABS --> G{Previous gates completed?}
-    G -->|progress_submitted = True| SHOW_PROG[Tab 4 shows\nprevious readiness result]
-    G -->|quiz_submitted = True| SHOW_QUIZ[Tab 5 shows score\nTab 6 shows recommendation]
-`
+3. In the sidebar, Alex sees the demo scenario cards. Alex clicks the **Alex Chen — AI-102** card. The intake form fields are immediately pre-filled with Alex's background text, exam target, hours per week, and study weeks.
+
+4. The **Create My AI Study Plan** button becomes active because a scenario was selected with a non-empty background. Alex clicks it.
+
+5. The guardrail pipeline runs input checks G-01 through G-05. All pass (background is filled, exam target is valid, hours and weeks are in range). No guardrail banners appear.
+
+6. The `LearnerProfilingAgent` (B0) runs in mock mode, parsing Alex's background text using keyword rules. It identifies Alex as `INTERMEDIATE` experience level with `LAB_FIRST` learning style and distributes confidence scores across all six AI-102 domains.
+
+7. After the profile is built, the guardrail pipeline runs profile checks G-06 through G-08. The number of `DomainProfile` objects matches the six-domain AI-102 registry. All confidence scores are in range. No violations.
+
+8. The `StudyPlanAgent` (B1.1a) and `LearningPathCuratorAgent` (B1.1b) run in parallel. The study plan allocates 80 study hours across the six domains using the Largest Remainder algorithm. The learning path curator selects 3 Microsoft Learn modules per domain, ordered with labs first to match Alex's learning style.
+
+9. On completion, the six-tab UI renders. Alex is on **Tab 1: Learner Profile**, which shows a domain radar chart, confidence score bars, and an exam score contribution bar chart. Two buttons appear at the bottom: **Download PDF Report** and an email button showing "No email configured" (greyed out with a tooltip).
+
+10. Alex clicks **Download PDF Report**. A multi-page PDF downloads immediately, containing the domain confidence breakdown, study plan Gantt table, and full learning path.
+
+11. Alex navigates to **Tab 2: Study Setup**, which shows a Gantt chart with colour-coded study blocks per domain and a weekly hour breakdown. A note indicates no prerequisite gap (AZ-900 is listed as owned).
+
+12. Alex navigates to **Tab 3: Learning Path**, which shows 18 MS Learn module cards across all six domains. Each card shows a clickable link to `learn.microsoft.com`, the module type (lab, module, or learning path), and estimated hours.
+
+13. After several study weeks, Alex returns to the app and navigates to **Tab 4: Progress**. The progress check-in form appears. Alex fills in hours spent (32 out of 80), rates each domain's self-confidence on a 1–5 slider, enters a practice exam score of 74, and submits.
+
+14. The `ProgressAgent` computes the readiness percentage using the weighted formula and returns a **GO** verdict (readiness above 70%). A green success banner appears. The nudges section lists one suggestion: "Computer Vision scored below 0.50 — complete 2 additional practice labs."
+
+15. Alex navigates to **Tab 5: Mock Quiz**. A 30-question adaptive quiz appears, with questions distributed across all six AI-102 domains proportionally. Alex answers all 30 questions and clicks **Submit Quiz**.
+
+16. The `AssessmentAgent` scores the submission with a weighted domain score of 78%. The result panel shows PASS, a domain-by-domain breakdown bar chart, and highlights Computer Vision as the lowest scoring domain at 63%.
+
+17. The `CertRecommendationAgent` (B3) runs and the result appears in **Tab 6: Certification Advice**. Alex is marked as ready to book the real exam. The booking checklist includes steps for Pearson VUE registration, accepted ID types, and the recommended study week before booking. The next-cert recommendation suggests AZ-204 as the logical progression after AI-102.
+
+---
+
+## S2 — Returning Learner: Session Restore
+
+**Persona:** Priyanka Sharma — a data scientist who previously completed the DP-100 study plan and saved all results. Returning to review her plan after two weeks away.
+
+**Preconditions:** Priyanka has a prior account with a saved learner profile, study plan, learning path, and progress snapshot in SQLite.
+
+1. Priyanka opens the app and types her username and PIN, then clicks **Login**.
+
+2. The system finds a prior profile in SQLite. Session state is populated immediately with her `LearnerProfile`, `StudyPlan`, `LearningPath`, and the most recent `ProgressSnapshot` and `ReadinessAssessment` — no agents re-run.
+
+3. The six-tab UI renders with a notification at the top: "Welcome back, Priyanka — your DP-100 plan has been restored."
+
+4. All tabs are populated. Priyanka can see her domain confidence radar (Tab 1), her study Gantt chart (Tab 2), her 12 learning path modules (Tab 3), her last readiness verdict — **CONDITIONAL GO** at 61% — with the domain nudges from her previous session (Tab 4), and her last quiz score (68%) in Tab 5.
+
+5. The data is in read-only viewing mode. Priyanka can download her PDF using the button on Tab 1 and review her entire history without triggering any agent calls.
+
+6. If Priyanka wants to update her progress or re-take the quiz, she navigates to Tabs 4 and 5 respectively, which remain interactive for new submissions.
 
 ---
 
 ## S3 — Live Azure OpenAI Mode
 
-One branching point changes everything: use_live toggle in the sidebar.
+**Persona:** A demo organiser running the app with Azure OpenAI credentials set for a live demonstration.
 
-`mermaid
-flowchart TD
-    A[Sidebar: Azure OpenAI Config] --> B{Creds filled\nand toggle ON?}
-    B -->|No| MOCK[run_mock_profiling\nb1_mock_profiler.py\nrule-based]
-    B -->|Yes| LIVE
+**Preconditions:** `.env` file or Streamlit secrets contain valid `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_API_KEY` values.
 
-    subgraph LIVE [LearnerProfilingAgent — b0_intake_agent.py]
-        L1[Build system prompt\nwith JSON schema]
-        L2[Send RawStudentInput\nto GPT-4o\ntemperature = 0.2]
-        L3[Parse JSON response\nLearnerProfile Pydantic]
-        L1 --> L2 --> L3
-    end
+1. The app starts. The sidebar mode badge shows **Azure OpenAI: gpt-4o** in green, replacing the default **Mock Mode** badge.
 
-    LIVE -->|Success| MERGE[LearnerProfile]
-    LIVE -->|Exception| FB[Fallback to mock\nst.info shown]
-    FB --> MERGE
-    MOCK --> MERGE
+2. A learner fills in the intake form with a custom background description and clicks **Create My AI Study Plan**.
 
-    MERGE --> REST([All downstream agents\nStudyPlan + LearningPath\nProgress + Quiz + Recommendation\nidentical in both modes])
-`
+3. After guardrail input checks pass, the `LearnerProfilingAgent` (B0) attempts to use the Azure AI Foundry Agent Service SDK first (Tier 1). If `AZURE_AI_PROJECT_CONNECTION_STRING` is not set, it falls back to the direct Azure OpenAI API call (Tier 2).
+
+4. A spinner with the message "Analysing your background with Azure OpenAI gpt-4o…" appears while the LLM call completes. This typically takes 3–8 seconds.
+
+5. The LLM response is parsed into a `LearnerProfile`. If the JSON is malformed or missing required fields, the profiler automatically falls back to the rule-based mock engine (Tier 3) and logs a WARN in the trace.
+
+6. From this point, the pipeline is identical to mock mode — all downstream agents (B1.1a, B1.1b, B1.2, B2, B3) are deterministic and do not call the LLM. Only B0 uses the LLM.
+
+7. In the Admin Dashboard trace log, the run appears with `mode: azure_openai` and the B0 step shows non-zero `token_count` and a `duration_ms` of several thousand milliseconds versus under 50ms in mock mode.
 
 ---
 
 ## S4 — Admin Audit Dashboard
 
-Navigate to /pages/1_Admin_Dashboard.py — credentials: dmin / gents2026.
+**Persona:** An administrator or facilitator reviewing learner activity after a group demo event.
 
-`mermaid
-flowchart LR
-    A([Admin login]) --> B[Admin Dashboard]
+**Preconditions:** `ADMIN_USERNAME` and `ADMIN_PASSWORD` are set in `.env`. The event had 8 unique learner sessions.
 
-    B --> R[Student Roster\nSELECT from\nlearner_profiles]
-    B --> T[Agent Trace Log\nColour-bordered HTML cards\nper AgentStep]
-    B --> G[Guardrail Audit\nRED = BLOCK\nAMBER = WARN]
-    B --> M[Mode Badge\nMock or Azure OpenAI]
+1. The admin navigates to `/pages/1_Admin_Dashboard` in the browser.
 
-    T --> T1[Agent name + timestamp\n+ duration_ms]
-    T --> T2[input_summary\ntruncated 200 chars]
-    T --> T3[output_summary\nkey fields]
-    T --> T4[Parallel time in ms]
-`
+2. An admin login form appears. The admin enters their credentials and clicks **Login**. A wrong password shows an error; a correct one advances to the dashboard.
 
----
+3. The **Student Roster** section renders a table with all 8 students, their exam targets, registration dates, and whether they completed the full pipeline or stopped mid-way.
 
-## S5 — Remediation Loop (Score < 70%)
+4. The **Agent Trace Log** section shows a card per pipeline run, colour-bordered by mode (grey for mock, blue for Azure OpenAI). Each card lists every `AgentStep` with its name, duration in milliseconds, and a truncated output summary.
 
-Triggered when mock quiz score falls below the pass threshold.
+5. The **Parallel Execution** row within trace cards shows the wall-clock time for the `StudyPlanAgent` + `LearningPathCuratorAgent` fan-out — consistently under 30ms in mock mode.
 
-`mermaid
-flowchart TD
-    Q([Quiz score below 70%]) --> A[CertRecommendationAgent\nremediation branch]
+6. The **Guardrail Audit** section provides a searchable table of all guardrail violations across all sessions. Violations at level BLOCK appear with a red indicator, WARN with amber, and INFO with blue. The admin can filter by code (e.g., G-03 to see everyone who entered invalid study hours).
 
-    A --> B[ready_to_book = False\nIdentify weak domains\ne.g. D3 45% and D5 55%]
-    B --> C[UI: Not ready banner\nDomain breakdown table\nRemediation plan per domain]
-
-    C --> D{User action}
-    D -->|Click Regenerate| E[Reset weak domain\nconfidence to 0.1\npop plan + learning_path]
-
-    E --> F[StudyPlanAgent re-runs\nLargest Remainder\nreallocates more hours\nto weak domains]
-    E --> GG[LearningPathCurator re-runs\nSelects hands-on-lab\nvariants for weak domains]
-
-    F --> H[(SQLite overwrite\nversion 2 of plan)]
-    GG --> H
-    H --> I([All tabs update\nwith new plan])
-
-    D -->|Ignore and reattempt quiz| Q
-`
+7. The admin notices three G-16 WARN violations from one session. They click to expand and see that the learner's background text contained an email address pattern. The pipeline was not blocked; the PII WARN was logged and the pipeline continued.
 
 ---
 
-## S6 — Edit Profile
+## S5 — Remediation Loop: Score Below Threshold
 
-`mermaid
-flowchart TD
-    A([Returning user\nclicks Edit]) --> B[editing_profile = True\nst.rerun]
-    B --> C[Intake form shown\npre-populated from stored raw]
-    C --> D[User updates fields\ne.g. AI-102 to AZ-204]
-    D --> E[Click Save and Regenerate]
+**Persona:** Jordan — a learner who submitted their progress check-in with only 20 hours studied out of 40 budgeted and a practice score of 42%.
 
-    E --> F{Guardrails\nG-01 to G-05}
-    F -->|BLOCK| ERR[User fixes field]
-    F -->|PASS| G[Full pipeline reruns\nfrom profiling onwards]
+**Preconditions:** Jordan has a study plan; this is their first progress check-in submission.
 
-    G --> H[New LearnerProfile\nfor AZ-204 domains]
-    H --> I[StudyPlan + LearningPath\nregenerated in parallel]
-    I --> J[(SQLite overwrite\nnew cert)]
-    J --> K[editing_profile cleared\nAll 6 tabs reflect AZ-204]
-`
+1. Jordan fills in the progress form showing 20 hours spent, domain ratings of mostly 2s and 3s, and a practice exam score of 42. Jordan submits.
+
+2. The `ProgressAgent` computes: readiness = 0.55 × 47% + 0.25 × 50% + 0.20 × 42% = 47.4%. Verdict: **NOT YET**.
+
+3. A red warning panel appears: "You're not quite ready — we recommend more preparation before booking." Below it, the nudges section lists two specific domains to re-focus on, with suggested module types.
+
+4. A **Regenerate Study Plan** button appears. Jordan clicks it.
+
+5. The system resets the domain confidence scores for the two weak domains to `WEAK` (confidence 0.25) and re-runs `StudyPlanAgent` with the updated profile. The new plan front-loads the weak domains into the first three weeks and increases their allocated hours.
+
+6. `LearningPathCuratorAgent` also re-runs and presents additional lab-type resources for the weak domains.
+
+7. Tab 2 refreshes with the regenerated Gantt chart. Jordan can see the rebalanced allocation and returns to studying.
+
+---
+
+## S6 — Edit Profile: Re-running the Pipeline
+
+**Persona:** Sam — a learner who initially targeted AI-900 but updated their goal to AI-102 after one week.
+
+**Preconditions:** Sam has a complete profile and study plan for AI-900 in session state.
+
+1. Sam navigates to Tab 1 (Learner Profile). An **Edit Profile** button appears in the top-right corner of the profile card.
+
+2. Sam clicks **Edit Profile**. The six tabs collapse and the intake form re-appears, pre-filled with Sam's current values — the background text, study hours (8 hours per week), and study weeks (8 weeks). The exam target dropdown shows AI-900 selected.
+
+3. Sam changes the exam target from AI-900 to AI-102 and clicks **Update Plan**.
+
+4. The guardrail input checks run again. All pass. The full 8-agent pipeline re-runs from the beginning: B0 (profiling), B1.1a + B1.1b (parallel plan and path), and the output replaces all prior session state and SQLite records for Sam.
+
+5. The six tabs re-render with AI-102 content. The profile card shows six domains instead of five, and the study plan Gantt reflects the longer AI-102 scope. A subtle banner confirms: "Your plan has been updated for AI-102."
 
 ---
 
 ## S7 — Guardrail BLOCK Scenarios
 
-`mermaid
-flowchart TD
-    INPUT([User submits form]) --> G02{G-02\nExam in registry?}
-    G02 -->|AZ-999 not found| BLK1[BLOCK\nAZ-999 not in registry\nst.stop]
-    G02 -->|Valid| G03
+**Persona:** A learner who makes several common input mistakes on the intake form.
 
-    G03{G-03\nHours in 1 to 80?}
-    G03 -->|0 or above 80| BLK2[BLOCK\nHours must be 1 to 80\nst.stop]
-    G03 -->|Valid| G16
+### Scenario 7a — Invalid Exam Target
 
-    G16{G-16\nHarmful keyword\nin text?}
-    G16 -->|bomb matched| BLK3[BLOCK\nHarmful content detected\nst.stop]
-    G16 -->|Clean| G17
+1. The learner types "AZ-999" into the exam target field and submits. The G-02 BLOCK rule fires. A red banner reads: "AZ-999 is not a supported exam. Please select from the supported list." `st.stop()` halts the pipeline. The learner must correct the exam target before proceeding.
 
-    G17{G-17\nURL trust check\non learning path}
-    G17 -->|youtube.com found| WRN[WARN only\nURL removed\nrest of path delivered]
-    G17 -->|All learn.microsoft.com| PASS([Pipeline continues])
+### Scenario 7b — Hours Out of Range
 
-    WRN --> PASS
-`
+1. A learner sets hours per week to 0.5, below the minimum of 1. The G-03 BLOCK fires with the message: "Hours per week must be between 1 and 80." The pipeline halts. The learner changes the slider to 5 and resubmits successfully.
+
+### Scenario 7c — Weeks Out of Range
+
+1. A learner enters 60 weeks, above the maximum of 52. The G-04 BLOCK fires: "Weeks available must be between 1 and 52." The pipeline halts.
+
+### Scenario 7d — Study Plan Hours Overrun
+
+1. In an edge case where the total allocated hours exceed 110% of the budget (G-10), a WARN banner appears with the message: "Allocated study hours exceed your weekly budget by more than 10% — the plan may be overloaded." Unlike BLOCKs, the pipeline continues and the learner can proceed, noting the advisory.
 
 ---
 
 ## S8 — PII in Background Text
 
-G-16 runs **before** any profiler agent. PII triggers WARN (pipeline continues). Harmful keywords trigger BLOCK.
+**Persona:** A learner who accidentally pastes personal information into the background text field.
 
-`mermaid
-flowchart TD
-    TXT([background_text submitted]) --> SCAN[G-16 PII scan\nregex patterns]
+### Scenario 8a — Email Address (WARN, continues)
 
-    SCAN --> SSN{SSN pattern\n123-45-6789?}
-    SCAN --> CC{Credit card\n16-digit?}
-    SCAN --> EMAIL{Email in bio\nuser at domain?}
-    SCAN --> HARM{Harmful keyword\nbomb, harm, etc?}
+1. The learner types a background description that includes their email address: "I'm an engineer at company.com — contact me at sam@company.com for more details."
 
-    SSN -->|Match| W1[WARN banner\nSSN detected\nuser notified]
-    CC  -->|Match| W2[WARN banner\nCredit card detected]
-    EMAIL -->|Match| W3[WARN banner\nEmail in bio detected]
-    HARM -->|Match| BLK[BLOCK\nst.stop\nUser must edit text]
+2. The G-16 content scanner detects the email pattern `sam@company.com`. A WARN-level amber banner appears: "[G-16] Personal email address detected in your background text — please review before submitting to an AI service." The pipeline continues. In mock mode, the email address is not forwarded to any LLM.
 
-    W1 --> CONT[Pipeline continues\nSSN not forwarded\nto OpenAI in mock mode]
-    W2 --> CONT
-    W3 --> CONT
+### Scenario 8b — Credit Card Number (WARN, continues)
 
-    CONT --> LOG[(guardrail_violations\nlogged in SQLite\nvisible in Admin Dashboard)]
-`
+1. A learner copies from a notes document that accidentally contains a card number in sequence: "My Pearson VUE booking ref was near 4111 1111 1111 1111 in my notes."
 
----
+2. G-16 detects the credit card pattern. An amber banner warns the learner. The pipeline continues but the learner is advised to remove the number before proceeding with a live Azure OpenAI session.
 
-## Pipeline Exit Points
+### Scenario 8c — Harmful Keyword (BLOCK, halts)
 
-`mermaid
-flowchart LR
-    subgraph BLOCKS [Pipeline BLOCK — st.stop]
-        B1[G-01 to G-05\nInvalid form input]
-        B2[G-06 to G-08\nInvalid profiler output]
-        B3[G-16 harmful keyword]
-    end
+1. A learner's background text contains a flagged keyword from the prohibited content blocklist.
 
-    subgraph WARNS [Pipeline WARN — continues]
-        W1[G-16 PII\nUser notified, runs on]
-        W2[G-09 to G-10\nPlan hours over budget]
-        W3[G-17 URL\nBad URL removed]
-    end
-
-    subgraph AUTO [Auto-recovery]
-        A1[Azure OpenAI error\nsilent fallback to mock]
-    end
-
-    BLOCKS --> ERR([Halted — user corrects input])
-    WARNS --> CONT([Continues with banner])
-    AUTO --> CONT
-`
+2. G-16 fires at BLOCK level. A red banner appears: "[G-16] Your background text contains content that cannot be processed. Please revise it." `st.stop()` prevents any agent from running. The violation is logged to SQLite for admin review, but the content itself is never persisted — only the violation code and timestamp are stored.
