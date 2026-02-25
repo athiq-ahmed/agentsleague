@@ -577,7 +577,7 @@ if not st.session_state["authenticated"]:
     st.markdown("""
     <div class="ms-top-bar">
       <div class="ms-top-left">
-        <h1>Agents League — AI-Powered Cert Prep</h1>
+        <h1>Agents League — AI-Powered Certification Prep</h1>
         <p>A production-grade multi-agent system built entirely on <strong style="color:#fff">Azure AI Foundry</strong>.
         Six specialised agents — orchestrated via <strong style="color:#fff">Azure OpenAI GPT-4o</strong>, grounded in
         <strong style="color:#fff">Azure AI Search</strong>, and persisted in <strong style="color:#fff">Azure Cosmos DB</strong>
@@ -1033,7 +1033,11 @@ st.markdown(f"""
     box-shadow: none !important; opacity: 0 !important;
     cursor: pointer !important; width: 100% !important;
   }}
-  div.element-container:has(.sb-sc-card:not(.active)):has(+ div.element-container .stButton > button:hover) .sb-sc-card {{
+  div.element-container:has(.sb-sc-card.disabled) + div.element-container .stButton > button {{
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+  }}
+  div.element-container:has(.sb-sc-card:not(.active):not(.disabled)):has(+ div.element-container .stButton > button:hover) .sb-sc-card {{
     background: rgba(255,255,255,0.22);
     border-color: rgba(255,255,255,0.45);
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
