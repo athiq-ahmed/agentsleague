@@ -648,49 +648,40 @@ def attempt_send_email(
     html_body: str,
     pdf_bytes: Optional[bytes] = None,
     pdf_filename: str = "CertPrep_Report.pdf",
-    smtp_user: str = "",
-    smtp_pass: str = "",
-    smtp_host: str = "",
-    smtp_port: int = 0,
-    smtp_from: str = "",
 ) -> tuple[bool, str]:
     """
-    Convenience wrapper around send_simple_email.
-
-    Priority for credentials:
-      1. smtp_* arguments (passed from UI session state)
-      2. SMTP_* environment variables
-      3. → returns (False, "not configured") if user/pass absent
-
-    Works with any SMTP provider: SendGrid, Mailgun, Amazon SES,
-    Azure Communication Services, Gmail, or custom SMTP.
+    Send an email with optional PDF attachment using stdlib smtplib.
+    Credentials and server config are read from env vars:
+      SMTP_HOST  (default: smtp.sendgrid.net)
+      SMTP_PORT  (default: 587)
+      SMTP_USER  SendGrid: literal string 'apikey'; Gmail: your@gmail.com
+      SMTP_PASS  SendGrid: API key; Gmail: 16-char App Password
+      SMTP_FROM  (default: SMTP_USER)
     """
-    _user = smtp_user or os.getenv("SMTP_USER", "")
-    _pass = smtp_pass or os.getenv("SMTP_PASS", "")
+    _user = os.getenv("SMTP_USER", "")
+    _pass = os.getenv("SMTP_PASS", "")
 
     if not _user or not _pass:
         return False, (
-            "Email credentials not configured. "
-            "Open 📧 Email Settings in the sidebar and enter your "
-            "SMTP provider credentials."
+            "Email not configured. Set SMTP_USER and SMTP_PASS "
+            "in your .env file (or Streamlit secrets)."
         )
 
-    _host = smtp_host or os.getenv("SMTP_HOST", "smtp.sendgrid.net")
-    _port = smtp_port or int(os.getenv("SMTP_PORT", "587"))
-    _from = smtp_from or os.getenv("SMTP_FROM", _user)
+    _host = os.getenv("SMTP_HOST", "smtp.sendgrid.net")
+    _port = int(os.getenv("SMTP_PORT", "587"))
+    _from = os.getenv("SMTP_FROM", _user)
 
-    ok, msg_text = send_simple_email(
+    return send_simple_email(
         smtp_host=_host,
         smtp_port=_port,
         to_emails=to_address,
         subject=subject,
         body_text=html_body,
-        sender_email=_from or _user,
+        sender_email=_from,
         sender_pass=_pass,
         pdf_bytes=pdf_bytes,
         pdf_filename=pdf_filename,
     )
-    return ok, msg_text
 
 
 # ─── PDF report generators ────────────────────────────────────────────────────
