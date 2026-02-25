@@ -1,6 +1,6 @@
-# Judge Playbook — CertPrep Multi-Agent System
+# Judge Playbook — Certification Preparation Multi-Agent System
 
-> This document is designed for competition judges evaluating the CertPrep entry for Agents League 2026. It explains the multi-agent architecture, key design decisions, scoring dimensions, and answers to likely technical questions.
+> This document is designed for competition judges evaluating the Certification Preparation entry for Agents League 2026. It explains the multi-agent architecture, key design decisions, scoring dimensions, and answers to likely technical questions.
 
 ---
 
@@ -84,9 +84,9 @@ The agents produce the inputs for these gates and interpret the outputs — huma
 | # | Agent | Module | Input | Output | Notes |
 |---|---|---|---|---|---|
 | 0 | Intake Guard | guardrails.py (G-01..G-05) | RawStudentInput | GuardrailResult | PII + content safety |
-| 1 | Learner Profiler | b1_mock_profiler.py | RawStudentInput | LearnerProfile | 3-tier: rule → Foundry SDK → GPT-4o |
+| 1 | Learner Profiler | b0_intake_agent.py | RawStudentInput | LearnerProfile | Three-tier fallback: Foundry SDK → Azure OpenAI → rule-based mock |
 | 2 | Study Planner | b1_1_study_plan_agent.py | LearnerProfile | StudyPlan | Largest Remainder allocation |
-| 3 | Path Curator | b1_1_learning_path_curator.py | LearnerProfile | LearningPath | 5 exams, 81+ modules |
+| 3 | Path Curator | b1_1_learning_path_curator.py | LearnerProfile | LearningPath | 9 exam families; curated MS Learn modules per family |
 | 4 | Progress Tracker | b1_2_progress_agent.py | ProgressSnapshot | ReadinessAssessment + PDF | PDF reports via reportlab; SMTP email |
 | 5 | Assessment | b2_assessment_agent.py | LearnerProfile | AssessmentResult | 30-question adaptive quiz |
 | 6 | Cert Recommender | b3_cert_recommendation_agent.py | AssessmentResult | CertRecommendation | GO / CONDITIONAL GO / NOT YET |
@@ -115,17 +115,18 @@ Without this guardrail: StudyPlanAgent receives a LearnerProfile with 0 domains 
 Every URL returned by LearningPathCuratorAgent is checked against a trusted origin set.
 
 ```python
-TRUSTED_ORIGINS = {
-    'learn.microsoft.com',
-    'docs.microsoft.com',
-    'azure.microsoft.com',
-}
+TRUSTED_URL_PREFIXES = [
+    "https://learn.microsoft.com",
+    "https://docs.microsoft.com",
+    "https://aka.ms",
+    "https://home.pearsonvue.com",
+    "https://certiport.pearsonvue.com",
+]
 
-def check_G17(url):
-    netloc = urlparse(url).netloc.removeprefix('www.')
-    if netloc not in TRUSTED_ORIGINS:
-        return GuardrailViolation(code='G-17', level=GuardrailLevel.WARN,
-                                  message=f'Unverified URL excluded: {netloc}')
+def check_G17(url: str) -> GuardrailViolation | None:
+    if not any(url.startswith(p) for p in TRUSTED_URL_PREFIXES):
+        return GuardrailViolation(code="G-17", level=GuardrailLevel.WARN,
+                                  message=f"URL excluded — not on allowlist: {url}")
     return None
 ```
 
@@ -135,23 +136,23 @@ WARN not BLOCK: a single bad URL should not halt the entire learning path.
 
 | Code | Phase | Level | Check |
 |------|-------|-------|-------|
-| G-01 | Intake | BLOCK | student_name non-empty |
-| G-02 | Intake | BLOCK | exam_target in EXAM_DOMAIN_REGISTRY |
-| G-03 | Intake | BLOCK | hours_per_week in [1, 80] |
-| G-04 | Intake | BLOCK | weeks_available in [1, 52] |
-| G-05 | Intake | BLOCK | len(background_text) > 10 |
-| G-06 | Profile | BLOCK | len(domain_profiles) == expected_domains(exam) |
-| G-07 | Profile | BLOCK | all confidence_score in [0.0, 1.0] |
-| G-08 | Profile | BLOCK | all risk_domain IDs in registry |
-| G-09 | Study Plan | WARN | total_hours <= budget * 1.1 |
-| G-10 | Study Plan | WARN | all WeekBlock.domain_id in domain_profiles |
-| G-11 | Progress | BLOCK | hours_spent >= 0 |
-| G-12 | Progress | BLOCK | all domain_ratings in [1, 5] |
-| G-13 | Progress | BLOCK | practice_score in [0, 100] |
-| G-14 | Quiz | BLOCK | len(questions) >= 5 |
-| G-15 | Quiz | BLOCK | no duplicate question IDs |
-| G-16 | Content | BLOCK | background_text free of disallowed keywords |
-| G-17 | URL | WARN | all module URLs from trusted origins |
+| G-01 | Intake | WARN | Background text is empty — profiling accuracy may be limited |
+| G-02 | Intake | BLOCK | exam_target not in EXAM_DOMAINS registry |
+| G-03 | Intake | BLOCK | hours_per_week outside range [1, 80] |
+| G-04 | Intake | BLOCK | weeks_available outside range [1, 52] |
+| G-05 | Intake | INFO | No concern topics provided (optional field) |
+| G-06 | Profile | BLOCK | domain_profiles count != expected domain count for exam |
+| G-07 | Profile | BLOCK | any confidence_score outside [0.0, 1.0] |
+| G-08 | Profile | WARN | risk_domains contains IDs not in the exam's registry |
+| G-09 | Study Plan | BLOCK | any task has start_week > end_week |
+| G-10 | Study Plan | WARN | total allocated hours exceed 110% of budget |
+| G-11 | Progress | BLOCK | hours_spent is negative |
+| G-12 | Progress | BLOCK | any domain_rating outside [1, 5] |
+| G-13 | Progress | BLOCK | practice_exam_score outside [0, 100] |
+| G-14 | Quiz | WARN | assessment contains fewer than 5 questions |
+| G-15 | Quiz | BLOCK | duplicate question_id values detected |
+| G-16 | Content | BLOCK/WARN | harmful keyword (BLOCK) or PII pattern — SSN/CC/email (WARN) |
+| G-17 | URL | WARN | URL not on approved learn.microsoft.com allowlist |
 
 ### Audit Trail
 
@@ -300,8 +301,9 @@ Orchestrator: AI Foundry Thread + Assistant API
 
 ### Phase 1 — Current (Competition)
 - SQLite (local file)
-- Mock profiler (rule engine) + Azure OpenAI optional via sidebar toggle
+- Mock profiler (rule engine) + Azure OpenAI optional; three-tier fallback (Foundry SDK → OpenAI → mock)
 - Streamlit Community Cloud
+- 9 exam families, 249 unit tests, 6-tab Streamlit UI
 
 ### Phase 2 — Production MVP
 - Azure Cosmos DB replaces SQLite
@@ -331,10 +333,10 @@ Orchestrator: AI Foundry Thread + Assistant API
 
 | Dimension | Max | Our Score | Justification |
 |---|---|---|---|
-| Technical Innovation | 25 | 23 | 7-agent pipeline, LR allocation algorithm, guardrail framework, HITL gates, PDF report generation |
+| Technical Innovation | 25 | 23 | 8-agent pipeline, LR allocation algorithm, 17-rule guardrail framework, HITL gates, PDF report generation |
 | Azure Services Usage | 20 | 18 | GPT-4o live mode, AI Foundry roadmap, 8 services documented |
 | Problem Impact | 20 | 19 | Real problem (cert failure rate), personalised plans, booking readiness gate; 5-exam catalogue |
-| Demo Quality | 20 | 18 | 7 seeded demo students across all 5 exams, Gantt + radar charts, PDF download, Admin audit dashboard |
+| Demo Quality | 20 | 18 | 7 seeded demo students across 9 exam families, Gantt + radar charts, PDF download, Admin audit dashboard |
 | Code Quality | 15 | 13 | Typed models (Pydantic), guardrail separation, parallel execution evidence |
 | **Total** | **100** | **91** | |
 

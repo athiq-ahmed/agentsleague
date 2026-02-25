@@ -28,11 +28,11 @@
 
 ## Tab-by-Tab Walkthrough
 
-The app is split into **7 tabs**. Complete them in order — some tabs unlock only after earlier ones are filled in.
+The app starts with an **intake form**. After submitting it, **six output tabs** appear across the top of the page. Complete them in order — some tabs unlock only after earlier ones are filled in.
 
 ---
 
-### Tab 1: 📋 Intake & Setup
+### Intake Form — 📋 Setup
 
 **What it does:** Collects everything the AI profiler needs to build your personalised plan.
 
@@ -52,19 +52,20 @@ The app is split into **7 tabs**. Complete them in order — some tabs unlock on
 - Enter *all* certs you hold, even AI-900 or AZ-900 — each one boosts relevant domain scores
 - Concern topics lets the system front-load areas you're weakest in
 
-**Click:** `🚀 Start My Certification Journey` — this runs the profiler and generates your plan.
+**Click:** `Create My AI Study Plan` — this runs the profiler and generates your plan.
 
 ---
 
-### Tab 2: 🗺️ Domain Map
+### Tab 1: 📊 Learner Profile
 
-**What it does:** Shows your starting knowledge level for each exam domain as a visual map.
+**What it does:** Shows your starting knowledge level for each exam domain as a visual map, plus your PDF download and email buttons.
 
 **Sections on this tab:**
-- **Exam Domain Weights** (bar chart): Shows how heavily each domain is weighted on the real exam. Taller bar = more questions on exam day.
+- **Exam Score Contribution** (bar chart): Shows how heavily each domain is weighted on the real exam.
 - **Your Confidence per Domain** (bar chart): Initial confidence score from 0–100% based on your background + existing certs.
 - **Domain Knowledge Table**: Lists each domain with your `Knowledge Level` (UNKNOWN / WEAK / MODERATE / STRONG) and `Confidence %`.
-- **Learning Style Badge**: Your inferred learning style (e.g., LAB_FIRST, LINEAR) and what it means for how resources will be selected for you.
+- **Learning Style Badge**: Your inferred learning style (e.g., LAB_FIRST, LINEAR) and what it means for how resources will be selected.
+- **Download PDF Report** / **Email PDF**: Download or send your profile + study plan as a PDF.
 
 **How to read it:**
 - Domains with a 🔴 **WEAK** badge are your **risk domains** — the plan will allocate more time here
@@ -73,7 +74,7 @@ The app is split into **7 tabs**. Complete them in order — some tabs unlock on
 
 ---
 
-### Tab 3: 📚 Study Setup
+### Tab 2: 📚 Study Setup
 
 **What it does:** Shows your personalised week-by-week study plan and prerequisite gap check.
 
@@ -98,7 +99,7 @@ The app is split into **7 tabs**. Complete them in order — some tabs unlock on
 
 ---
 
-### Tab 4: 🛤️ Learning Path
+### Tab 3: 🛤️ Learning Path
 
 **What it does:** Shows curated learning resources for each domain — mapped to your specific domains and learning style.
 
@@ -114,7 +115,7 @@ The app is split into **7 tabs**. Complete them in order — some tabs unlock on
 
 ---
 
-### Tab 5: 📊 My Progress
+### Tab 4: 📊 Progress
 
 **What it does:** This is your **first Human-in-the-Loop checkpoint** — you must fill this in honestly for readiness scoring to be meaningful.
 
@@ -146,45 +147,33 @@ Readiness = 55% × (your domain ratings) + 25% × (hours studied / total budget)
 
 ---
 
-### Tab 6: 🧠 Knowledge Check
+### Tab 5: 🧠 Mock Quiz
 
-**What it does:** This is your **second Human-in-the-Loop checkpoint** — a domain-weighted practice quiz.
+**What it does:** This is your **second Human-in-the-Loop checkpoint** — a domain-weighted 30-question practice quiz.
 
 **How it works:**
-1. Click `Generate Quiz` — the system samples 10 questions from a 30-question bank, proportional to real exam domain weights
+1. All 30 questions load at once — answer every question (all must be answered before Submit activates)
 2. For each question, select one answer (A / B / C / D)
-3. Click `Submit Quiz` when done
+3. Click `Submit Quiz` when all questions are answered
 
 **After submitting:**
-- **Score %**: Your percentage correct
+- **Score %**: Your percentage correct (weighted by domain)
 - **Domain Breakdown**: Which domains you got right vs wrong
 - **Answer Review**: Each question with your answer, correct answer, and explanation
 
-**How questions are selected:**
-The system uses domain weights to decide how many questions come from each domain. For AI-102:
-- Computer Vision (22.5%) → ~2 questions
-- NLP (22.5%) → ~2 questions
-- Plan & Manage (17.5%) → ~2 questions
-- Document Intelligence (17.5%) → ~2 questions
-- Generative AI (10%) → 1 question
-- Conversational AI (10%) → 1 question
-
-This mirrors the actual exam distribution.
+The 30 questions are distributed across all exam domains proportionally to real exam weights — this mirrors the actual exam distribution.
 
 ---
 
-### Tab 7: 🏆 Recommendations
+### Tab 6: 🏆 Certification Advice
 
 **What it does:** Final verdict — next certification path, exam booking checklist, and remediation plan if needed.
 
 **Sections:**
-1. **3 Info Tiles** — Your learning style summary, top focus domains, and fast-track note
-2. **Readiness Metric Row** — 4 key numbers: readiness %, quiz score, top domain, risk count
-3. **Verdict Banner** — GO / CONDITIONAL / NOT YET with coloured progress bar
-4. **Per-Domain Readiness Grid** — Mini bars for each domain with READY / WORKING / FOCUS badges
-5. **Next Certification Path** — Recommended cert chain after current exam (e.g., AI-102 → AI-102 Specialty → DP-100)
-6. **Booking Checklist** — Step-by-step exam booking guide (Pearson VUE, ID requirements, scoring info)
-7. **Remediation Plan** — If NOT YET verdict: specific domains + resources + estimated additional hours
+1. **Booking Checklist** (GO path) — Step-by-step Pearson VUE exam registration guide shown when quiz score ≥ 70%
+2. **Remediation Plan** (NOT YET path) — Specific domains with resources and estimated additional hours
+3. **Next Certification Path** — Recommended cert chain after current exam (e.g., AI-102 → AZ-204)
+4. **Verdict Banner** — GO / CONDITIONAL GO / NOT YET with coloured banner and explanation
 
 ---
 
@@ -215,19 +204,19 @@ This mirrors the actual exam distribution.
 ## FAQ
 
 **Q: Can I change my target exam after starting?**
-A: Yes — go back to Tab 1, change the exam, and click `Start My Certification Journey` again. A new profile and plan will be generated. Your previous session data is preserved in the database.
+A: Yes — click **Edit Profile** on the Learner Profile tab, change the exam, and click `Create My AI Study Plan` again. A new profile and plan will be generated. Your previous session data is preserved in the database.
 
 **Q: The system says I'm "NOT YET READY" — what should I do?**
-A: The remediation plan in Tab 7 shows exactly which domains need work and links directly to the relevant MS Learn modules. Focus on those domains, then resubmit your progress in Tab 5 to see your readiness update.
+A: The remediation plan in the **Certification Advice** tab (Tab 6) shows exactly which domains need work and links directly to the relevant MS Learn modules. Focus on those domains, then resubmit your progress in Tab 4 to see your readiness update.
 
 **Q: My reading says 0% readiness even though I've studied a lot.**
-A: You need to fill in the **Progress Check-In form** in Tab 5 first. Until you submit real study data, the system doesn't know about your progress.
+A: You need to fill in the **Progress Check-In form** in **Tab 4** first. Until you submit real study data, the system doesn't know about your progress.
 
 **Q: How many questions are in the quiz?**
 A: The quiz pulls 10 questions from a 30-question bank, proportional to real exam domain weights. This ensures the quiz reflects the actual exam balance.
 
 **Q: Can I retake the quiz?**
-A: Yes — click `Reset Quiz` to clear answers and generate a new sample from the question bank.
+A: Yes — click `Reset Quiz` on Tab 5 to clear answers and generate a new sample from the question bank.
 
 **Q: Does the system use AI / ChatGPT?**
 A: By default, all profiling and planning runs in **mock mode** — a rule-based system that works without any AI API. If an Azure OpenAI key is configured in settings, the profiler and learning path curator switch to live GPT-4o calls for richer analysis.

@@ -4,7 +4,7 @@
 > **Project:** Microsoft Certification Prep Multi-Agent System  
 > **Track:** Reasoning Agents with Microsoft Foundry  
 > **Subscription:** Pay-As-You-Go (recommended) or MSDN/Visual Studio  
-> **Last updated:** 2026-07-17
+> **Last updated:** 2026-02-25
 
 ---
 
@@ -255,6 +255,11 @@
 - [x] Scenario card dimming — `.sb-sc-card.disabled` CSS; inactive card dims when other is selected
 - [x] `load_dotenv(override=True)` — live mode `.env` credentials correctly loaded on startup
 - [x] Demo cohort seeded — 5 additional students (Marcus Johnson/AZ-204, Sarah Williams/AI-900, David Kim/AZ-305, Fatima Al-Rashid/AI-102, Jordan Baptiste/DP-100) via `src/cert_prep/seed_demo_data.py`
+- [x] `docs/technical_documentation.md` — merged comprehensive 22-section doc (arch + tech doc combined, all agents, algorithms, guardrails, testing, deployment)
+- [x] `docs/user_flow.md` — rewritten as 8 prose scenario walkthroughs S1–S8 (no broken mermaid)
+- [x] `docs/judge_playbook.md` — updated agent inventory, guardrail table, URL allowlist, exam families count
+- [x] `docs/demo_guide.md` — updated tab names (6 tabs), button labels, exam catalogue to 9 families
+- [x] `docs/user_guide.md` — updated from 7-tab to 6-tab structure with correct tab names
 
 ---
 
@@ -270,6 +275,7 @@
 | T-09 | Wire `azure-ai-evaluation` SDK for agent quality metrics | 🔲 NOT STARTED | `AgentStep`/`RunTrace` already schema-compatible; needs `pip install azure-ai-evaluation` + eval harness |
 | T-10 | Record demo video (3–5 min) | 🔲 NOT STARTED | New learner → profile → plan → quiz → recommendation; show Admin Dashboard trace + G-16 PII |
 | T-11 | Deploy to Streamlit Cloud with service principal secrets | 🔲 NOT STARTED | Add `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID` to Streamlit Cloud secrets |
+| T-12 | Docs overhaul | ✅ DONE | Merged `technical_architecture.md` + `technical_documentation.md`; rewrote `user_flow.md` (prose); updated `judge_playbook.md`, `demo_guide.md`, `user_guide.md` |
 
 ### Backlog — Should Do
 

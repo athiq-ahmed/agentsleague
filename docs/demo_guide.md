@@ -71,13 +71,13 @@ All agents run in **mock mode by default** — zero Azure OpenAI cost, instant s
 3. In the **left sidebar**, click one of the two scenario buttons:
    - 🌱 **AI Beginner · AI-102** — loads Alex Chen's profile
    - 📊 **Data Professional · DP-100** — loads Priyanka Sharma's profile
-4. Review the pre-filled form, then click **🚀 Generate My Study Plan**
-5. The seven output tabs appear instantly
+4. Review the pre-filled form, then click **Create My AI Study Plan**
+5. The six output tabs appear instantly
 
 ### Option B — Custom Profile
 
 1. Fill the intake form manually with any background, exam target, hours per week, and concern topics
-2. Click **🚀 Generate My Study Plan**
+2. Click **Create My AI Study Plan**
 
 ### Resetting Between Demos
 
@@ -111,14 +111,14 @@ Click **🌱 AI Beginner · AI-102** in the sidebar. The form fills automaticall
 
 ### Step 2 — Generate the Profile
 
-Click **🚀 Generate My Study Plan**. All eight agents run in under a second (mock mode).
+Click **Create My AI Study Plan**. All eight agents run in under a second (mock mode).
 
 ![Profile generation loading](screenshots/03_alex_generating.png)
 *Caption: Spinner shown while agents run. In mock mode this resolves in <1 second.*
 
-### Step 3 — Domain Map (Tab 1)
+### Step 3 — Learner Profile (Tab 1)
 
-The **Domain Map** tab shows Alex's readiness across all AI-102 exam domains as a coloured radar chart + sortable table:
+The **Learner Profile** tab shows Alex's readiness across all AI-102 exam domains as a coloured radar chart + sortable table, plus an exam score contribution bar chart and PDF download button:
 
 - 🔴 **Red** domains (< 40% confidence) — highest priority gaps
 - 🟠 **Orange** domains (40–64%) — needs work
@@ -152,30 +152,29 @@ The **Learning Path** tab shows a week-by-week curated curriculum with:
 ![Alex — Learning Path weekly plan](screenshots/06_alex_learning_path.png)
 *Caption: Learning Path for Alex Chen — week-by-week breakdown with module links.*
 
-### Step 6 — Recommendations (Tab 4)
+### Step 6 — Certification Advice (Tab 6)
 
-The **Cert Recommendation** agent outputs:
+The **Certification Advice** tab (populated after the quiz is submitted) shows:
 
-- Exam readiness indicator
-- Pre-study recommendations (e.g., "Complete AZ-900 first")
-- Risk domains that need the most attention
-- Whether the learner is on a GO or REMEDIATION path
+- Booking checklist with Pearson VUE steps (GO path)
+- Remediation plan with specific domain resources (NOT YET path)
+- Next certification recommendation (AI-102 → AZ-204)
 
-**For Alex:** System will recommend completing AZ-900 fundamentals as optional prep, and flag generative AI + responsible AI as risk domains.
+**For Alex:** Likely a NOT YET or CONDITIONAL GO on first visit — the remediation plan will flag computer vision and generative AI as priority focus areas.
 
 ![Alex — Recommendations panel](screenshots/07_alex_recommendations.png)
 *Caption: Recommendations panel showing readiness indicator, risk domains, and suggested pre-study steps.*
 
-### Step 7 — My Progress (Tab 5)
+### Step 7 — Progress (Tab 4)
 
 First visit shows a **Progress Check-In** form (HITL gate 1) — the learner self-reports hours studied and confidence. Submit to unlock the full progress analytics.
 
 ![Alex — Progress Check-In form](screenshots/08_alex_progress_gate.png)
 *Caption: Human-in-the-loop gate 1 — learner submits self-reported progress before analytics unlock.*
 
-### Step 8 — Knowledge Check (Tab 6)
+### Step 8 — Mock Quiz (Tab 5)
 
-Select a domain from the dropdown and click **🎯 Start Quiz**. A 5-question adaptive quiz runs. Score ≥ 70% → **GO** badge. Score < 70% → **REMEDIATE** badge with weak areas highlighted.
+All 30 questions must be answered before the Submit button activates. After submission the `AssessmentAgent` scores the quiz with domain-weighted scoring. Score ≥ 70% → **PASS** badge. Score < 70% → **FAIL** with per-domain breakdown and weak domain highlights.
 
 ![Alex — Knowledge Check quiz in progress](screenshots/09_alex_quiz.png)
 *Caption: Knowledge Check tab showing a 5-question quiz for the Azure OpenAI domain.*
@@ -266,7 +265,7 @@ If SMTP credentials are configured in `.env` **and** the student entered an emai
 
 ### Manual PDF Download (Profile tab)
 
-In the **Domain Map (Profile)** tab, scroll below the domain chart to find:
+In the **Learner Profile** tab, scroll below the domain chart to find:
 1. **⬇️ Download PDF** — downloads the profile + study plan as a PDF file
 2. **📧 Email Study Plan PDF** — type an email address and click send; the same PDF is emailed via SMTP
 
@@ -298,7 +297,7 @@ Credentials: username `admin`, password `agents2026`.
 
 ### Student Cohort Table
 
-The dashboard opens with a live student registry table showing all students who have run the pipeline. The demo database ships pre-seeded with **7 students** across all 5 supported exams:
+The dashboard opens with a live student registry table showing all students who have run the pipeline. The demo database ships pre-seeded with **7 students** spanning multiple exam families:
 
 | Student | Exam | Status |
 |---------|------|--------|
@@ -359,17 +358,16 @@ A full dataframe of all profiling runs in the current browser session, including
 
 ## Learning Tabs Deep-Dive
 
-After generating a profile, seven output tabs appear across the top of the page:
+After generating a profile, six output tabs appear across the top of the page:
 
 | Tab | What it shows | Key agent |
-|-----|--------------|-----------|
-| **1 · Domain Map** | Radar + bar chart of per-domain confidence | Domain Confidence Scorer |
-| **2 · Study Setup** | Hours available, domain hour allocation, prereq warning | Study Plan Agent |
-| **3 · Learning Path** | Week-by-week curated Microsoft Learn modules | Learning Path Curator |
-| **4 · Recommendations** | Readiness verdict, cert booking guidance, risk domains | Cert Recommendation Agent |
-| **5 · My Progress** | HITL check-in gate 1 + progress bar analytics | Progress Agent |
-| **6 · Knowledge Check** | 5-question adaptive quiz + PASS/REMEDIATE gate | Assessment Agent |
-| **7 · Raw Data** | Full JSON payloads for all agent I/O — for debugging | All agents |
+|-----|--------------|----------|
+| **1 · Learner Profile** | Domain radar, confidence scores, exam score contribution chart, PDF download | Learner Profiling Agent |
+| **2 · Study Setup** | Gantt chart, prerequisite gap check, weekly hour breakdown | Study Plan Agent |
+| **3 · Learning Path** | MS Learn module cards with links, module types, estimated hours | Learning Path Curator |
+| **4 · Progress** | HITL Gate 1 check-in form → ReadinessAssessment (GO / CONDITIONAL GO / NOT YET) | Progress Agent |
+| **5 · Mock Quiz** | HITL Gate 2 — 30-question domain-weighted quiz → scored result with domain breakdown | Assessment Agent |
+| **6 · Certification Advice** | Booking checklist (GO path) or remediation plan + next cert recommendation (NOT YET path) | Cert Recommendation Agent |
 
 Each tab has a **↑ Back to top** anchor and a one-liner purpose caption.
 
@@ -436,7 +434,7 @@ Every agent receives and returns a typed Pydantic model — no raw-string hand-o
 | ✅ Personalisation | Identical system → completely different plans for Alex vs Priyanka | |
 | ✅ No-cost demo mode | All scenarios run without Azure credentials | |
 | ✅ Real-time UI | Streamlit app with plotly charts, gantt, radar, tables | |
-| ✅ 5-exam catalogue | AI-102, AI-900, AZ-204, AZ-305, DP-100 (81 modules) | |
+| ✅ 9-exam families | AI-102, AI-900, AZ-204, AZ-305, AZ-400, DP-100, DP-203, SC-100, MS-102 | |
 
 ---
 
@@ -446,4 +444,4 @@ Every agent receives and returns a typed Pydantic model — no raw-string hand-o
 
 ---
 
-*Last updated: July 2026 · Agents League Battle #2*
+*Last updated: February 2026 · Agents League Battle #2*
