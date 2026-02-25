@@ -1594,44 +1594,53 @@ with st.sidebar:
             del st.session_state[k]
         st.rerun()
 
-    # ── Email Settings (no .env needed — enter credentials directly) ──────────
+    # ── Email Settings — generic SMTP (SendGrid, Gmail, any provider) ──────────
     with st.expander("📧 Email Settings", expanded=False):
-        st.caption(
-            "Enter any Gmail address + App Password to send PDFs. "
-            "No .env changes required."
+        st.caption("SMTP credentials — works with SendGrid, Gmail or any provider. No .env needed.")
+        _si_host = st.text_input(
+            "SMTP Host",
+            value=st.session_state.get("_smtp_host_ui", os.getenv("SMTP_HOST", "smtp.sendgrid.net")),
+            placeholder="smtp.sendgrid.net",
+            key="smtp_host_ui",
+        )
+        _si_port = st.number_input(
+            "Port",
+            value=int(st.session_state.get("_smtp_port_ui", os.getenv("SMTP_PORT", "587"))),
+            min_value=1, max_value=65535, step=1,
+            key="smtp_port_ui",
         )
         _si_user = st.text_input(
-            "Gmail address",
+            "Username",
             value=st.session_state.get("_smtp_user_ui", os.getenv("SMTP_USER", "")),
-            placeholder="you@gmail.com",
+            placeholder="apikey  (SendGrid) · you@gmail.com  (Gmail)",
             key="smtp_user_ui",
-            label_visibility="visible",
         )
         _si_pass = st.text_input(
-            "App Password",
+            "Password / API Key",
             value=st.session_state.get("_smtp_pass_ui", os.getenv("SMTP_PASS", "")),
             type="password",
-            placeholder="16-char app password",
+            placeholder="API key or app password",
             key="smtp_pass_ui",
-            label_visibility="visible",
+        )
+        _si_from = st.text_input(
+            "From address",
+            value=st.session_state.get("_smtp_from_ui", os.getenv("SMTP_FROM", "")),
+            placeholder="noreply@yourdomain.com",
+            key="smtp_from_ui",
         )
         # Persist to session state so email buttons can read them
-        if _si_user:
-            st.session_state["_smtp_user_ui"] = _si_user
-        if _si_pass:
-            st.session_state["_smtp_pass_ui"] = _si_pass
+        st.session_state["_smtp_host_ui"] = _si_host
+        st.session_state["_smtp_port_ui"] = int(_si_port)
+        if _si_user: st.session_state["_smtp_user_ui"] = _si_user
+        if _si_pass: st.session_state["_smtp_pass_ui"] = _si_pass
+        if _si_from: st.session_state["_smtp_from_ui"] = _si_from
 
         # Quick status indicator
         _smtp_creds_ok = bool(st.session_state.get("_smtp_user_ui")) and bool(st.session_state.get("_smtp_pass_ui"))
         if _smtp_creds_ok:
-            st.success("✅ Email credentials ready", icon=None)
+            st.success("✅ Email credentials ready")
         else:
-            st.info(
-                "Generate an App Password at "
-                "[myaccount.google.com](https://myaccount.google.com) "
-                "→ Security → App passwords → Mail.",
-                icon="ℹ️",
-            )
+            st.info("Enter SMTP host + username + password to enable PDF email delivery.", icon="ℹ️")
 
     # ── Azure services mode badge ─────────────────────────────────────────
     st.markdown("---")
@@ -1763,9 +1772,9 @@ if use_live:
          False, "G-16 content filter API",
          "AZURE_CONTENT_SAFETY_ENDPOINT + AZURE_CONTENT_SAFETY_KEY"),
         ("SMTP Email",
-         bool(st.session_state.get("_smtp_user_ui")) or _is_real_value(os.getenv("SMTP_HOST", "")),
-         False, "PDF email via sidebar credentials or .env",
-         "Sidebar \u25b8 Email Settings (or SMTP_USER/SMTP_PASS in .env)"),
+         bool(st.session_state.get("_smtp_user_ui")) and bool(st.session_state.get("_smtp_pass_ui")),
+         False, "PDF reports via smtplib — any SMTP provider",
+         "Sidebar \u25b8 Email Settings"),
         ("MS Learn MCP",         _is_real_value(os.getenv("MCP_MSLEARN_URL", "")),
          False, "Live module catalogue",
          "MCP_MSLEARN_URL"),
@@ -2295,6 +2304,9 @@ if submitted:
     _intake_email = raw.email.strip() if raw.email else ""
     _smtp_ui_user = st.session_state.get("_smtp_user_ui", os.getenv("SMTP_USER", ""))
     _smtp_ui_pass = st.session_state.get("_smtp_pass_ui", os.getenv("SMTP_PASS", ""))
+    _smtp_ui_host = st.session_state.get("_smtp_host_ui", os.getenv("SMTP_HOST", "smtp.sendgrid.net"))
+    _smtp_ui_port = int(st.session_state.get("_smtp_port_ui", os.getenv("SMTP_PORT", "587")))
+    _smtp_ui_from = st.session_state.get("_smtp_from_ui", os.getenv("SMTP_FROM", ""))
     _smtp_ready   = bool(_smtp_ui_user) and bool(_smtp_ui_pass)
     if _intake_email and _smtp_ready:
         try:
@@ -2306,6 +2318,7 @@ if submitted:
                 _intake_email, _subj, _intake_html,
                 pdf_bytes=_intake_pdf, pdf_filename=_pdf_fname,
                 smtp_user=_smtp_ui_user, smtp_pass=_smtp_ui_pass,
+                smtp_host=_smtp_ui_host, smtp_port=_smtp_ui_port, smtp_from=_smtp_ui_from,
             )
             if _ok_i:
                 st.success(f"📧 Study plan emailed to **{_intake_email}** with PDF attached!")
@@ -2847,11 +2860,15 @@ if "profile" in st.session_state:
                         _fname2     = f"StudyPlan_{profile.student_name.replace(' ','_')}_{profile.exam_target.split()[0]}.pdf"
                         _smtp_u = st.session_state.get("_smtp_user_ui", os.getenv("SMTP_USER", ""))
                         _smtp_p = st.session_state.get("_smtp_pass_ui", os.getenv("SMTP_PASS", ""))
+                        _smtp_h = st.session_state.get("_smtp_host_ui", os.getenv("SMTP_HOST", "smtp.sendgrid.net"))
+                        _smtp_o = int(st.session_state.get("_smtp_port_ui", os.getenv("SMTP_PORT", "587")))
+                        _smtp_f = st.session_state.get("_smtp_from_ui", os.getenv("SMTP_FROM", ""))
                         with st.spinner("Sending…"):
                             _ok2, _msg2 = attempt_send_email(
                                 _email_to_send, _subj2, _html_body2,
                                 pdf_bytes=_pdf_bytes2, pdf_filename=_fname2,
                                 smtp_user=_smtp_u, smtp_pass=_smtp_p,
+                                smtp_host=_smtp_h, smtp_port=_smtp_o, smtp_from=_smtp_f,
                             )
                         if _ok2:
                             st.success(f"✅ {_msg2}")
@@ -3879,12 +3896,16 @@ if "profile" in st.session_state:
                             _pdf_attach_name = "ProgressReport.pdf"
                         _smtp_u2 = st.session_state.get("_smtp_user_ui", os.getenv("SMTP_USER", ""))
                         _smtp_p2 = st.session_state.get("_smtp_pass_ui", os.getenv("SMTP_PASS", ""))
+                        _smtp_h2 = st.session_state.get("_smtp_host_ui", os.getenv("SMTP_HOST", "smtp.sendgrid.net"))
+                        _smtp_o2 = int(st.session_state.get("_smtp_port_ui", os.getenv("SMTP_PORT", "587")))
+                        _smtp_f2 = st.session_state.get("_smtp_from_ui", os.getenv("SMTP_FROM", ""))
                         with st.spinner("Sending email…"):
                             _ok, _msg = attempt_send_email(
                                 _send_to, _subject, _html_body,
                                 pdf_bytes=_pdf_attach,
                                 pdf_filename=_pdf_attach_name,
                                 smtp_user=_smtp_u2, smtp_pass=_smtp_p2,
+                                smtp_host=_smtp_h2, smtp_port=_smtp_o2, smtp_from=_smtp_f2,
                             )
                         if _ok:
                             st.success(f"✅ {_msg}")

@@ -633,10 +633,10 @@ def send_simple_email(
         return True, f"Email sent successfully{attach_note}!"
     except smtplib.SMTPAuthenticationError:
         return False, (
-            "Authentication failed. For Gmail, use an App Password "
-            "(not your regular password). "
-            "Enable 2FA first, then generate one at "
-            "myaccount.google.com → Security → App passwords."
+            "Authentication failed. Check your SMTP username and password/API key. "
+            "SendGrid: username is 'apikey', password is your API Key. "
+            "Mailgun/SES/ACS: use the SMTP credentials from your provider dashboard. "
+            "Gmail: use an App Password (myaccount.google.com → Security → App passwords)."
         )
     except Exception as exc:
         return False, f"Failed to send email: {exc}"
@@ -650,17 +650,20 @@ def attempt_send_email(
     pdf_filename: str = "CertPrep_Report.pdf",
     smtp_user: str = "",
     smtp_pass: str = "",
+    smtp_host: str = "",
+    smtp_port: int = 0,
+    smtp_from: str = "",
 ) -> tuple[bool, str]:
     """
     Convenience wrapper around send_simple_email.
 
     Priority for credentials:
-      1. smtp_user / smtp_pass arguments (passed from UI session state)
-      2. SMTP_USER / SMTP_PASS environment variables
-      3. → returns (False, "not configured") if neither present
+      1. smtp_* arguments (passed from UI session state)
+      2. SMTP_* environment variables
+      3. → returns (False, "not configured") if user/pass absent
 
-    All other SMTP settings (host, port, from) read from env vars with
-    sensible Gmail defaults so existing callers need no changes.
+    Works with any SMTP provider: SendGrid, Mailgun, Amazon SES,
+    Azure Communication Services, Gmail, or custom SMTP.
     """
     _user = smtp_user or os.getenv("SMTP_USER", "")
     _pass = smtp_pass or os.getenv("SMTP_PASS", "")
@@ -668,16 +671,14 @@ def attempt_send_email(
     if not _user or not _pass:
         return False, (
             "Email credentials not configured. "
-            "Enter your Gmail address and App Password in the "
-            "📧 Email Settings panel in the sidebar."
+            "Open 📧 Email Settings in the sidebar and enter your "
+            "SMTP provider credentials."
         )
 
-    _host  = os.getenv("SMTP_HOST", "smtp.gmail.com")
-    _port  = int(os.getenv("SMTP_PORT", "587"))
-    _from  = os.getenv("SMTP_FROM", _user)
+    _host = smtp_host or os.getenv("SMTP_HOST", "smtp.sendgrid.net")
+    _port = smtp_port or int(os.getenv("SMTP_PORT", "587"))
+    _from = smtp_from or os.getenv("SMTP_FROM", _user)
 
-    # Patch the From header to the configured display address
-    # (send_simple_email uses sender_email as both auth and From)
     ok, msg_text = send_simple_email(
         smtp_host=_host,
         smtp_port=_port,
