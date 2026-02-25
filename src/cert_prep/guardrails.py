@@ -516,8 +516,11 @@ class OutputContentGuardrails:
             # ─ Live mode: call Azure Content Safety API for harmful-content BLOCK ─
             _cs_violations = self._check_content_safety_api(text, field_name, _label)
             violations.extend(_cs_violations)
-            # If API returned a BLOCK we can skip the regex harmful check.
-            # PII regex always runs: Content Safety API does NOT catch SSNs/CC nums.
+            # Layer 3 — Azure AI Language PII Entity Recognition (live mode only)
+            # This catches SSN, credit cards, passports, phone, email etc. via ML,
+            # complementing the regex layers which cover keyword- and format-based matches.
+            _lang_pii = self._check_language_pii_api(text, field_name, _label)
+            violations.extend(_lang_pii)
         else:
             # ─ Mock mode: regex harmful pattern ─
             if _HARMFUL_PATTERN.search(text):
@@ -631,6 +634,100 @@ class OutputContentGuardrails:
                     ),
                 )]
         return []
+
+    def _check_language_pii_api(
+        self, text: str, field_name: str, field_label: str
+    ) -> list[GuardrailViolation]:
+        """Call Azure AI Language PiiEntityRecognition endpoint (live mode only).
+
+        Returns WARN violations for each distinct PII category detected with
+        confidence ≥ 0.5. Falls back silently to an empty list if the endpoint
+        is not configured or the API call fails — regex layers remain active.
+
+        Env vars required:
+            AZURE_LANGUAGE_ENDPOINT  e.g. https://myresource.cognitiveservices.azure.com
+            AZURE_LANGUAGE_KEY       subscription key from Azure portal
+        """
+        _endpoint = os.getenv("AZURE_LANGUAGE_ENDPOINT", "").rstrip("/")
+        _key      = os.getenv("AZURE_LANGUAGE_KEY", "")
+        if not _endpoint or not _key:
+            return []  # not configured — regex layers handle PII in this case
+
+        _FRIENDLY: dict[str, str] = {
+            "USSocialSecurityNumber":    "US Social Security Number",
+            "CreditCardNumber":          "Credit Card Number",
+            "PhoneNumber":               "Phone Number",
+            "Email":                     "Email Address",
+            "USPassportNumber":          "Passport Number",
+            "PassportNumber":            "Passport Number",
+            "IPAddress":                 "IP Address",
+            "Password":                  "Password / Secret",
+            "BankAccountNumber":         "Bank Account Number",
+            "InternationalBankingNumber": "IBAN",
+            "SWIFTCode":                 "SWIFT Code",
+            "UKNationalInsuranceNumber": "UK NI Number",
+            "IndiaPermanentAccount":     "India PAN Number",
+            "DateOfBirth":               "Date of Birth",
+            "PersonType":                "Person Type",
+            "Address":                   "Physical Address",
+        }
+
+        _url = (
+            f"{_endpoint}/language/:analyze-text"
+            "?api-version=2023-04-01"
+        )
+        _payload = _json.dumps({
+            "kind": "PiiEntityRecognition",
+            "analysisInput": {
+                "documents": [{"id": "1", "language": "en", "text": text[:5_000]}]
+            },
+            "parameters": {
+                "loggingOptOut": True,
+                "piiCategories": ["All"],
+            },
+        }).encode()
+        _req = urllib.request.Request(
+            _url,
+            data=_payload,
+            headers={
+                "Content-Type": "application/json",
+                "Ocp-Apim-Subscription-Key": _key,
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(_req, timeout=5) as resp:
+                _data = _json.loads(resp.read())
+
+            _docs = (_data.get("results") or {}).get("documents", [])
+            _entities = _docs[0].get("entities", []) if _docs else []
+
+            # Deduplicate by category; only report confident detections
+            _seen_cats: set[str] = set()
+            _violations: list[GuardrailViolation] = []
+            for ent in _entities:
+                _cat   = ent.get("category", "Unknown")
+                _conf  = ent.get("confidenceScore", 0)
+                _text  = ent.get("text", "")
+                if _conf < 0.5 or _cat in _seen_cats:
+                    continue
+                _seen_cats.add(_cat)
+                _friendly = _FRIENDLY.get(_cat, _cat)
+                _violations.append(GuardrailViolation(
+                    code="G-16", level=GuardrailLevel.WARN,
+                    field=field_name,
+                    message=(
+                        f"Azure AI Language detected PII in \"{field_label}\" — "
+                        f"{_friendly} (confidence {_conf:.0%}): "
+                        f"'{_text[:30]}{'...' if len(_text) > 30 else ''}'. "
+                        "Please remove personal data."
+                    ),
+                ))
+            return _violations
+
+        except Exception:
+            # Network error / service unavailable — regex layers remain active
+            return []
 
     def check_url(self, url: str, field_name: str = "") -> GuardrailResult:
         """G-17 – Ensure URLs originate from trusted Microsoft/Pearson domains."""
