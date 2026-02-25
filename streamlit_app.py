@@ -2284,7 +2284,7 @@ if submitted:
 
     # ── Auto-email: send study plan + PDF on first intake ─────────────────────
     _intake_email = raw.email.strip() if raw.email else ""
-    _smtp_ready = bool(os.getenv("SMTP_USER")) and bool(os.getenv("SMTP_PASS"))
+    _smtp_ready = _is_real_value(os.getenv("SMTP_USER", "")) and _is_real_value(os.getenv("SMTP_PASS", ""))
     if _intake_email and _smtp_ready:
         try:
             _intake_html = generate_intake_summary_html(profile, plan, learning_path)
@@ -2301,9 +2301,9 @@ if submitted:
             if _ok_i:
                 st.success(f"📧 Study plan emailed to **{_intake_email}** with PDF attached!")
             else:
-                st.info(f"✉️ Email not sent ({_msg_i}). Use the Download PDF button in the Profile tab.")
-        except Exception as _email_exc:
-            st.info(f"✉️ Auto-email skipped: {_email_exc}")
+                st.info("✉️ Auto-email failed — check SMTP credentials in .env. Use the ⬇️ Download PDF button in the Profile tab.")
+        except Exception:
+            pass  # silently skip auto-email on unexpected errors
 
 
 # ─── Results ─────────────────────────────────────────────────────────────────
@@ -2832,6 +2832,12 @@ if "profile" in st.session_state:
             if st.button("📤 Email Study Plan PDF", key="profile_send_pdf", use_container_width=True):
                 if not _email_to_send:
                     st.error("Enter an email address first.")
+                elif not (_is_real_value(os.getenv("SMTP_USER", "")) and _is_real_value(os.getenv("SMTP_PASS", ""))):
+                    st.warning(
+                        "📧 SMTP not configured. Add `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, "
+                        "`SMTP_PASS`, `SMTP_FROM` to your `.env` file to enable email. "
+                        "Use ⬇️ **Download PDF** to save the report locally."
+                    )
                 else:
                     try:
                         _plan_obj2 = st.session_state.get("plan")
@@ -2852,7 +2858,7 @@ if "profile" in st.session_state:
                         if _ok2:
                             st.success(f"✅ {_msg2}")
                         else:
-                            st.warning(f"⚠️ {_msg2}")
+                            st.warning(f"⚠️ Email failed — {_msg2}")
                     except Exception as _e2:
                         st.error(f"Failed: {_e2}")
 
@@ -3863,6 +3869,15 @@ if "profile" in st.session_state:
                 if _do_send:
                     if not _send_to:
                         st.error("Please enter an email address.")
+                    elif not (_is_real_value(os.getenv("SMTP_USER", "")) and _is_real_value(os.getenv("SMTP_PASS", ""))):
+                        st.warning(
+                            "📧 SMTP not configured. Add `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, "
+                            "`SMTP_PASS`, `SMTP_FROM` to your `.env` file to enable email. "
+                            "Use ⬇️ **Download PDF** to save the report locally."
+                        )
+                        with st.expander("👁️ Preview weekly report (no email needed)", expanded=True):
+                            _html_body = generate_weekly_summary(profile, _snap, _asmt)
+                            st.markdown(_html_body, unsafe_allow_html=True)
                     else:
                         _html_body = generate_weekly_summary(profile, _snap, _asmt)
                         _subject   = (
@@ -3888,11 +3903,7 @@ if "profile" in st.session_state:
                         if _ok:
                             st.success(f"✅ {_msg}")
                         else:
-                            st.warning(
-                                f"⚠️ {_msg}\n\n"
-                                "**Email preview** is shown below — copy-paste or "
-                                "screenshot it to share manually."
-                            )
+                            st.warning(f"⚠️ Email failed — {_msg}")
                             with st.expander("📄 Preview weekly report email", expanded=True):
                                 _html_body = generate_weekly_summary(profile, _snap, _asmt)
                                 st.markdown(_html_body, unsafe_allow_html=True)
