@@ -4,7 +4,7 @@
 > **Project:** Microsoft Certification Prep Multi-Agent System  
 > **Track:** Reasoning Agents with Microsoft Foundry  
 > **Subscription:** Pay-As-You-Go (recommended) or MSDN/Visual Studio  
-> **Last updated:** 2026-07-10
+> **Last updated:** 2026-07-17
 
 ---
 
@@ -122,6 +122,8 @@
 
 - [ ] SMTP credentials configured in `.env` (optional — app works without it)
 - [x] `attempt_send_email()` implemented in `b1_2_progress_agent.py` using `smtplib`
+- [x] `pdf_bytes` attachment argument added — PDF auto-attached to all outbound emails
+- [x] `generate_profile_pdf()` and `generate_assessment_pdf()` implemented using `reportlab`
 - [x] `.env.example` has correct `SMTP_*` placeholder section
 
 ---
@@ -176,7 +178,7 @@
 
 - [ ] **MCP integration** — real MS Learn content instead of static mock data
 - [ ] **Content Safety API** — upgrade G-16 from regex to `azure-ai-contentsafety` SDK
-- [ ] **Wire `attempt_send_email()` with SMTP creds** — configure `SMTP_HOST/PORT/USER/PASS/FROM` in `.env` to activate weekly progress summaries in `b1_2_progress_agent.py` (ACS upgrade is a roadmap item)
+- [x] **Wire `attempt_send_email()` with SMTP creds** — configure `SMTP_HOST/PORT/USER/PASS/FROM` in `.env` to activate weekly progress summaries; PDF attachment implemented (ACS upgrade is a roadmap item)
 - [ ] **Record demo video** (3–5 min) showing:
   - New learner flow → profile generation → study plan → quiz
   - Returning learner → progress tracking → readiness assessment
@@ -185,7 +187,7 @@
 
 ### 🟢 Nice to Have
 
-- [ ] Add more exam domain blueprints (DP-100, AZ-204, AZ-305) to `EXAM_DOMAIN_REGISTRY`
+- [x] Add more exam domain blueprints (DP-100, AZ-204, AZ-305, AI-900) to `EXAM_DOMAIN_REGISTRY` — 5 exams, 81 modules total
 - [ ] Persistent storage (Cosmos DB or SQLite) for learner profiles across sessions
 - [ ] Deploy to Azure App Service or Container Apps
 - [ ] Add Bing Grounding for up-to-date exam change announcements
@@ -245,6 +247,14 @@
 - [x] Full Submission Requirements Checklist added to README (mandatory + optional)
 - [x] Microsoft Foundry Best Practices section added to README (all 6 practices with status)
 - [x] Self-improvement loop created: `docs/lessons.md` + sprint tracking in this file
+- [x] PDF report generation — `generate_profile_pdf()` + `generate_assessment_pdf()` using `reportlab`
+- [x] SMTP email with PDF attachment — `attempt_send_email(pdf_bytes=...)` updated; auto-email on intake
+- [x] Download PDF + Email PDF buttons added to Profile and Progress tabs in UI
+- [x] Learning path catalogue extended to all 5 exams — AI-102, AI-900, AZ-204, AZ-305, DP-100 (81 modules)
+- [x] Hours consistency fix — all 5 display spots use `profile.total_budget_hours` as canonical budget
+- [x] Scenario card dimming — `.sb-sc-card.disabled` CSS; inactive card dims when other is selected
+- [x] `load_dotenv(override=True)` — live mode `.env` credentials correctly loaded on startup
+- [x] Demo cohort seeded — 5 additional students (Marcus Johnson/AZ-204, Sarah Williams/AI-900, David Kim/AZ-305, Fatima Al-Rashid/AI-102, Jordan Baptiste/DP-100) via `src/cert_prep/seed_demo_data.py`
 
 ---
 

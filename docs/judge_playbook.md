@@ -81,15 +81,15 @@ The agents produce the inputs for these gates and interpret the outputs — huma
 
 ## 3. Agent Inventory
 
-| # | Agent | Module | Input | Output |
-|---|---|---|---|---|
-| 0 | Intake Guard | guardrails.py (G-01..G-05) | RawStudentInput | GuardrailResult |
-| 1 | Learner Profiler | b1_mock_profiler.py | RawStudentInput | LearnerProfile |
-| 2 | Study Planner | b1_1_study_plan_agent.py | LearnerProfile | StudyPlan |
-| 3 | Path Curator | b1_1_learning_path_curator.py | LearnerProfile | LearningPath |
-| 4 | Progress Tracker | b1_2_progress_agent.py | ProgressSnapshot | ReadinessAssessment |
-| 5 | Assessment | b2_assessment_agent.py | LearnerProfile | AssessmentResult |
-| 6 | Cert Recommender | b3_cert_recommendation_agent.py | AssessmentResult | CertRecommendation |
+| # | Agent | Module | Input | Output | Notes |
+|---|---|---|---|---|---|
+| 0 | Intake Guard | guardrails.py (G-01..G-05) | RawStudentInput | GuardrailResult | PII + content safety |
+| 1 | Learner Profiler | b1_mock_profiler.py | RawStudentInput | LearnerProfile | 3-tier: rule → Foundry SDK → GPT-4o |
+| 2 | Study Planner | b1_1_study_plan_agent.py | LearnerProfile | StudyPlan | Largest Remainder allocation |
+| 3 | Path Curator | b1_1_learning_path_curator.py | LearnerProfile | LearningPath | 5 exams, 81+ modules |
+| 4 | Progress Tracker | b1_2_progress_agent.py | ProgressSnapshot | ReadinessAssessment + PDF | PDF reports via reportlab; SMTP email |
+| 5 | Assessment | b2_assessment_agent.py | LearnerProfile | AssessmentResult | 30-question adaptive quiz |
+| 6 | Cert Recommender | b3_cert_recommendation_agent.py | AssessmentResult | CertRecommendation | GO / CONDITIONAL GO / NOT YET |
 
 ---
 
@@ -331,14 +331,17 @@ Orchestrator: AI Foundry Thread + Assistant API
 
 | Dimension | Max | Our Score | Justification |
 |---|---|---|---|
-| Technical Innovation | 25 | 22 | 7-agent pipeline, LR allocation algorithm, guardrail framework, HITL gates |
+| Technical Innovation | 25 | 23 | 7-agent pipeline, LR allocation algorithm, guardrail framework, HITL gates, PDF report generation |
 | Azure Services Usage | 20 | 18 | GPT-4o live mode, AI Foundry roadmap, 8 services documented |
-| Problem Impact | 20 | 19 | Real problem (cert failure rate), personalised plans, booking readiness gate |
-| Demo Quality | 20 | 17 | 3 instant demo scenarios, Gantt + radar charts, Admin audit dashboard |
+| Problem Impact | 20 | 19 | Real problem (cert failure rate), personalised plans, booking readiness gate; 5-exam catalogue |
+| Demo Quality | 20 | 18 | 7 seeded demo students across all 5 exams, Gantt + radar charts, PDF download, Admin audit dashboard |
 | Code Quality | 15 | 13 | Typed models (Pydantic), guardrail separation, parallel execution evidence |
-| **Total** | **100** | **89** | |
+| **Total** | **100** | **91** | |
 
 ### Expected Judge Questions
+
+**Q: Does the system produce any tangible output beyond a web UI?**  
+A: Yes. The Progress Tracker generates PDF reports (profile + study plan PDF, readiness progress PDF) via `reportlab`. These are downloadable from the Profile and Progress tabs and can be emailed automatically on intake completion via `smtplib` SMTP. The PDF contains domain confidence scores, weekly study plan, and readiness assessment.
 
 **Q: Is this really multi-agent or just one big prompt?**  
 A: Each agent is a separate Python class with its own typed input-output contract. They are independently callable and testable. Admin Dashboard shows each agent step with individual timing.

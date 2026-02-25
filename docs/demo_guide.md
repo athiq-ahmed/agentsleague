@@ -13,11 +13,12 @@
 3. [How to Run a Demo](#how-to-run-a-demo)
 4. [Scenario 1 — AI Beginner (Alex Chen, AI-102)](#scenario-1--ai-beginner-alex-chen-ai-102)
 5. [Scenario 2 — Data Professional (Priyanka Sharma, DP-100)](#scenario-2--data-professional-priyanka-sharma-dp-100)
-6. [Admin Dashboard Walkthrough](#admin-dashboard-walkthrough)
-7. [Learning Tabs Deep-Dive](#learning-tabs-deep-dive)
-8. [Responsible AI Guardrails in Action](#responsible-ai-guardrails-in-action)
-9. [Architecture at a Glance](#architecture-at-a-glance)
-10. [Judging Criteria Checklist](#judging-criteria-checklist)
+6. [PDF Reports & Email](#pdf-reports--email)
+7. [Admin Dashboard Walkthrough](#admin-dashboard-walkthrough)
+8. [Learning Tabs Deep-Dive](#learning-tabs-deep-dive)
+9. [Responsible AI Guardrails in Action](#responsible-ai-guardrails-in-action)
+10. [Architecture at a Glance](#architecture-at-a-glance)
+11. [Judging Criteria Checklist](#judging-criteria-checklist)
 
 ---
 
@@ -252,12 +253,64 @@ This contrast is the **core showpiece** of the multi-agent personalisation.
 
 ---
 
+## PDF Reports & Email
+
+The system can generate and email PDF study reports at two points in the workflow:
+
+### Automatic Welcome Email (on intake submission)
+
+If SMTP credentials are configured in `.env` **and** the student entered an email address in the intake form, the system automatically sends a welcome PDF immediately after the study plan is generated. The PDF contains:
+- Learner profile snapshot (experience level, domain confidence scores)
+- Personalised study plan with domain priorities and hours breakdown
+- Learning path module list
+
+### Manual PDF Download (Profile tab)
+
+In the **Domain Map (Profile)** tab, scroll below the domain chart to find:
+1. **⬇️ Download PDF** — downloads the profile + study plan as a PDF file
+2. **📧 Email Study Plan PDF** — type an email address and click send; the same PDF is emailed via SMTP
+
+### Progress Report PDF (Progress tab)
+
+In the **My Progress** tab, after completing the progress check-in:
+1. **⬇️ Download PDF** — downloads a progress report with readiness scores and domain breakdown
+2. **📤 Email + PDF** — emails the progress report PDF to the address on file
+
+### Requirements
+
+```env
+# .env — all five SMTP vars required for email to activate
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-account@gmail.com
+SMTP_PASS=your-16-char-app-password
+SMTP_FROM=your-account@gmail.com
+```
+
+> **Demo tip:** PDF download works in all modes (mock + live) without any Azure credentials. Email requires SMTP vars.
+
+---
+
 ## Admin Dashboard Walkthrough
 
 Access: click **🔐 Admin Dashboard** in the sidebar (admin users only).  
 Credentials: username `admin`, password `agents2026`.
 
-### Run Summary
+### Student Cohort Table
+
+The dashboard opens with a live student registry table showing all students who have run the pipeline. The demo database ships pre-seeded with **7 students** across all 5 supported exams:
+
+| Student | Exam | Status |
+|---------|------|--------|
+| Alex Chen | AI-102 | Demo scenario |
+| Priyanka Sharma | DP-100 | Demo scenario |
+| Marcus Johnson | AZ-204 | CONDITIONAL GO |
+| Sarah Williams | AI-900 | GO (84% quiz) |
+| David Kim | AZ-305 | NOT YET (early stage) |
+| Fatima Al-Rashid | AI-102 | GO (88% quiz) |
+| Jordan Baptiste | DP-100 | NOT YET (mid progress) |
+
+Each row shows: Level, Avg Confidence, Risk domain count, Plan status, Readiness %, Quiz score, GO/NO-GO verdict.
 
 Six metric cards showing Run ID, Student, Exam Target, Timestamp, Mode (mock/live), and Total execution time:
 
@@ -371,18 +424,19 @@ Every agent receives and returns a typed Pydantic model — no raw-string hand-o
 
 ## Judging Criteria Checklist
 
-| Criterion | Evidence |
-|-----------|---------|
-| ✅ Multi-agent orchestration | 6 specialised agents, typed sequential pipeline |
-| ✅ Agent handoffs | Pydantic contract at every boundary |
-| ✅ Human-in-the-Loop | HITL gate 1 (Progress Check-In) + HITL gate 2 (Quiz submit) |
-| ✅ Conditional routing | Readiness Gate: GO vs REMEDIATE path |
-| ✅ Responsible AI | 17 guardrail rules, BLOCK/WARN/INFO levels |
-| ✅ Explainability | Full per-agent trace in Admin Dashboard |
-| ✅ Production quality | Pydantic models, error handling, session management |
-| ✅ Personalisation | Identical system → completely different plans for Alex vs Priyanka |
-| ✅ No-cost demo mode | All scenarios run without Azure credentials |
-| ✅ Real-time UI | Streamlit app with plotly charts, gantt, radar, tables |
+| ✅ PDF report download | Profile + Progress PDFs | `⬇️ Download PDF` buttons | reportlab |
+| ✅ Email PDF to learner | SMTP with attachment | `📧 Email Study Plan PDF` buttons | smtplib + MIME |
+| ✅ Multi-agent orchestration | 8 specialised agents, typed sequential pipeline | |
+| ✅ Agent handoffs | Pydantic contract at every boundary | |
+| ✅ Human-in-the-Loop | HITL gate 1 (Progress Check-In) + HITL gate 2 (Quiz submit) | |
+| ✅ Conditional routing | Readiness Gate: GO vs REMEDIATE path | |
+| ✅ Responsible AI | 17 guardrail rules, BLOCK/WARN/INFO levels | |
+| ✅ Explainability | Full per-agent trace in Admin Dashboard | |
+| ✅ Production quality | Pydantic models, error handling, session management | |
+| ✅ Personalisation | Identical system → completely different plans for Alex vs Priyanka | |
+| ✅ No-cost demo mode | All scenarios run without Azure credentials | |
+| ✅ Real-time UI | Streamlit app with plotly charts, gantt, radar, tables | |
+| ✅ 5-exam catalogue | AI-102, AI-900, AZ-204, AZ-305, DP-100 (81 modules) | |
 
 ---
 
@@ -392,4 +446,4 @@ Every agent receives and returns a typed Pydantic model — no raw-string hand-o
 
 ---
 
-*Last updated: February 2026 · Agents League Battle #2*
+*Last updated: July 2026 · Agents League Battle #2*

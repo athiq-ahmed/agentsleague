@@ -63,6 +63,8 @@ Every phase boundary is protected by the guardrails framework. The pipeline is *
 | Concurrency | ThreadPoolExecutor | Parallel agents | I/O-bound calls |
 | Guardrails | Custom framework | 17 rules | Safety + correctness |
 | Auth | Custom (st.session_state) | Demo-grade | Login persona system |
+| PDF reports | reportlab | Profile + Progress PDFs | Zero cloud dependency |
+| Email | smtplib (MIMEMultipart) | SMTP with PDF attachment | Works with any SMTP relay |
 
 ---
 
@@ -447,7 +449,7 @@ if netloc not in TRUSTED_ORIGINS:
 
 ### Responsibility
 
-Compute readiness percentage and verdict from HITL Gate 1 input.
+Compute readiness percentage and verdict from HITL Gate 1 input. Generate PDF reports. Send email notifications.
 
 ### Readiness Formula
 
@@ -462,6 +464,32 @@ Where:
 - READY: ≥ 0.65 (65%)
 - BOARDING: 0.50–0.64
 - NOT YET: < 0.50
+
+### PDF Report Generation
+
+Three `reportlab`-based PDF generators produce downloadable / emailable reports:
+
+| Function | Contents | Trigger |
+|---|---|---|
+| `generate_profile_pdf(profile, plan, lp)` | Domain confidence scores, study plan Gantt table, learning path module list | Profile tab download / auto-email on intake |
+| `generate_assessment_pdf(profile, snap, asmt)` | Progress snapshot, domain readiness bars, go/no-go verdict | Progress tab download |
+| `generate_intake_summary_html(profile, plan, lp)` | HTML body for the welcome email | Auto-email on intake |
+
+All three return `bytes` — passed directly to `st.download_button` or to `attempt_send_email(pdf_bytes=...)`.
+
+### SMTP Email
+
+```python
+def attempt_send_email(
+    to: str,
+    subject: str,
+    html: str,
+    pdf_bytes: bytes | None = None,
+    pdf_filename: str = "report.pdf",
+) -> bool:
+```
+
+The function constructs a `MIMEMultipart` message with an HTML body and an optional `application/pdf` attachment. Required env vars: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`.
 
 ---
 
@@ -703,29 +731,32 @@ st.markdown(html, unsafe_allow_html=True)
 
 ## 18. Multi-Cert Support
 
-The system supports AI-102, AZ-204, AZ-305, DP-100, DP-203, and more via `EXAM_DOMAIN_REGISTRY` in `config.py`.
+The system fully supports **5 Microsoft certification exams** via `EXAM_DOMAIN_REGISTRY` in `src/cert_prep/models.py`. The Learning Path Catalogue in `b1_1_learning_path_curator.py` covers all 5 exams with 81 curated Microsoft Learn modules.
+
+| Exam | Full Name | Domains | Modules |
+|------|-----------|---------|---------|
+| AI-102 | Azure AI Engineer Associate | 6 | 24 |
+| AI-900 | Azure AI Fundamentals | 5 | 15 |
+| AZ-204 | Azure Developer Associate | 5 | 18 |
+| AZ-305 | Azure Solutions Architect Expert | 4 | 16 |
+| DP-100 | Azure Data Scientist Associate | 4 | 16 |
 
 ```python
-EXAM_DOMAIN_REGISTRY = {
-    "AI-102": {
-        "D1": "Plan and Manage Azure AI Solution",
-        "D2": "Implement Decision Support Solutions",
-        "D3": "Implement Natural Language Processing Solutions",
-        "D4": "Implement Knowledge Mining and Document Intelligence",
-        "D5": "Implement Generative AI Solutions",
-        "D6": "Implement Computer Vision Solutions",
-    },
-    "AZ-204": { ... },
-    ...
+# models.py
+EXAM_DOMAIN_REGISTRY: dict[str, list[dict]] = {
+    "AI-102": EXAM_DOMAINS,     # 6 domains
+    "AI-900": AI900_DOMAINS,    # 5 domains
+    "AZ-204": AZ204_DOMAINS,    # 5 domains
+    "DP-100": DP100_DOMAINS,    # 4 domains
+    "AZ-305": AZ305_DOMAINS,    # 4 domains
 }
 ```
 
 Adding a new cert requires:
-1. Adding entry to `EXAM_DOMAIN_REGISTRY`
-2. Adding question bank entries to `QUESTION_BANK`
-3. Adding module catalogue entries to `MODULE_CATALOGUE`
-4. Adding prereq mapping in `PREREQ_MAP`
-5. Adding synergy mapping in `SYNERGY_MAP`
+1. Adding domain definitions to `models.py` → `EXAM_DOMAIN_REGISTRY`
+2. Adding module catalogue entries to `_LEARN_CATALOGUE` in `b1_1_learning_path_curator.py`
+3. Adding prereq mapping in `StudyPlanAgent._PREREQ_MAP`
+4. Adding synergy mapping in `CertRecommendationAgent.SYNERGY_MAP`
 
 No code changes to agents or orchestrator are needed.
 
