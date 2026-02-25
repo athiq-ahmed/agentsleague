@@ -2290,7 +2290,7 @@ if submitted:
             _intake_html = generate_intake_summary_html(profile, plan, learning_path)
             _intake_pdf  = _get_or_generate_pdf(
                 st.session_state.get("sidebar_prefill"), "profile",
-                generate_profile_pdf, profile, plan, learning_path,
+                generate_profile_pdf, profile, plan, learning_path, raw,
             )
             _pdf_fname   = f"StudyPlan_{_student_name.replace(' ','_')}_{profile.exam_target.split()[0]}.pdf"
             _subj        = f"Your {profile.exam_target} Study Plan is Ready — {_student_name}"
@@ -2807,6 +2807,7 @@ if "profile" in st.session_state:
                 _pdf_data = _get_or_generate_pdf(
                     st.session_state.get("sidebar_prefill"), "profile",
                     generate_profile_pdf, profile, _plan_obj, _lp_obj,
+                    st.session_state.get("raw"),
                 )
                 _pdf_name = f"StudyPlan_{profile.student_name.replace(' ','_')}_{profile.exam_target.split()[0]}.pdf"
                 st.download_button(
@@ -2838,6 +2839,7 @@ if "profile" in st.session_state:
                         _pdf_bytes2 = _get_or_generate_pdf(
                             st.session_state.get("sidebar_prefill"), "profile",
                             generate_profile_pdf, profile, _plan_obj2, _lp_obj2,
+                            st.session_state.get("raw"),
                         )
                         _html_body2 = generate_intake_summary_html(profile, _plan_obj2, _lp_obj2)
                         _subj2      = f"Your {profile.exam_target} Study Plan — {profile.student_name}"

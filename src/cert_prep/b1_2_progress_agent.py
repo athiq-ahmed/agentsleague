@@ -700,6 +700,7 @@ def generate_profile_pdf(
     profile: "LearnerProfile",
     plan=None,
     lp=None,
+    raw=None,
 ) -> bytes:
     """
     Build a study-plan PDF for a newly profiled learner.
@@ -803,11 +804,13 @@ def generate_profile_pdf(
     story.append(kpi_table)
     story.append(Spacer(1, 0.3 * cm))
 
-    # Role / goal
-    if profile.background:
-        story.append(Paragraph(f"<b>Background:</b> {profile.background[:200]}", body))
-    if hasattr(profile, "goal") and profile.goal:
-        story.append(Paragraph(f"<b>Goal:</b> {profile.goal[:200]}", body))
+    # Role / goal — from RawStudentInput (LearnerProfile has neither field)
+    _bg   = getattr(raw, "background_text", None) if raw else None
+    _goal = getattr(raw, "goal_text", None) if raw else None
+    if _bg:
+        story.append(Paragraph(f"<b>Background:</b> {_bg[:300]}", body))
+    if _goal:
+        story.append(Paragraph(f"<b>Goal:</b> {_goal[:300]}", body))
     story.append(Spacer(1, 0.3 * cm))
 
     # ── Domain readiness table ─────────────────────────────────────────────────
@@ -815,17 +818,38 @@ def generate_profile_pdf(
     story.append(HRFlowable(width="100%", thickness=1, color=PURPLE))
     story.append(Spacer(1, 0.15 * cm))
 
+    # Build exam-weight lookup from registry (DomainProfile has no exam_weight field)
+    from cert_prep.models import get_exam_domains as _get_exam_domains
+    _wt_lookup = {
+        d["id"]: d.get("weight", 0.0)
+        for d in _get_exam_domains(profile.exam_target)
+    }
+
     dr_header = ["Domain", "Weight", "Confidence", "Level", "Priority"]
     dr_rows   = [dr_header]
     for dp in profile.domain_profiles:
+        _wt = _wt_lookup.get(dp.domain_id)
+        _wt_str = f"{_wt * 100:.0f}%" if _wt else "—"
+        # Derive priority from skip_recommended + confidence_score
+        # (DomainProfile has no .priority field — that lives on StudyTask)
+        if dp.skip_recommended:
+            _prio = "skip"
+        elif dp.confidence_score < 0.30:
+            _prio = "critical"
+        elif dp.confidence_score < 0.50:
+            _prio = "high"
+        elif dp.confidence_score < 0.70:
+            _prio = "medium"
+        else:
+            _prio = "low"
         prio_cell = Paragraph(
-            dp.priority.title(),
+            _prio.title(),
             ParagraphStyle("P", parent=body,
-                           textColor=PRIORITY_COLOUR.get(dp.priority, DARK)),
+                           textColor=PRIORITY_COLOUR.get(_prio, DARK)),
         )
         dr_rows.append([
             dp.domain_name.replace("Implement ", "").replace(" Solutions", ""),
-            f"{dp.exam_weight * 100:.0f}%",
+            _wt_str,
             f"{dp.confidence_score * 100:.0f}%",
             dp.knowledge_level.replace("_", " ").title(),
             prio_cell,
