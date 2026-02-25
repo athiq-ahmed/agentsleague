@@ -2097,7 +2097,6 @@ else:
                 placeholder="e.g. 3 years Python developer, familiar with REST APIs, no Azure experience",
                 height=68,
                 label_visibility="collapsed",
-                key="form_bg_text_area",
             )
             st.markdown('</div>', unsafe_allow_html=True)
 
@@ -2147,10 +2146,7 @@ else:
 
         # ── Button gate: enabled once a demo scenario is selected OR background is filled ──
         _has_demo_prefill = bool(st.session_state.get("sidebar_prefill", ""))
-        _has_bg_text = bool(
-            st.session_state.get("form_bg_text_area", "").strip()
-            or prefill.get("background", "").strip()
-        )
+        _has_bg_text = bool(background_text.strip())
         _btn_disabled = (not is_returning) and (not _has_demo_prefill) and (not _has_bg_text)
 
         _submit_label = "💾 Save & Regenerate Plan" if is_returning else "🎯 Create My AI Study Plan"
