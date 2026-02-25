@@ -58,7 +58,7 @@ import time
 # Load .env into os.environ before any Azure SDK or config imports
 try:
     from dotenv import load_dotenv as _load_dotenv
-    _load_dotenv(override=False)  # env vars set externally (e.g. Streamlit Cloud secrets) take priority
+    _load_dotenv(override=True)   # always pick up latest .env values; Streamlit Cloud secrets override via platform
 except ImportError:
     pass  # python-dotenv is optional; env vars may already be set
 
@@ -2493,82 +2493,108 @@ if "profile" in st.session_state:
 
         # ── Domain Weight vs Confidence chart ────────────────────────────────
         st.markdown("---")
-        st.markdown("#### 📊 Exam Weightage vs Your Confidence")
+        st.markdown("#### 📊 Exam Score Contribution Analysis")
         st.caption(
-            "Each domain shows two bars: the official exam weight (how much the topic counts toward your score) "
-            "and your current confidence estimate. A large gap between the two means you need to prioritise that domain."
+            "Both bars use the same unit: **% of your total exam score**. "
+            "'Max possible' = the exam weight for that domain (if you scored 100% in it). "
+            "'Expected score' = exam weight × your confidence — the points you are likely to earn. "
+            "The gap is the score you are leaving on the table. Prioritise high-weight, low-confidence domains."
         )
 
         # Fetch official domain weights from the registry
         _exam_domain_list = get_exam_domains(raw.exam_target)
         _weight_by_id     = {d["id"]: d["weight"] for d in _exam_domain_list}
 
-        _weights = [_weight_by_id.get(dp.domain_id, 1.0 / len(profile.domain_profiles))
-                    for dp in profile.domain_profiles]
-        _conf_pct   = [dp.confidence_score * 100 for dp in profile.domain_profiles]
-        _weight_pct = [w * 100 for w in _weights]
-        _bar_labels = labels  # already short-form
+        _weights    = [_weight_by_id.get(dp.domain_id, 1.0 / len(profile.domain_profiles))
+                       for dp in profile.domain_profiles]
+        _conf_frac  = [dp.confidence_score for dp in profile.domain_profiles]       # 0–1
+        _conf_pct   = [c * 100 for c in _conf_frac]                                 # for summary table
+        _weight_pct = [w * 100 for w in _weights]                                   # max contribution %
 
-        # Colour each confidence bar by knowledge level
-        _conf_colours = [LEVEL_COLOUR[dp.knowledge_level.value] for dp in profile.domain_profiles]
+        # Common scale: both expressed as "% of total exam score"
+        # Max contribution  = weight × 100   (what you'd earn at 100% confidence)
+        # Expected score    = weight × confidence × 100
+        _expected_pct = [w * c * 100 for w, c in zip(_weights, _conf_frac)]
+        _bar_labels   = labels  # already short-form
 
-        # Gap label: show ▼ where confidence < weight (under-studied relative to exam share)
+        # Colour each expected-score bar by knowledge level
+        _exp_colours = [LEVEL_COLOUR[dp.knowledge_level.value] for dp in profile.domain_profiles]
+
+        # Gap = exam points being left on the table (max - expected)
+        _pts_gap = [m - e for m, e in zip(_weight_pct, _expected_pct)]
         _gap_texts = [
-            f"▼ {(w - c):.0f}pp gap" if c < w else f"✓ +{(c - w):.0f}pp"
-            for c, w in zip(_conf_pct, _weight_pct)
+            f"▼ {g:.1f}pt gap" if g > 0.5 else "✓ on track"
+            for g in _pts_gap
         ]
         _gap_colours = [
-            "#d13438" if c < w - 5 else ("#ca5010" if c < w else "#27ae60")
-            for c, w in zip(_conf_pct, _weight_pct)
+            "#d13438" if g > 5 else ("#ca5010" if g > 2 else "#27ae60")
+            for g in _pts_gap
         ]
+
+        # Predicted total score annotation
+        _predicted_total = sum(_expected_pct)
+        _pass_mark       = 70.0   # standard MS certification pass mark
 
         bar_fig = go.Figure()
 
-        # Trace 1 — Exam weight (official %)
+        # Trace 1 — Max possible contribution (= exam weight)
         bar_fig.add_trace(go.Bar(
-            name="Exam Weight",
+            name="Max possible (exam weight)",
             x=_bar_labels,
             y=_weight_pct,
             marker=dict(color="#BFD4EF", line=dict(color="#0078D4", width=1.2)),
-            text=[f"{w:.0f}%" for w in _weight_pct],
+            text=[f"{w:.0f}pt" for w in _weight_pct],
             textposition="outside",
             textfont=dict(color="#0078D4", size=11, family="Segoe UI"),
-            hovertemplate="<b>%{x}</b><br>Exam weight: %{y:.1f}%<extra></extra>",
+            hovertemplate=(
+                "<b>%{x}</b><br>"
+                "Exam weight: %{y:.1f}% of total score<br>"
+                "<i>Points available if you score 100% here</i><extra></extra>"
+            ),
         ))
 
-        # Trace 2 — User confidence
+        # Trace 2 — Expected score contribution (weight × confidence)
         bar_fig.add_trace(go.Bar(
-            name="Your Confidence",
+            name="Expected score (weight × confidence)",
             x=_bar_labels,
-            y=_conf_pct,
-            marker=dict(color=_conf_colours, opacity=0.88, line=dict(width=0)),
-            text=[f"{c:.0f}%" for c in _conf_pct],
+            y=_expected_pct,
+            marker=dict(color=_exp_colours, opacity=0.88, line=dict(width=0)),
+            text=[f"{e:.1f}pt" for e in _expected_pct],
             textposition="outside",
             textfont=dict(color="#555", size=11, family="Segoe UI"),
-            hovertemplate="<b>%{x}</b><br>Confidence: %{y:.1f}%<extra></extra>",
+            hovertemplate=(
+                "<b>%{x}</b><br>"
+                "Expected score: %{y:.1f}% of total<br>"
+                "<i>= exam weight × your confidence</i><extra></extra>"
+            ),
         ))
 
-        bar_fig.add_hline(y=50, line_dash="dot", line_color="#ca5010",
-                          annotation_text="50% pass threshold",
-                          annotation_font=dict(color="#ca5010", size=10),
-                          annotation_position="top right")
+        # Pass-mark reference line
+        bar_fig.add_hline(
+            y=_pass_mark / len(profile.domain_profiles),  # per-domain average needed to pass
+            line_dash="dot", line_color="#ca5010",
+            annotation_text=f"Avg needed per domain to pass ({_pass_mark:.0f}%)",
+            annotation_font=dict(color="#ca5010", size=10),
+            annotation_position="top right",
+        )
 
+        _y_max = max(_weight_pct) * 1.30
         bar_fig.update_layout(
             barmode="group",
             bargroupgap=0.10,
             bargap=0.30,
             height=420,
-            margin=dict(l=10, r=20, t=50, b=20),
+            margin=dict(l=10, r=20, t=55, b=20),
             xaxis=dict(
                 tickfont=dict(size=10, family="Segoe UI"),
                 showgrid=False,
             ),
             yaxis=dict(
-                range=[0, 115],
-                ticksuffix="%",
+                range=[0, _y_max],
+                ticksuffix="pt",
                 showgrid=True,
                 gridcolor="#eeeeee",
-                title=dict(text="Percentage (%)", font=dict(size=11, color="#616161")),
+                title=dict(text="Exam score contribution (pts = % of total)", font=dict(size=11, color="#616161")),
             ),
             paper_bgcolor="white",
             plot_bgcolor="white",
@@ -2579,26 +2605,36 @@ if "profile" in st.session_state:
                 bgcolor="rgba(255,255,255,0.8)",
                 bordercolor="#e0e0e0", borderwidth=1,
             ),
+            annotations=[dict(
+                text=f"🎯 Predicted total: <b>{_predicted_total:.0f} / 100</b>"
+                     + (f" — <span style='color:#27ae60'>above pass mark ✓</span>" if _predicted_total >= _pass_mark
+                        else f" — <span style='color:#d13438'>below pass mark, need {_pass_mark - _predicted_total:.0f}pt more</span>"),
+                xref="paper", yref="paper", x=0, y=-0.12,
+                showarrow=False, align="left",
+                font=dict(size=12, family="Segoe UI"),
+            )],
             uniformtext_minsize=8,
             uniformtext_mode="hide",
         )
         st.plotly_chart(bar_fig, use_container_width=True)
 
-        # Gap summary table (domain · exam weight · confidence · gap)
+        # Gap summary table (domain · exam weight · confidence · expected score · gap)
         _gap_rows = ""
         for i, dp in enumerate(profile.domain_profiles):
             _lbl  = _bar_labels[i]
             _wt   = _weight_pct[i]
             _cf   = _conf_pct[i]
+            _ex   = _expected_pct[i]
             _gc   = _gap_colours[i]
             _gt   = _gap_texts[i]
             _bg   = "#FFF1F0" if _gc == "#d13438" else ("#FFFAF0" if _gc == "#ca5010" else "#F0FFF4")
             _gap_rows += (
                 f'<tr style="background:{_bg};">'
                 f'<td style="padding:5px 10px;font-size:0.82rem;color:#1B1B1B;font-weight:600;">{_lbl}</td>'
-                f'<td style="padding:5px 10px;font-size:0.82rem;text-align:center;color:#0078D4;font-weight:700;">{_wt:.0f}%</td>'
+                f'<td style="padding:5px 10px;font-size:0.82rem;text-align:center;color:#0078D4;font-weight:700;">{_wt:.0f}pt</td>'
                 f'<td style="padding:5px 10px;font-size:0.82rem;text-align:center;'
                 f'color:{LEVEL_COLOUR[dp.knowledge_level.value]};font-weight:700;">{_cf:.0f}%</td>'
+                f'<td style="padding:5px 10px;font-size:0.82rem;text-align:center;font-weight:700;">{_ex:.1f}pt</td>'
                 f'<td style="padding:5px 10px;font-size:0.82rem;text-align:center;'
                 f'color:{_gc};font-weight:700;">{_gt}</td>'
                 f'</tr>'
@@ -2611,9 +2647,11 @@ if "profile" in st.session_state:
               <th style="padding:6px 10px;font-size:0.74rem;color:#0078D4;text-align:left;
                          text-transform:uppercase;letter-spacing:.06em;">Domain</th>
               <th style="padding:6px 10px;font-size:0.74rem;color:#0078D4;text-align:center;
-                         text-transform:uppercase;letter-spacing:.06em;">Exam Weight</th>
+                         text-transform:uppercase;letter-spacing:.06em;">Max (pts)</th>
               <th style="padding:6px 10px;font-size:0.74rem;color:#0078D4;text-align:center;
-                         text-transform:uppercase;letter-spacing:.06em;">Your Confidence</th>
+                         text-transform:uppercase;letter-spacing:.06em;">Confidence</th>
+              <th style="padding:6px 10px;font-size:0.74rem;color:#0078D4;text-align:center;
+                         text-transform:uppercase;letter-spacing:.06em;">Expected (pts)</th>
               <th style="padding:6px 10px;font-size:0.74rem;color:#0078D4;text-align:center;
                          text-transform:uppercase;letter-spacing:.06em;">Gap</th>
             </tr>
