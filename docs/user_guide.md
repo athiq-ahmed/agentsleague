@@ -1,7 +1,73 @@
 # User Guide — Certification Prep Multi-Agent System
 
-> Step-by-step walkthrough for learners and admins.
+> Step-by-step walkthrough for learners and admins.  
 > No technical background required for Sections 1–6.
+
+---
+
+## Application Flow at a Glance
+
+```
+ ┌────────────────────────────────────────┐
+ │  LOGIN SCREEN                              │
+ │  ┌─────────────┐  ┌─────────────────┐ │
+ │  │ New User     │  │ Returning User  │ │
+ │  │ enter name   │  │ enter name+PIN  │ │
+ │  │ + 4-digit PIN│  │ → plan restored │ │
+ │  └─────┬──────┘  └───────┬─────────┘ │
+ └──────────────┬────────┬────────────────────┘
+                │ new user │ returning
+                ▼         │
+          INTAKE FORM     │ skip to 6-tab UI
+          fill all fields │
+          ↓               │
+  [Create My AI Study Plan]
+          │
+          ▼
+  AI analyses your background + goals
+  (8 agents run in ~1 second)
+          │
+          ▼
+ ┌────────────────────────────────────────┐
+ │  6-TAB PANEL                               │
+ ├────────────────────────────────────────│
+ │ Tab 1: Learner Profile                     │
+ │   • Domain radar + confidence bars         │
+ │   • Exam score contribution chart          │
+ │   • Download PDF / Email buttons           │
+ ├────────────────────────────────────────│
+ │ Tab 2: Study Setup                         │
+ │   • Prerequisite gap check                 │
+ │   • Gantt chart (domain × week)            │
+ │   • Hour allocation per domain             │
+ ├────────────────────────────────────────│
+ │ Tab 3: Learning Path                       │
+ │   • MS Learn module cards per domain       │
+ │   • Links, module types, estimated hours   │
+ ├────────────────────────────────────────│
+ │ Tab 4: Progress  ◄ HUMAN IN THE LOOP ►    │
+ │   Fill: hours studied + domain ratings     │
+ │         + practice exam score             │
+ │   ↓ submit                                 │
+ │   AI computes readiness %                  │
+ │   ┌────────┬─────────┬─────────┐     │
+ │   │  GO ✓  │ COND GO ⚠️ │ NOT YET ❌ │     │
+ │   └────────┴─────────┴─────────┘     │
+ │           └─────────────── NOT YET → Regenerate plan
+ ├────────────────────────────────────────│
+ │ Tab 5: Mock Quiz  ◄ HUMAN IN THE LOOP ►  │
+ │   30 questions (domain-weighted)           │
+ │   answer all → [Submit Quiz]               │
+ │   │                                       │
+ │   ├─ score ≥ 70% → PASS ✓                │
+ │   └─ score < 70% → FAIL + domain gaps      │
+ ├────────────────────────────────────────│
+ │ Tab 6: Certification Advice                │
+ │   PASS → Booking checklist (Pearson VUE)  │
+ │   FAIL → Remediation plan per domain       │
+ │   Both → Next cert recommendation          │
+ └────────────────────────────────────────┘
+```
 
 ---
 

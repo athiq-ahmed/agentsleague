@@ -1,7 +1,76 @@
 # User Flow — Certification Preparation Multi-Agent System
 
 > **Audience:** Product reviewers, UX evaluators, and stakeholders wanting to understand how learners and administrators interact with the system.  
-> **Format:** Eight scenario-by-scenario prose walkthroughs with step-by-step numbered actions. No diagrams.
+> **Format:** Master pipeline topology, per-scenario ASCII flows, and step-by-step prose walkthroughs for all eight scenarios.
+
+---
+
+## Master Pipeline Topology
+
+```
+ Browser (Student)
+     │
+     │  Open app
+     ▼
+ ┌───────────────────────────────────────────────────────────┐
+ │  Login Screen                                                          │
+ │  ┌────────────────┐  ┌───────────────────────────┐          │
+ │  │ New → Register │  │ Returning → Login + restore  │          │
+ │  └─────┬────────┘  └──────────┬────────────────┘          │
+ └─────────────────────┬───────────┬─────────────────────────┘
+                      │ new user   │ returning user
+                      ▼           │
+              Intake Form         │ profile loaded from SQLite
+                      │           │
+                      ▼           ▼
+              ┌──────────────────────────────┐
+              │  GuardrailsPipeline [G-01 → G-05]     │
+              │  BLOCK → st.stop() | PASS → continue  │
+              └───────────────┬──────────────┘
+                             │ PASS
+                             ▼
+              ┌──────────────────────────────┐
+              │  B0  LearnerProfilingAgent            │
+              │  Tier 1: Foundry SDK                  │
+              │  Tier 2: Azure OpenAI gpt-4o           │
+              │  Tier 3: Rule-based mock (always on)  │
+              └───────────────┬──────────────┘
+                             │ LearnerProfile
+              ┌───────────────┬──────────────┘
+              │  GuardrailsPipeline [G-06 → G-08]    │
+              └───────────────┬──────────────┘
+                             │ PASS
+               ┌──────────┴──────────┐
+               │ Thread A          │ Thread B
+               ▼                  ▼
+ ┌───────────────────┐ ┌───────────────────┐
+ │ B1.1a StudyPlanAgent  │ │ B1.1b LearningPath    │
+ │ Largest Remainder     │ │ Curator + G-17 check  │
+ └──────────┬────────┘ └──────────┬────────┘
+               └──────────┴──────────┘
+                             │ persisted to SQLite
+                             ▼
+                    ┌───────────────────┐
+                    │  6-Tab UI renders         │
+                    └───────────────────┘
+             ┌───────┴────────┴────────┴───────┐
+             ▼              ▼              ▼              ▼
+         Tab 1-3       HITL Gate 1      HITL Gate 2    Tab 6
+        (read-only)    Tab 4 Progress   Tab 5 Quiz   (unlocks after
+                           │               │          quiz submitted)
+                           ▼               ▼
+                    B1.2 ProgressAgent  B2 AssessmentAgent
+                    readiness formula   30-question quiz
+                           │               │
+                    ┌──────┴──────┐       │ scored result
+                    ▼      ▼      ▼       ▼
+                   GO    COND   NOT      B3 CertRecommendationAgent
+                         GO    YET ───► Rebuild plan → B1.1a
+                    └──────┘       │
+                                   ▼
+                          Tab 6: Booking checklist
+                               or Remediation plan
+```
 
 ---
 
@@ -19,6 +88,51 @@
 ---
 
 ## S1 — New Learner: First-Time Happy Path
+
+```
+ Browser
+   │ open app
+   ▼
+ Login Screen → Register (name + PIN)  →  logged in
+   │
+   ▼
+ Sidebar: click scenario card → intake form pre-filled
+   │
+   ▼
+ [G-01–G-05 all PASS]
+   │
+   ▼
+ B0 Mock Profiler → LearnerProfile (INTERMEDIATE, LAB_FIRST, 6 domains)
+   │
+   ▼
+ [G-06–G-08 all PASS]
+   │
+   ├───────────────────┐
+   ▼ Thread A          ▼ Thread B
+ B1.1a StudyPlan    B1.1b LearningPath  (parallel, ~12ms)
+   └───────────────────┘
+   │ persisted to SQLite
+   ▼
+ 6-tab UI renders: Tab 1 (radar + PDF download)
+   │
+   ▼
+ Tab 4 → HITL Gate 1: fill progress form → submit
+   │
+   ▼
+ B1.2 ProgressAgent → readiness 74% → GO ✓
+   │
+   ▼
+ Tab 5 → HITL Gate 2: answer 30 questions → submit
+   │
+   ▼
+ B2 AssessmentAgent → score 78% → PASS
+   │
+   ▼
+ B3 CertRecommendationAgent → ready to book + next cert AZ-204
+   │
+   ▼
+ Tab 6: Booking checklist displayed
+```
 
 **Persona:** Alex Chen — a developer with 2 years of Azure experience targeting the AI-102 exam in 10 weeks, studying 8 hours per week.
 
@@ -62,6 +176,32 @@
 
 ## S2 — Returning Learner: Session Restore
 
+```
+ Browser
+   │ open app
+   ▼
+ Login Screen → enter existing name + PIN → Login
+   │
+   ▼
+ SQLite lookup → row found
+   │
+   ▼
+ Session state populated:
+   LearnerProfile + StudyPlan + LearningPath
+   + ProgressSnapshot + ReadinessAssessment
+   (no agents re-run)
+   │
+   ▼
+ 6-tab UI renders immediately (all tabs populated, read-only)
+   │
+   ├─ Tab 1: domain radar + PDF download  (available)
+   ├─ Tab 2: Gantt chart                  (available)
+   ├─ Tab 3: learning path modules        (available)
+   ├─ Tab 4: last readiness assessment    (interactive for new update)
+   ├─ Tab 5: last quiz score              (interactive for re-take)
+   └─ Tab 6: last cert recommendation     (available)
+```
+
 **Persona:** Priyanka Sharma — a data scientist who previously completed the DP-100 study plan and saved all results. Returning to review her plan after two weeks away.
 
 **Preconditions:** Priyanka has a prior account with a saved learner profile, study plan, learning path, and progress snapshot in SQLite.
@@ -81,6 +221,35 @@
 ---
 
 ## S3 — Live Azure OpenAI Mode
+
+```
+ App starts with AZURE_OPENAI_ENDPOINT + KEY in .env
+   │
+   ▼
+ Sidebar badge: • Azure OpenAI: gpt-4o (green)
+   │
+   ▼
+ Intake form submitted → [G-01–G-05 PASS]
+   │
+   ▼
+ B0 LearnerProfilingAgent  (three-tier attempt)
+   │
+   ├── Tier 1: Foundry SDK (AZURE_AI_PROJECT_CONNECTION_STRING set?)
+   │         └─► success → LearnerProfile
+   │
+   ├── Tier 2: Azure OpenAI gpt-4o JSON mode  (3–8 seconds)
+   │         └─► success → LearnerProfile
+   │
+   └── Tier 3: Rule-based mock  (auto-fallback if JSON malformed)
+             └─► LearnerProfile + WARN logged
+   │
+   ▼
+ All downstream agents (B1.1a, B1.1b, B1.2, B2, B3) unchanged
+   (deterministic — no LLM calls below B0)
+   │
+   ▼
+ Admin trace: mode = azure_openai | B0 token_count > 0 | duration ~5s
+```
 
 **Persona:** A demo organiser running the app with Azure OpenAI credentials set for a live demonstration.
 
@@ -104,6 +273,28 @@
 
 ## S4 — Admin Audit Dashboard
 
+```
+ Browser → /pages/1_Admin_Dashboard
+   │
+   ▼
+ Admin login form → ADMIN_USERNAME + ADMIN_PASSWORD
+   │ wrong → error banner
+   │ correct
+   ▼
+ ┌───────────────────────────────────┐
+ │  Admin Dashboard (reads only SQLite)  │
+ ├───────────────────────────────────│
+ │ Student Roster      (all students)    │
+ │ Agent Trace Log     (per-run cards)   │
+ │ Guardrail Audit     (all violations)  │
+ └───────────────────────────────────┘
+   │
+   └─ Violation: G-16 WARN → amber row
+   └─ Violation: G-03 BLOCK → red row
+   └─ Trace card: mode badge (mock=grey | azure=blue)
+                each AgentStep: name + duration_ms
+```
+
 **Persona:** An administrator or facilitator reviewing learner activity after a group demo event.
 
 **Preconditions:** `ADMIN_USERNAME` and `ADMIN_PASSWORD` are set in `.env`. The event had 8 unique learner sessions.
@@ -125,6 +316,39 @@
 ---
 
 ## S5 — Remediation Loop: Score Below Threshold
+
+```
+ Tab 4 → HITL Gate 1
+   │ 20hrs studied, ratings 2-3/5, practice 42%
+   ▼
+ B1.2 ProgressAgent
+   readiness = 0.55×47% + 0.25×50% + 0.20×42% = 47.4%
+   │
+   ▼
+ Verdict: NOT YET ❌
+   │
+   ▼
+ 2 weak domains identified → nudges displayed
+   │
+   ▼
+ [Regenerate Study Plan] button shown
+   │ user clicks
+   ▼
+ Weak domain confidence reset to 0.25 (WEAK)
+   │
+   ├───────────────────┐
+   ▼ Thread A          ▼ Thread B
+ B1.1a StudyPlan    B1.1b LearningPath  (re-run, parallel)
+ (weak domains      (additional labs
+  front-loaded)      for weak domains)
+   └───────────────────┘
+   │
+   ▼
+ Tab 2 refreshes → rebalanced Gantt chart
+   │
+   ▼
+ Learner studies → returns for new Gate 1 check-in
+```
 
 **Persona:** Jordan — a learner who submitted their progress check-in with only 20 hours studied out of 40 budgeted and a practice score of 42%.
 
@@ -148,6 +372,33 @@
 
 ## S6 — Edit Profile: Re-running the Pipeline
 
+```
+ Tab 1 (Learner Profile)
+   │
+   ▼
+ [Edit Profile] button → clicked
+   │
+   ▼
+ 6 tabs collapse → intake form re-appears (pre-filled)
+   │ user changes exam: AI-900 → AI-102
+   │ clicks [Update Plan]
+   ▼
+ [G-01–G-05 PASS]
+   │
+   ▼
+ B0 → new LearnerProfile (6 AI-102 domains)
+   │
+   ├───────────────────┐
+   ▼ Thread A          ▼ Thread B
+ B1.1a StudyPlan    B1.1b LearningPath  (parallel)
+ (AI-102 6 domains)  (AI-102 modules)
+   └───────────────────┘
+   │ replaces prior SQLite records
+   ▼
+ 6-tab UI re-renders with AI-102 content
+ "✓ Your plan has been updated for AI-102"
+```
+
 **Persona:** Sam — a learner who initially targeted AI-900 but updated their goal to AI-102 after one week.
 
 **Preconditions:** Sam has a complete profile and study plan for AI-900 in session state.
@@ -165,6 +416,29 @@
 ---
 
 ## S7 — Guardrail BLOCK Scenarios
+
+```
+ Intake form submitted
+   │
+   ▼
+ GuardrailsPipeline
+   │
+   ├── G-02: exam = "AZ-999" not in registry
+   │         └─► BLOCK ❌  red banner  → st.stop()
+   │                     user must fix exam code
+   │
+   ├── G-03: hours_per_week = 0.5  (outside [1, 80])
+   │         └─► BLOCK ❌  red banner  → st.stop()
+   │
+   ├── G-04: weeks = 60  (outside [1, 52])
+   │         └─► BLOCK ❌  red banner  → st.stop()
+   │
+   └── G-10: allocated hours > 110% of budget
+             └─► WARN ⚠️  amber banner → pipeline continues
+
+ All BLOCK violations: no agent runs, violation logged to SQLite
+ All WARN violations:  pipeline proceeds, violation logged
+```
 
 **Persona:** A learner who makes several common input mistakes on the intake form.
 
@@ -187,6 +461,28 @@
 ---
 
 ## S8 — PII in Background Text
+
+```
+ Intake form → background text field
+   │
+   ▼
+ GuardrailsPipeline G-16 content scanner
+   │
+   ├── Email pattern detected  (sam@company.com)
+   │         └─► WARN ⚠️  amber banner
+   │              pipeline continues
+   │              PII not forwarded to LLM (mock mode)
+   │
+   ├── Credit card pattern detected  (16-digit sequence)
+   │         └─► WARN ⚠️  amber banner
+   │              pipeline continues
+   │              user advised to remove before live session
+   │
+   └── Harmful keyword detected  (prohibited blocklist)
+             └─► BLOCK ❌  red banner  → st.stop()
+                  violation code + timestamp logged
+                  content itself NOT persisted
+```
 
 **Persona:** A learner who accidentally pastes personal information into the background text field.
 
