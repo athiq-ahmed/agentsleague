@@ -2453,7 +2453,21 @@ if "profile" in st.session_state:
         )
 
         # ── Pre-compute insight data ──────────────────────────────────────────
-        labels    = [dp.domain_name.replace(" Solutions", "").replace("Implement ", "")
+        def _wrap_label(s: str, width: int = 18) -> str:
+            """Break long domain labels at word boundaries for x-axis display."""
+            words, line, lines = s.split(), "", []
+            for w in words:
+                if len(line) + len(w) + (1 if line else 0) > width:
+                    if line:
+                        lines.append(line)
+                    line = w
+                else:
+                    line = (line + " " + w).strip()
+            if line:
+                lines.append(line)
+            return "<br>".join(lines)
+
+        labels    = [_wrap_label(dp.domain_name.replace(" Solutions", "").replace("Implement ", ""))
                      for dp in profile.domain_profiles]
         scores    = [dp.confidence_score for dp in profile.domain_profiles]
         threshold = [0.50] * len(labels)
@@ -2670,10 +2684,12 @@ if "profile" in st.session_state:
             barmode="group",
             bargroupgap=0.10,
             bargap=0.30,
-            height=420,
-            margin=dict(l=10, r=20, t=55, b=20),
+            height=460,
+            margin=dict(l=10, r=20, t=55, b=120),
             xaxis=dict(
                 tickfont=dict(size=10, family="Segoe UI"),
+                tickangle=-35,
+                automargin=True,
                 showgrid=False,
             ),
             yaxis=dict(
@@ -2696,7 +2712,7 @@ if "profile" in st.session_state:
                 text=f"🎯 Predicted total: <b>{_predicted_total:.0f} / 100</b>"
                      + (f" — <span style='color:#27ae60'>above pass mark ✓</span>" if _predicted_total >= _pass_mark
                         else f" — <span style='color:#d13438'>below pass mark, need {_pass_mark - _predicted_total:.0f}pt more</span>"),
-                xref="paper", yref="paper", x=0, y=-0.12,
+                xref="paper", yref="paper", x=0, y=-0.32,
                 showarrow=False, align="left",
                 font=dict(size=12, family="Segoe UI"),
             )],
