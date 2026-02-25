@@ -9,7 +9,21 @@ A **production-grade multi-agent AI system** for personalised Microsoft certific
 
 ---
 
-## 🏅 Competition Alignment
+## � What's New
+
+| Date | Change | Details |
+|------|--------|---------|
+| **Latest** | **Demo PDF cache system** | `demo_pdfs/` folder + `_get_or_generate_pdf()` helper — demo personas (Alex/Priyanka) serve PDFs from disk on repeat clicks; real users always regenerate fresh reports |
+| **Latest** | **PDF generation stability** | Fixed `AttributeError` crashes in `generate_profile_pdf()` and `generate_intake_summary_html()`: `background_text`/`goal_text` now sourced from `RawStudentInput`; `exam_weight`/`priority` derived from `EXAM_DOMAINS` registry + confidence thresholds |
+| **Latest** | **Technical documentation** | Added `docs/technical_documentation.md` — 850-line deep-dive into agent internals, algorithms, data models, orchestration patterns and system architecture |
+| **Latest** | **Email HTML fix** | `generate_intake_summary_html()` (used by "Email Study Plan PDF" button) fixed for same PDF field bugs |
+| **Earlier** | **9-cert registry** | Expanded from 5 to 9 exam families with full domain-weight matrices |
+| **Earlier** | **Email digest** | SMTP simplified to env-vars only — no UI config needed |
+| **Earlier** | **Badge alignment** | Fixed sidebar mode badge layout on Windows + Streamlit Cloud |
+
+---
+
+## �🏅 Competition Alignment
 
 | Judging Criterion | Weight | Evidence |
 |---|---|---|
@@ -532,7 +546,39 @@ SMTP_FROM=CertPrep AI <you@gmail.com>
 
 ---
 
-## 📁 Project Structure
+## � PDF Reports & Demo Caching
+
+The `ProgressAgent` generates two PDF report types via **reportlab**:
+
+| Report | Function | Contents |
+|--------|----------|----------|
+| **Learner Profile PDF** | `generate_profile_pdf()` | Domain radar summary, confidence scores, experience level, background, study goal |
+| **Assessment Report PDF** | `generate_assessment_pdf()` | Quiz score breakdown, per-domain results, pass/fail verdict, remediation recommendations |
+
+### Demo PDF Cache (`demo_pdfs/`)
+
+For demo personas (Alex Chen / Priyanka Sharma) PDFs are **pre-cached** on first generation. Subsequent clicks on "Download PDF" or "Email Study Plan PDF" serve the cached file instantly — no reportlab pipeline needed.
+
+```python
+# streamlit_app.py — _get_or_generate_pdf() helper
+def _get_or_generate_pdf(scenario_key, pdf_type, generate_fn, *args) -> bytes:
+    if scenario_key:                                    # demo user
+        cache_path = _DEMO_PDF_DIR / f"{scenario_key}_{pdf_type}.pdf"
+        if cache_path.exists():
+            return cache_path.read_bytes()             # instant: serve from cache
+        pdf_bytes = generate_fn(*args)
+        cache_path.write_bytes(pdf_bytes)              # write once
+        return pdf_bytes
+    return generate_fn(*args)                          # real users always regenerate
+```
+
+- `demo_pdfs/*.pdf` files are **gitignored** — the folder is tracked via `.gitkeep`
+- Real users (no `scenario_key`) always generate a fresh PDF from their live profile
+- The `generate_profile_pdf()` function accepts an optional `raw=` parameter (`RawStudentInput`) to include the learner's original background text and exam goal in the PDF header — this ensures the PDF reflects what the learner typed, not just the profiler's structured output
+
+---
+
+## �📁 Project Structure
 
 ```
 agentsleague/
@@ -542,6 +588,13 @@ agentsleague/
 │
 ├── pages/
 │   └── 1_Admin_Dashboard.py             # Agent audit dashboard + per-agent guardrail log
+│
+├── demo_pdfs/                            # Pre-cached PDF reports for demo personas (gitignored)
+│   ├── .gitkeep                          # Tracks folder in git; *.pdf files are gitignored
+│   ├── alex_profile.pdf                  # Alex Chen — AI-102 learner profile (generated on first run)
+│   ├── alex_assessment.pdf               # Alex Chen — AI-102 assessment report
+│   ├── priyanka_profile.pdf              # Priyanka Sharma — DP-100 learner profile
+│   └── priyanka_assessment.pdf           # Priyanka Sharma — DP-100 assessment report
 │
 ├── src/
 │   └── cert_prep/
@@ -556,7 +609,7 @@ agentsleague/
 │       ├── b1_mock_profiler.py           # Rule-based profiler (zero-credential mock mode)
 │       ├── b1_1_study_plan_agent.py      # Gantt study plan generator (parallel fan-out)
 │       ├── b1_1_learning_path_curator.py # MS Learn module curator (parallel fan-out)
-│       ├── b1_2_progress_agent.py        # Readiness tracker + email digest
+│       ├── b1_2_progress_agent.py        # Readiness tracker + PDF reports + email digest
 │       ├── b2_assessment_agent.py        # Quiz builder + scorer
 │       └── b3_cert_recommendation_agent.py  # Next-cert path recommender
 │
@@ -568,7 +621,10 @@ agentsleague/
 │
 ├── docs/
 │   ├── architecture.md                  # System design + agent pipeline diagrams
+│   ├── technical_documentation.md       # Deep-dive: agent internals, algorithms, data models
 │   ├── user_flow.md                     # All 8 user journey scenarios (S1–S8 incl. PII)
+│   ├── Solution_architecture.pdf        # Solution architecture (PDF)
+│   ├── Solution_architecture.drawio     # Solution architecture diagram source
 │   ├── judge_playbook.md               # Hackathon judging Q&A
 │   ├── TODO.md                          # Task tracker (completed + pending items)
 │   └── CertPrep_MultiAgent_Architecture.drawio  # Architecture diagram source
@@ -595,7 +651,7 @@ Complete alignment with the [Battle #2 Submission Requirements](https://github.c
 | 3 | **Demonstrate reasoning and multi-step decision-making** across agents | ✅ **Met** | 8-agent sequential + parallel pipeline; Planner–Executor pattern (Intake → Profiler → Planner); Critic/Verifier pattern (GuardrailsPipeline at every agent boundary); conditional routing (`score ≥ 70%` → CertRecommender, `50–70%` → targeted review, `< 50%` → remediation loop); self-reflection iteration (re-plan on score drop); HITL gates |
 | 4 | **Integrate with external tools, APIs, and/or MCP servers** to meaningfully extend agent capabilities | ✅ **Met** | Azure OpenAI GPT-4o (LLM backbone); Azure AI Foundry Agent Service SDK (managed agent execution); SQLite persistence (cross-session learner profiles); SMTP email digest (progress notifications); MS Learn module catalogue (9-cert static registry; live MCP `/ms-learn` server integration via `MCP_MSLEARN_URL` is active roadmap — placeholder wired) |
 | 5 | **Be demoable** (live or recorded) and clearly explain the agent interactions | ✅ **Met** | Live at [agentsleague.streamlit.app](https://agentsleague.streamlit.app) (Streamlit Cloud); Admin Dashboard shows per-agent reasoning trace, input/output, guardrail violations, latency; mock mode runs zero-credential locally; `docs/judge_playbook.md` guides live demo walkthrough |
-| 6 | **Clear documentation** describing: agent roles and responsibilities, reasoning flow and orchestration logic, tools/API/MCP integrations | ✅ **Met** | `README.md` (this file — full architecture, agent table, reasoning patterns, tool integrations, Foundry SDK integration); `docs/architecture.md` (sequence diagrams, agent contracts, compliance map); `docs/judge_playbook.md` (demo script, scenario walkthroughs, guardrail evidence); `docs/user_flow.md` (full user journey with PII edge cases) |
+| 6 | **Clear documentation** describing: agent roles and responsibilities, reasoning flow and orchestration logic, tools/API/MCP integrations | ✅ **Met** | `README.md` (this file — full architecture, agent table, reasoning patterns, tool integrations, Foundry SDK integration); `docs/architecture.md` (sequence diagrams, agent contracts, compliance map); `docs/technical_documentation.md` (deep-dive: agent internals, algorithms, data models, orchestration); `docs/judge_playbook.md` (demo script, scenario walkthroughs, guardrail evidence); `docs/user_flow.md` (full user journey with PII edge cases) |
 
 ### Optional But Highly Valued
 
@@ -634,7 +690,7 @@ Alignment with the [Starter Kit README](https://github.com/microsoft/agentsleagu
 | Content safety + input validation | ✅ | G-01..G-17 guardrails pipeline |
 | Evaluation / telemetry | ✅ | `AgentStep`/`RunTrace` + 25 pytest tests |
 | `.gitignore` per starter kit guidelines | ✅ | `.env`, `.azure/`, `.secrets/` excluded |
-| GitHub repository with full documentation | ✅ | [athiq-ahmed/agentsleague](https://github.com/athiq-ahmed/agentsleague) |
+| GitHub repository with full documentation | ✅ | [athiq-ahmed/agentsleague](https://github.com/athiq-ahmed/agentsleague) — `README.md`, `docs/architecture.md`, `docs/technical_documentation.md`, `docs/user_flow.md`, `docs/judge_playbook.md` |
 
 ---
 
