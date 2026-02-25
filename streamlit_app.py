@@ -2035,13 +2035,19 @@ else:
             """, unsafe_allow_html=True)
         with _hdr_r:
             if st.button("🔄 Reset", key="clear_form", use_container_width=True):
+                # Clear keyed checkbox state
                 for k in list(st.session_state.keys()):
-                    if k.startswith(("motiv_", "style_", "sidebar_prefill")):
+                    if k.startswith(("motiv_", "style_")):
                         del st.session_state[k]
+                # Clear prefill + PII counter
                 st.session_state.pop("sidebar_prefill", None)
+                st.session_state.pop("_pii_seen_count", None)
+                # Bump form version → forces all keyless widgets to re-render blank
+                st.session_state["_form_version"] = st.session_state.get("_form_version", 0) + 1
                 st.rerun()
 
-    with st.form("intake_form", clear_on_submit=False):
+    _form_version = st.session_state.get("_form_version", 0)
+    with st.form(f"intake_form_{_form_version}", clear_on_submit=False):
 
         _left, _right = st.columns(2, gap="small")
 
