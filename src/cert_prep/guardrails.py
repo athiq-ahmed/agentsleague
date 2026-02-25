@@ -124,15 +124,20 @@ _HARMFUL_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-# PII detection — catches real identity data in free-text fields
-# Fires G-16 WARN (not BLOCK) so the user is alerted and can remove it,
-# but the study pipeline still continues.
+# PII detection — two layers:
+#   Layer 1 (_PII_PATTERNS)  : format-based regex for known structured data
+#   Layer 2 (_PII_KEYWORDS)  : keyword-context — fires when the user mentions
+#                               a PII category (e.g. "my ssn is") regardless
+#                               of whether the number is correctly formatted.
+# Both fire G-16 WARN so the user is alerted; pipeline is paused in the UI.
+
 _PII_PATTERNS: list[tuple[str, str, re.Pattern]] = [
     # (guardrail_label, description, compiled_pattern)
+    # SSN — separators now optional so bare digit strings are caught too
     (
         "SSN",
-        "Social Security Number detected",
-        re.compile(r"\b\d{3}[-\s]\d{2}[-\s]\d{4}\b"),
+        "Social Security Number pattern detected",
+        re.compile(r"\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b"),
     ),
     (
         "Credit card",
@@ -150,19 +155,87 @@ _PII_PATTERNS: list[tuple[str, str, re.Pattern]] = [
         re.compile(r"\b[A-CEGHJ-PR-TW-Z]{2}\s?\d{2}\s?\d{2}\s?\d{2}\s?[A-D]\b", re.IGNORECASE),
     ),
     (
-        "Email in bio",
-        "Email address detected in background text — consider removing personal contact details",
+        "Email address",
+        "Email address detected — consider removing personal contact details",
         re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b"),
     ),
     (
         "Phone number",
-        "Phone number detected in background text",
-        re.compile(r"\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b"),
+        "Phone number detected",
+        # Matches formatted (555-123-4567) and international (+44 7911 123456) numbers
+        re.compile(r"\b(?:\+?[\d]{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b"),
     ),
     (
         "IP address",
-        "IP address detected in background text",
+        "IP address detected",
         re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"),
+    ),
+    (
+        "Long digit sequence",
+        "Long numeric sequence detected — may be a document or account number",
+        # 8–20 consecutive digits not already wrapped in a more specific pattern
+        re.compile(r"\b\d{8,20}\b"),
+    ),
+]
+
+# Keyword-context PII — catches self-declared PII even when the format is
+# non-standard (e.g. "my ssn is 34215345" or "my password is abc123")
+_PII_KEYWORDS: list[tuple[str, str, re.Pattern]] = [
+    (
+        "SSN keyword",
+        "Social Security Number mentioned — please remove it",
+        re.compile(
+            r"\b(s\.?s\.?n\.?|social\s+security\s*(?:number|#|no\.?)?)",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "Passport keyword",
+        "Passport number mentioned — please remove it",
+        re.compile(
+            r"\b(passport\s*(?:number|#|no\.?)?)",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "National ID keyword",
+        "National ID or insurance number mentioned — please remove it",
+        re.compile(
+            r"\b(national\s+(?:id|insurance|insurance\s+number)|nin\b|nino\b|aadhar|aadhaar|pan\s+(?:card|number))",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "Bank / card keyword",
+        "Bank account or card details mentioned — please remove them",
+        re.compile(
+            r"\b((?:bank\s+)?account\s*(?:number|#|no\.?)|routing\s*(?:number|#)|credit\s+card\s*(?:number|#)?|debit\s+card|iban|swift\s+(?:code)?)",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "Date of birth keyword",
+        "Date of birth mentioned — please remove it",
+        re.compile(
+            r"\b(date\s+of\s+birth|d\.?o\.?b\.?|born\s+on|my\s+birthday)",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "Password keyword",
+        "Password or secret key mentioned — please remove it",
+        re.compile(
+            r"\b(my\s+password|my\s+pin|my\s+secret|api\s+key\s+is|access\s+key\s+is)",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "Home address keyword",
+        "Physical address mentioned — consider removing it",
+        re.compile(
+            r"\b(my\s+(?:home\s+)?address\s+is|i\s+live\s+at|residing\s+at)",
+            re.IGNORECASE,
+        ),
     ),
 ]
 
@@ -457,7 +530,7 @@ class OutputContentGuardrails:
                     ),
                 ))
 
-        # WARN: PII patterns — always regex; alert user but don't block
+        # WARN: Layer 1 — format-based PII patterns (SSN, CC, phone, etc.)
         for pii_label, description, pattern in _PII_PATTERNS:
             if pattern.search(text):
                 violations.append(GuardrailViolation(
@@ -466,6 +539,20 @@ class OutputContentGuardrails:
                     message=(
                         f"PII detected in \"{_label}\" — {pii_label}: {description}. "
                         "Please remove personal data from this field."
+                    ),
+                ))
+
+        # WARN: Layer 2 — keyword-context PII (catches "my ssn is...", "my password is..."
+        # even when the associated value doesn't match a known numeric format)
+        _seen_kw_labels: set[str] = set()
+        for kw_label, kw_desc, kw_pattern in _PII_KEYWORDS:
+            if kw_pattern.search(text) and kw_label not in _seen_kw_labels:
+                _seen_kw_labels.add(kw_label)
+                violations.append(GuardrailViolation(
+                    code="G-16", level=GuardrailLevel.WARN,
+                    field=field_name,
+                    message=(
+                        f"PII keyword detected in \"{_label}\" — {kw_label}: {kw_desc}."
                     ),
                 ))
 
