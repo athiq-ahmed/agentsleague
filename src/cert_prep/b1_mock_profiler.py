@@ -1,15 +1,58 @@
 """
-mock_profiler.py – Rule-based LearnerProfile generator (no Azure OpenAI needed).
+b1_mock_profiler.py — Rule-based LearnerProfile generator (Tier 3 fallback)
+============================================================================
+Produces a LearnerProfile from RawStudentInput using pure Python keyword
+matching and rule tables — no Azure credentials or network calls required.
 
-Mirrors the exact behaviour the LLM profiler would produce so the Streamlit UI
-is fully testable before credentials are wired in.
+This module serves three roles:
+  1. **Tier 3 fallback** — used by LearnerProfilingAgent when neither
+     the Foundry SDK nor Azure OpenAI is configured.
+  2. **Unit test fixture** — all 299 tests use the mock profiler so they
+     run offline in under 3 seconds.
+  3. **Demo / quick-start** — the app is fully functional out-of-the-box
+     with no .env configuration needed.
 
-Logic covers:
-  • Existing certification → domain skill inference
-  • Background keyword detection → ExperienceLevel
-  • Concern topics → risk domains
-  • Learning preference text → LearningStyle
-  • Analogy map for ML/data-science backgrounds
+Algorithm (three passes)
+------------------------
+  Pass 1 — Experience Level
+    Scans `background_text` for keyword sets mapped to ExperienceLevel values.
+    Highest-scoring keyword wins.  Example mappings:
+      "data scientist", "machine learning" → EXPERT_ML
+      "architect", "azure"                 → ADVANCED_AZURE
+      "developer", "engineer"              → INTERMEDIATE
+      (no strong match)                    → BEGINNER
+
+  Pass 2 — Domain Confidence Scores
+    Base scores are derived from:
+      a) Existing certifications — _CERT_DOMAIN_BOOST_BY_TARGET maps each
+         held cert to the domain IDs it strengthens (per target exam).
+      b) Background keyword co-occurrence — domain-specific terms in
+         `background_text` raise the score on a linear scale [0.10, 0.75].
+      c) ExperienceLevel baseline — EXPERT_ML and ADVANCED_AZURE start
+         higher than BEGINNER to reflect general platform fluency.
+
+  Pass 3 — Concern Topics → Risk Domains + Penalty
+    Each concern topic is mapped to a domain ID.  Matched domains:
+      • Receive a −0.15 confidence penalty (min floor: 0.05).
+      • Are added to `risk_domains` so downstream agents front-load them.
+
+  Post-processing
+    • Derives `knowledge_level` from confidence thresholds:
+        < 0.30 → UNKNOWN,  0.30–0.50 → WEAK,
+        0.50–0.70 → MODERATE,  ≥ 0.70 → STRONG
+    • Detects `skip_recommended` when confidence ≥ 0.80 (near-expert).
+    • Builds `analogy_map` for ML/data-science backgrounds.
+    • Selects `learning_style` from preferred_style text keywords.
+
+Public API
+----------
+  generate_mock_profile(raw: RawStudentInput) → LearnerProfile
+
+Consumers
+---------
+  b0_intake_agent.py   — calls generate_mock_profile() as Tier 3 fallback
+  streamlit_app.py     — calls directly when live_mode=False
+  tests/*              — all tests that need a LearnerProfile use this
 """
 
 from __future__ import annotations

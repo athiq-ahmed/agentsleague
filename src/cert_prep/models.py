@@ -1,8 +1,63 @@
 """
-Data models for the Certification Prep Multi-Agent System.
+models.py — Shared data models for the CertPrep Multi-Agent System
+===================================================================
+Single authoritative definition of every data class, Pydantic model,
+and enumeration that crosses an agent boundary.  Nothing in the
+pipeline passes raw dicts between agents — every handoff uses one of
+the types defined here.
 
-Block 1 (Intake + Profiling) models are defined here;
-later blocks will extend this module.
+---------------------------------------------------------------------------
+Enumerations
+---------------------------------------------------------------------------
+  DomainKnowledge      UNKNOWN | WEAK | MODERATE | STRONG
+  LearningStyle        LINEAR | LAB_FIRST | REFERENCE | ADAPTIVE
+  ExperienceLevel      BEGINNER | INTERMEDIATE | ADVANCED_AZURE | EXPERT_ML
+
+---------------------------------------------------------------------------
+Exam Domain Registry (the "blueprint" for each certification)
+---------------------------------------------------------------------------
+  EXAM_DOMAINS         AI-102 domain list (also used as the system default)
+  AI900_DOMAINS        AI-900 blueprint
+  AZ204_DOMAINS        AZ-204 blueprint
+  DP100_DOMAINS        DP-100 blueprint
+  AZ305_DOMAINS        AZ-305 blueprint
+  EXAM_DOMAIN_REGISTRY dict[exam_code → list[domain_dict]]  — central lookup
+                       used by every agent and the guardrails pipeline
+  get_exam_domains(code) → helper; falls back to EXAM_DOMAINS if code unknown
+  DOMAIN_IDS           flat list of AI-102 domain ID strings (legacy compat.)
+
+---------------------------------------------------------------------------
+Pipeline data models (dataclasses + Pydantic)
+---------------------------------------------------------------------------
+  RawStudentInput      Entry point — intake form data captured by the UI.
+                       Validated by GuardrailsPipeline [G-01..G-05] before
+                       any agent sees it.
+
+  DomainProfile        Per-domain profiling row inside LearnerProfile.
+                       Pydantic model; `confidence_score` is range-validated
+                       by Field(ge=0.0, le=1.0).
+
+  LearnerProfile       Output of B0 (LearnerProfilingAgent).
+                       Consumed by B1.1a (StudyPlanAgent),
+                                    B1.1b (LearningPathCuratorAgent),
+                                    B1.2  (ProgressAgent),
+                                    B2    (AssessmentAgent),
+                                    B3    (CertRecommendationAgent).
+                       Provides helper methods: weak_domains(),
+                       domains_to_skip(), domain_by_id().
+
+---------------------------------------------------------------------------
+Consumers (who imports this module)
+---------------------------------------------------------------------------
+  b0_intake_agent.py            builds RawStudentInput + LearnerProfile
+  b1_1_study_plan_agent.py      reads LearnerProfile → builds StudyPlan
+  b1_1_learning_path_curator.py reads LearnerProfile → builds LearningPath
+  b1_2_progress_agent.py        reads LearnerProfile + ProgressSnapshot
+  b2_assessment_agent.py        reads LearnerProfile → generates quiz
+  b3_cert_recommendation_agent  reads LearnerProfile + AssessmentResult
+  guardrails.py                 validates RawStudentInput + LearnerProfile
+  database.py                   serialises / deserialises all models to SQLite
+  streamlit_app.py              orchestrates the whole pipeline
 """
 
 from __future__ import annotations

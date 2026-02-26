@@ -1,22 +1,59 @@
 """
-learning_path_curator.py – Learning Path Curator Agent (Block 1.1)
-===================================================================
-Maps exam domains in a LearnerProfile to curated Microsoft Learn
-modules, producing a personalised reading list ordered by study priority.
+b1_1_learning_path_curator.py — Learning Path Curator Agent (Block 1.1b)
+=========================================================================
+Maps exam domains in a LearnerProfile to curated Microsoft Learn modules,
+producing a personalised reading list ordered by study priority.
+Runs in parallel with StudyPlanAgent (via ThreadPoolExecutor) so neither
+agent waits on the other.
 
-Architecture role:
-  Block 1 (Intake) → Block 1.1 (LearningPathCuratorAgent) → Block 1.2 (StudyPlanAgent)
+---------------------------------------------------------------------------
+Agent: LearningPathCuratorAgent
+---------------------------------------------------------------------------
+  Input:   LearnerProfile
+  Output:  LearningPath (list of LearningModule; one bucket per domain)
+  Pattern: Sequential with Critic (G-17 URL trust validation)
 
-The mock implementation returns hard-coded MS Learn module metadata.
-A live implementation can call the Microsoft Learn Catalog API:
+Key behaviours
+--------------
+  1. Style-aware module ordering
+     Learners with learning_style=LAB_FIRST see labs before videos.
+     REFERENCE learners see documentation modules first.
+     LINEAR learners receive modules in progressive difficulty order.
+
+  2. Priority-based selection
+     Each domain in _MODULE_CATALOGUE has 3–5 candidate modules.
+     The agent selects the top 2–3 based on (style_match, priority).
+
+  3. G-17 URL trust guard (Critic step)
+     Every module URL is validated against TRUSTED_URL_PREFIXES.
+     Non-approved URLs are silently removed and reported via a WARN
+     guardrail violation.  Only learn.microsoft.com, docs.microsoft.com,
+     aka.ms, and pearsonvue.com URLs pass the filter.
+
+  4. Total hours estimate
+     Sums all module duration_min fields and exposes total_hours_est on
+     LearningPath so the UI can show "Estimated X hours of reading".
+
+---------------------------------------------------------------------------
+Data models defined in this file
+---------------------------------------------------------------------------
+  LearningModule    One MS Learn module: url, domain, duration, priority
+  LearningPath      Curated list + per-domain buckets + total hours
+
+---------------------------------------------------------------------------
+Live vs mock
+---------------------------------------------------------------------------
+The mock implementation returns hard-coded MS Learn module metadata that
+mirrors the real catalogue.  A live implementation could call:
   GET https://learn.microsoft.com/api/catalog/?locale=en-us&type=modules
+and filter results by module tags matching each exam domain.
 
-Output
-------
-LearningPath
-  └── List[LearningModule]  (one per relevant MS Learn module)
-  └── curated_paths: dict[domain_id → list[LearningModule]]
-  └── total_hours_est: float  (sum of all module duration estimates)
+---------------------------------------------------------------------------
+Consumers
+---------------------------------------------------------------------------
+  streamlit_app.py   — runs LearningPathCuratorAgent().run() in parallel
+  database.py        — save_learning_path() persists learning_path_json
+  b1_2_progress_agent.py — generate_profile_pdf() embeds module list in PDF
 """
 
 from __future__ import annotations

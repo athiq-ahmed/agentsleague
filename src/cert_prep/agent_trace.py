@@ -1,9 +1,35 @@
 """
-agent_trace.py – lightweight trace/audit log for agent interactions.
+agent_trace.py — Lightweight audit log for agent pipeline runs
+==============================================================
+Every agent step in the pipeline emits an AgentStep record.  The
+orchestrator (streamlit_app.py) collects all steps into a RunTrace
+and stores it in st.session_state["run_trace"].  The Admin Dashboard
+(pages/1_Admin_Dashboard.py) reads RunTrace objects from SQLite to
+render per-student pipeline timing and decision timelines.
 
-Each agent step produces an AgentTrace record. The full run produces
-a RunTrace that is stored in Streamlit session_state so the admin
-dashboard can inspect exactly how each agent contributed.
+Data model
+----------
+  AgentStep      One agent's contribution: timing, status, decisions, warnings.
+  RunTrace       Full trace for a single pipeline run; ordered list of AgentSteps.
+
+Key fields
+----------
+  AgentStep.status          "success" | "repaired" | "skipped"
+  AgentStep.duration_ms     Wall-clock milliseconds for that agent
+  AgentStep.decisions       Human-readable list of choices the agent made
+  AgentStep.warnings        Any non-fatal issues detected by the agent
+  AgentStep.detail          Arbitrary extra dict for agent-specific metadata
+  RunTrace.mode             "mock" | "azure_openai" | "foundry"
+  RunTrace.total_ms         End-to-end pipeline wall time
+
+Consumers
+---------
+  streamlit_app.py             builds AgentStep per agent; assembles RunTrace
+  pages/1_Admin_Dashboard.py   renders RunTrace as a timeline + latency chart
+  database.py                  serialises/deserialises RunTrace as JSON blob
+
+Note: _ms() and make_step() are private helpers used only by streamlit_app.py
+to construct demo/mock step latencies with realistic random jitter.
 """
 
 from __future__ import annotations

@@ -1,26 +1,75 @@
 """
-progress_agent.py – Mid-Journey Progress Tracker & Readiness Assessor
-======================================================================
-Handles the "returning learner" flow:
+b1_2_progress_agent.py — Progress Tracker & Readiness Assessor (Block 1.2)
+===========================================================================
+Handles the "returning learner" flow — the first Human-in-the-Loop (HITL)
+gate in the pipeline.  The student fills in a progress check-in form, and
+this agent digests those self-reported answers into a structured readiness
+verdict plus actionable nudges.
 
-  ProgressAgent
-    • Accepts a mid-journey ProgressSnapshot (hours spent, per-domain
-      self-ratings, practice-exam status) alongside the student's original
-      LearnerProfile.
-    • Computes an overall ReadinessAssessment (readiness %, verdict, nudges).
-    • Identifies which Gantt blocks are ahead / on-track / behind schedule.
+---------------------------------------------------------------------------
+HITL Gate 1 (Tab 4 — "Progress & Readiness")
+---------------------------------------------------------------------------
+  The Streamlit UI collects:
+    • Total hours studied so far
+    • Per-domain self-confidence rating (slider 1–5)
+    • Whether a practice exam was taken and the score (0–100)
+    • Optional free-text study notes
+  This snapshot feeds ProgressAgent.assess().  Without this gate
+  the quiz and certification recommendation tabs remain locked.
+
+---------------------------------------------------------------------------
+Agent: ProgressAgent
+---------------------------------------------------------------------------
+  Input:   ProgressSnapshot + LearnerProfile
+  Output:  ReadinessAssessment
+  Pattern: Self-Reflection and Iteration
+
+  Readiness formula:
+    readiness_pct = 0.55 × weighted_confidence
+                  + 0.25 × hours_utilisation      (capped at 100% of budget)
+                  + 0.20 × practice_score
+
+  Verdict thresholds:
+    ≥ 75%  → EXAM_READY    (go to quiz)
+    60–75% → NEARLY_READY  (targeted revision recommended)
+    45–60% → NEEDS_WORK    (gap analysis, more study)
+    < 45%  → NOT_READY     (remediation loop — rebuild study plan)
+
+---------------------------------------------------------------------------
+Utility functions
+---------------------------------------------------------------------------
+  generate_profile_pdf(profile, plan, lp) → bytes
+    ReportLab PDF: domain radar, Gantt study plan, module list.
+    Passed to st.download_button() or attached to the welcome email.
+
+  generate_assessment_pdf(profile, snap, asmt) → bytes
+    ReportLab PDF: progress snapshot, domain bars, go/no-go verdict.
 
   generate_weekly_summary(profile, snapshot, assessment) → str (HTML)
-    Produces a formatted HTML e-mail body for the weekly progress report.
+    HTML email body for the weekly progress digest.
+    Rendered in the UI via st.components.v1.html() to honour inline styles.
 
   send_simple_email(smtp_host, smtp_port, to_emails, subject, body_text,
                     sender_email, sender_pass, pdf_bytes, pdf_filename) → (bool, str)
-    Pure-library SMTP helper — all credentials passed as arguments.
-    No .env configuration required. Works with any Gmail / Outlook / SMTP relay.
+    Pure-library SMTP helper.  All credentials passed as arguments —
+    no .env dependency.  Compatible with Gmail, Outlook, any SMTP relay.
 
   attempt_send_email(to_address, subject, html_body, …) → (bool, str)
     Convenience wrapper: uses inline smtp_user/smtp_pass args first,
     then falls back to SMTP_USER/SMTP_PASS environment variables.
+
+---------------------------------------------------------------------------
+Environment variables used (all optional)
+---------------------------------------------------------------------------
+  SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
+  If unset, email sending is silently skipped and the download button
+  remains available as the fallback.
+
+---------------------------------------------------------------------------
+Consumers
+---------------------------------------------------------------------------
+  streamlit_app.py              Tab 4, Tab 5 gating logic, PDF download buttons
+  database.py                   save_progress() persists snapshot + assessment
 """
 
 from __future__ import annotations

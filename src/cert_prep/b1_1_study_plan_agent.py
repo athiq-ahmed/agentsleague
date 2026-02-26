@@ -1,14 +1,51 @@
 """
-study_plan_agent.py – Study Plan Generator (Block 1.1 Preview)
-===============================================================
+b1_1_study_plan_agent.py — Study Plan Generator (Block 1.1a)
+=============================================================
 Generates a week-by-week Gantt-style study plan from a LearnerProfile.
+Runs in parallel with LearningPathCuratorAgent (via ThreadPoolExecutor)
+so neither agent waits on the other.
 
-StudyPlanAgent
-    • Checks prerequisites / recommended fundamentals for the target cert.
-    • Allocates study weeks across active domains based on exam weight,
-      knowledge level, and risk.
-    • Front-loads risk domains, schedules skippable domains minimally/last.
-    • Returns a StudyPlan dataclass consumed by the Streamlit visualiser.
+---------------------------------------------------------------------------
+Agent: StudyPlanAgent
+---------------------------------------------------------------------------
+  Input:   LearnerProfile + existing_certs: list[str]
+  Output:  StudyPlan (dataclass)  — one StudyTask per exam domain
+  Pattern: Planner–Executor
+
+Key behaviours
+--------------
+  1. Prerequisite gap detection
+     Checks _CERT_PREREQ_MAP to see if recommended pre-certs are missing.
+     Sets StudyPlan.prereq_gap = True and lists missing certs.
+     The UI then shows a warning banner, but does NOT block the pipeline.
+
+  2. Hour allocation — Largest Remainder algorithm
+     Distributes total_budget_hours (= weeks × hrs/week) across domains
+     in proportion to exam weight, guaranteeing the sum is exact.
+     Domains scored STRONG get their hours halved (efficiency boost).
+     Domains scored UNKNOWN receive a 30% bonus (remediation top-up).
+
+  3. Remediation-first scheduling
+     Risk domains (confidence < 0.40) are front-loaded into the first 40%
+     of available weeks.  This ensures weak areas are addressed before the
+     learner runs out of time.
+
+  4. Skippable domain handling
+     If skip_recommended=True in DomainProfile, the domain is assigned
+     priority=LOW and minimal hours (1 hr), placed in the final weeks.
+
+---------------------------------------------------------------------------
+Data models defined in this file
+---------------------------------------------------------------------------
+  StudyTask    One domain's allocation row: weeks, hours, priority, activities
+  StudyPlan    Full plan: list[StudyTask] + prereq metadata + notes
+
+---------------------------------------------------------------------------
+Consumers
+---------------------------------------------------------------------------
+  streamlit_app.py   — runs StudyPlanAgent().run() in a ThreadPoolExecutor worker
+  database.py        — save_plan() persists plan_json to SQLite
+  b1_2_progress_agent.py — reads total_budget_hours to compute hours_utilisation
 """
 
 from __future__ import annotations

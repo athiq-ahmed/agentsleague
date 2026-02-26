@@ -1,9 +1,65 @@
 """
-cert_prep/database.py – SQLite persistence layer for student data.
+cert_prep/database.py — SQLite persistence layer for student data
+=================================================================
+Stores all pipeline artefacts in a single `students` table so that
+returning users can resume their journey without re-running the full
+pipeline, and so the Admin Dashboard can review every student's state.
 
-Stores learner profiles, progress snapshots, assessments, and study plans
-in a local SQLite database so that returning users can resume their journey
-and admins can review all student data.
+Design decisions
+----------------
+- **Single-table flat schema** — all JSON blobs are stored as TEXT columns
+  on the `students` row rather than normalised tables.  This keeps queries
+  simple and the database portable (copy one .db file to migrate).
+- **WAL journal mode** — improves concurrent read performance when the
+  Admin Dashboard and the learner UI query simultaneously.
+- **check_same_thread=False** — safe because ThreadPoolExecutor writes
+  happen *after* thread completion (back on the main Streamlit thread),
+  never from inside the worker threads.
+
+Database file location
+----------------------
+The file `cert_prep_data.db` is created automatically in the workspace
+root alongside `streamlit_app.py`.  It is excluded from git via .gitignore.
+
+Student record schema (see init_db for the full CREATE TABLE)
+-------------------------------------------------------------
+  name                   TEXT UNIQUE NOT NULL — primary lookup key
+  pin                    TEXT        NOT NULL — 4-digit PIN (plain text; no PII)
+  user_type              TEXT        DEFAULT 'learner'
+  exam_target            TEXT        — e.g. "AI-102"
+  profile_json           TEXT        — JSON-serialised LearnerProfile
+  raw_input_json         TEXT        — JSON-serialised RawStudentInput
+  plan_json              TEXT        — JSON-serialised StudyPlan
+  learning_path_json     TEXT        — JSON-serialised LearningPath
+  progress_snapshot_json TEXT        — JSON-serialised ProgressSnapshot
+  progress_assessment_json TEXT      — JSON-serialised ReadinessAssessment
+  assessment_json        TEXT        — JSON-serialised Assessment (quiz)
+  assessment_result_json TEXT        — JSON-serialised AssessmentResult
+  cert_recommendation_json TEXT      — JSON-serialised CertRecommendation
+  trace_json             TEXT        — JSON-serialised RunTrace
+  badge                  TEXT        — emoji badge earned ("🏆", "🎯", etc.)
+  created_at / updated_at TEXT       — ISO-8601 timestamps
+
+Public API
+----------
+  init_db()                         create tables if they don't exist
+  get_student(name)                 → dict | None
+  get_all_students()                → list[dict]   (admin dashboard)
+  create_student(name, pin, type)   → student_id
+  upsert_student(name, pin, type)   → student_id
+  save_profile(name, …)             persist LearnerProfile + RawStudentInput
+  save_plan(name, plan_json)        persist StudyPlan
+  save_learning_path(name, lp_json)
+  save_progress(name, snap_json, assess_json)
+  save_assessment(name, asmt_json, result_json)
+  save_cert_recommendation(name, rec_json)
+  save_trace(name, trace_json)
+  load_*(name)                      retrieve individual JSON blobs
+
+Consumers
+---------
+  streamlit_app.py   — calls save_* after every agent completes
+  pages/1_Admin_Dashboard.py — calls get_all_students() for the data table
 """
 
 from __future__ import annotations

@@ -1,14 +1,32 @@
 """
-guardrails.py – Responsible AI Guardrails Layer
+guardrails.py — Responsible AI Guardrails Layer
 ================================================
 Implements input validation, output verification, and content safety checks
 that wrap every agent transition in the pipeline.
 
+Design pattern: Façade
+  The guardrails pipeline is intentionally decoupled from all agents.
+  No agent imports or knows about this module — it is called exclusively
+  by the orchestrator (streamlit_app.py) at each transition point.
+  This means guardrail rules can be updated without touching any agent.
+
 Guardrail levels
 ----------------
-BLOCK   – Hard-stop: the pipeline does not proceed.
-WARN    – Soft-stop: the pipeline proceeds with a visible warning.
-INFO    – Advisory: informational note logged in agent trace.
+BLOCK   – Hard-stop: st.stop() is called; the pipeline halts until the
+           student corrects the triggering input.
+WARN    – Soft-stop: the pipeline proceeds with a visible st.warning() banner.
+           The violation is logged to SQLite via database.py.
+INFO    – Advisory: informational st.info() note; no pipeline impact.
+
+Pipeline insertion points
+-------------------------
+  [G-01..G-05]   Before LearnerProfilingAgent  (validate RawStudentInput)
+  [G-06..G-08]   After  LearnerProfilingAgent  (validate LearnerProfile)
+  [G-09..G-10]   After  StudyPlanAgent          (validate StudyPlan)
+  [G-11..G-13]   Before ProgressAgent           (validate ProgressSnapshot)
+  [G-14..G-15]   After  AssessmentAgent         (validate Assessment)
+  [G-16]         Any free-text field             (content safety)
+  [G-17]         LearningPath URLs               (hallucination guard)
 
 Guards implemented
 ------------------
@@ -41,6 +59,22 @@ Output content guards (all agent outputs):
   G-16  No profanity / harmful keywords in free-text fields    [heuristic]
   G-17  Hallucination guard: URLs must start with https://learn.microsoft.com
          or https://www.pearsonvue.com (for modules from LearningPathCuratorAgent)
+
+Public API
+----------
+  GuardrailsPipeline.check_input(raw)          → GuardrailResult
+  GuardrailsPipeline.check_profile(profile)    → GuardrailResult
+  GuardrailsPipeline.check_plan(plan)          → GuardrailResult
+  GuardrailsPipeline.check_progress(snapshot)  → GuardrailResult
+  GuardrailsPipeline.check_assessment(asmt)    → GuardrailResult
+  GuardrailsPipeline.check_content(text, field)→ GuardrailResult
+  GuardrailsPipeline.check_urls(modules)       → GuardrailResult
+
+Consumers
+---------
+  streamlit_app.py   — called at every agent transition; renders violations
+  database.py        — log_violation() stores WARN/BLOCK to guardrail_violations
+  tests/             — test_guardrails.py covers all 17 rules
 """
 
 from __future__ import annotations

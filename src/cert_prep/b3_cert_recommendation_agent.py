@@ -1,22 +1,50 @@
 """
-cert_recommendation_agent.py – Certification Recommendation Agent (Block 3)
-=============================================================================
-After the learner passes the readiness assessment, this agent:
-  1. Confirms exam readiness and suggests booking the target certification.
-  2. Recommends a next-step certification path based on career goals.
-  3. Provides exam logistics (scheduling link, exam format, passing score).
+b3_cert_recommendation_agent.py — Certification Recommendation Agent (Block 3)
+===============================================================================
+Terminal agent in the pipeline.  After the learner passes (or fails) the
+readiness assessment, this agent produces a structured CertRecommendation
+with exam logistics, a next-cert progression path, and — when the learner
+is not yet ready — a targeted remediation plan.
 
-Architecture role:
-  AssessmentAgent → CertificationRecommendationAgent → (optional) ExamPlannerAgent
+---------------------------------------------------------------------------
+Agent: CertificationRecommendationAgent
+---------------------------------------------------------------------------
+  Input:   AssessmentResult + LearnerProfile
+  Output:  CertRecommendation
+  Pattern: Decision Tree Planner
 
-Output
-------
-CertRecommendation
-  └── go_for_exam: bool
-  └── exam_info: ExamInfo
-  └── next_cert_suggestions: list[NextCertSuggestion]
-  └── remediation_plan: Optional[str]  (if not ready)
-  └── summary: str
+  Branching logic:
+    score ≥ 70%  → ready_to_book = True
+                   Returns booking checklist, ExamInfo, next-cert suggestion.
+    score < 70%  → ready_to_book = False
+                   Returns per-domain remediation steps, suggested re-attempt
+                   timeline, and the weakest domains to re-study.
+
+  Next-cert progression (SYNERGY_MAP):
+    AI-102 → AZ-204   DP-100 → AI-102   AZ-204 → AZ-305
+    AI-900 → AI-102   AZ-305 → AZ-400   AZ-900 → AI-102
+    (default fallback → AZ-305 for unrecognised exam codes)
+
+---------------------------------------------------------------------------
+Data models defined in this file
+---------------------------------------------------------------------------
+  ExamInfo            Logistics: exam code, passing score, format, scheduling URL
+  NextCertSuggestion  Suggested follow-on certification with rationale
+  CertRecommendation  Full recommendation: ready_to_book, exam_info,
+                      next_cert_suggestions, remediation_plan, summary
+
+---------------------------------------------------------------------------
+Architecture role
+---------------------------------------------------------------------------
+  AssessmentAgent (B2) → CertificationRecommendationAgent (B3)
+                           → (optional) ExamPlannerAgent / booking flow
+
+---------------------------------------------------------------------------
+Consumers
+---------------------------------------------------------------------------
+  streamlit_app.py   — Tab 6: renders exam logistics, booking checklist,
+                       next-cert roadmap, or remediation plan
+  database.py        — save_cert_recommendation() persists rec JSON
 """
 
 from __future__ import annotations

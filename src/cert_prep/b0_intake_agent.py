@@ -1,17 +1,55 @@
 """
-Block 1: Learner Intake & Profiling
-====================================
-Two agents that together form the first block of the Certification Prep pipeline.
+b0_intake_agent.py — Learner Intake & Profiling (Block 0)
+==========================================================
+Two agents that together form the first block of the Certification Prep
+pipeline.  This module is also the only agent in the system that may call
+an external LLM — all other agents are deterministic.
 
+---------------------------------------------------------------------------
+Agents defined here
+---------------------------------------------------------------------------
 LearnerIntakeAgent
-    Collects raw student input via an interactive CLI interview (7 questions).
+    Collects raw student input via an interactive CLI interview (8 questions).
     Returns: RawStudentInput
+    Used by: src/demo_intake.py (standalone CLI demo)
+    Note:    The Streamlit UI (streamlit_app.py) skips this agent and builds
+             RawStudentInput directly from the intake form widgets.
 
 LearnerProfilingAgent
-    Sends the raw input to Azure OpenAI and extracts a structured LearnerProfile.
-    Uses JSON-mode with a schema-anchored system prompt so the output is
-    deterministic and directly parseable.
+    Converts RawStudentInput → LearnerProfile using a three-tier fallback:
+
+      Tier 1 — Azure AI Foundry Agent Service (azure-ai-projects SDK)
+               Activated when AZURE_AI_PROJECT_CONNECTION_STRING is set.
+               Creates a managed agent thread; best for enterprise deployments.
+
+      Tier 2 — Azure OpenAI direct (openai.AzureOpenAI)
+               Activated when AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY are set.
+               Uses gpt-4o JSON mode; temperature=0.2 for consistent output.
+
+      Tier 3 — Rule-based mock engine (b1_mock_profiler.py)
+               Always available; zero API calls; deterministic result.
+               Used in all unit tests and when no Azure credentials are present.
+
     Returns: LearnerProfile
+
+---------------------------------------------------------------------------
+Three-tier rationale
+---------------------------------------------------------------------------
+The fallback chain ensures the application never fails due to missing
+credentials.  Tier 1 provides the richest context (full Foundry thread
+history); Tier 2 uses direct JSON-mode calls; Tier 3 is deterministic and
+identical across all test runs.
+
+---------------------------------------------------------------------------
+Downstream consumers of LearnerProfile
+---------------------------------------------------------------------------
+  b1_1_study_plan_agent.py       builds the weekly Gantt study plan
+  b1_1_learning_path_curator.py  maps domains to MS Learn modules
+  b1_2_progress_agent.py         computes readiness from self-reported data
+  b2_assessment_agent.py         generates a domain-weighted quiz
+  b3_cert_recommendation_agent   produces next-cert guidance
+  guardrails.py                  validates the profile [G-06..G-08]
+  database.py                    persists profile_json to SQLite
 """
 
 from __future__ import annotations

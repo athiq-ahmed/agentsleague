@@ -9,6 +9,9 @@
 
 1. [Executive Summary](#1-executive-summary)
 2. [System Topology](#2-system-topology)
+   - [2.2 File-by-File Module Reference](#22-file-by-file-module-reference)
+   - [2.2.1 Module Dependency Graph](#221-module-dependency-graph)
+   - [2.2.2 Data Flow Between Modules](#222-data-flow-between-modules)
 3. [Technology Stack](#3-technology-stack)
 4. [Data Models](#4-data-models)
 5. [Guardrails Framework](#5-guardrails-framework)
@@ -125,6 +128,138 @@ The Certification Preparation Multi-Agent System is a **production-grade agentic
 └──────────────────────────────────────────────────────────────────────────────┘
                            │
                            ▼  persisted to SQLite, rendered in all 6 tabs
+```
+
+---
+
+## 2.2 File-by-File Module Reference
+
+Each Python file under `src/cert_prep/` has a single, bounded responsibility.
+The table below lists every module, its role in the pipeline, the typed objects
+it consumes and produces, and which other modules depend on it.
+
+| File | Role | Consumes | Produces | Used by |
+|------|------|----------|----------|---------|
+| `models.py` | Shared data contracts — all enums, dataclasses, Pydantic models, and the multi-exam domain registry | *(none — definition only)* | `RawStudentInput`, `LearnerProfile`, `DomainProfile`, `EXAM_DOMAIN_REGISTRY` | **all modules** |
+| `config.py` | Environment variable loading; `Settings` dataclass with `is_configured` detection | `.env` / `os.environ` | `Settings`, `AzureOpenAIConfig`, … | `b0_intake_agent`, `b1_2_progress_agent`, `b2_assessment_agent`, `b3_cert_recommendation_agent`, `streamlit_app` |
+| `database.py` | SQLite persistence — single `students` table; `save_*` / `load_*` functions | `sqlite3` stdlib | Serialised JSON blobs per student | `streamlit_app`, `pages/1_Admin_Dashboard.py` |
+| `guardrails.py` | 17-rule responsible AI pipeline; Façade over every agent boundary | `RawStudentInput`, `LearnerProfile`, `StudyPlan`, `ProgressSnapshot`, `Assessment` | `GuardrailResult` (list of `GuardrailViolation`) | `streamlit_app` (called at every transition) |
+| `agent_trace.py` | Audit log — `AgentStep` per agent; `RunTrace` per run | *(none — data class only)* | `AgentStep`, `RunTrace` | `streamlit_app`, `pages/1_Admin_Dashboard.py` |
+| `b0_intake_agent.py` | **Block 0**: CLI intake interview + LLM/mock profiling (3-tier) | `RawStudentInput`, `config.Settings`, `b1_mock_profiler` | `LearnerProfile` | `streamlit_app`, `src/demo_intake.py` |
+| `b1_mock_profiler.py` | Tier 3 rule-based profiler — deterministic, no credentials needed | `RawStudentInput`, `models.EXAM_DOMAIN_REGISTRY` | `LearnerProfile` | `b0_intake_agent` (Tier 3 fallback), `streamlit_app` (mock mode), all tests |
+| `b1_1_study_plan_agent.py` | **Block 1.1a**: Largest Remainder hour allocation; Gantt study plan | `LearnerProfile`, `existing_certs: list[str]` | `StudyPlan` (list of `StudyTask`) | `streamlit_app` (ThreadPoolExecutor Thread A) |
+| `b1_1_learning_path_curator.py` | **Block 1.1b**: Maps domains → curated MS Learn modules; G-17 URL validation | `LearnerProfile` | `LearningPath` (list of `LearningModule`) | `streamlit_app` (ThreadPoolExecutor Thread B) |
+| `b1_2_progress_agent.py` | **Block 1.2** + HITL Gate 1: Readiness scoring; PDF generation; SMTP email | `ProgressSnapshot`, `LearnerProfile` | `ReadinessAssessment`, PDF bytes, HTML email | `streamlit_app` (Tab 4) |
+| `b2_assessment_agent.py` | **Block 2** + HITL Gate 2: Domain-weighted 30-question quiz; scoring | `LearnerProfile` | `Assessment`, `AssessmentResult` | `streamlit_app` (Tab 5) |
+| `b3_cert_recommendation_agent.py` | **Block 3**: Booking checklist; next-cert progression; remediation plan | `AssessmentResult`, `LearnerProfile` | `CertRecommendation` | `streamlit_app` (Tab 6) |
+
+### 2.2.1 Module Dependency Graph
+
+The diagram below shows **import-time** and **runtime** dependencies between
+all `src/cert_prep/` modules and the key application files.  Arrows point
+from *consumer* to *dependency*.
+
+```mermaid
+graph TD
+    subgraph core["Core Infrastructure"]
+        models["models.py\n(data contracts)"]
+        config["config.py\n(settings)"]
+        db["database.py\n(SQLite)"]
+        guardrails["guardrails.py\n(17-rule pipeline)"]
+        trace["agent_trace.py\n(audit log)"]
+    end
+
+    subgraph pipeline["Agent Pipeline"]
+        b0["b0_intake_agent.py\nBlock 0: Profiling"]
+        mock["b1_mock_profiler.py\nTier 3 fallback"]
+        b1a["b1_1_study_plan_agent.py\nBlock 1.1a: Study Plan"]
+        b1b["b1_1_learning_path_curator.py\nBlock 1.1b: Learning Path"]
+        b12["b1_2_progress_agent.py\nBlock 1.2: Progress + PDF"]
+        b2["b2_assessment_agent.py\nBlock 2: Quiz"]
+        b3["b3_cert_recommendation_agent.py\nBlock 3: Recommendation"]
+    end
+
+    subgraph ui["Application Layer"]
+        app["streamlit_app.py\n(orchestrator)"]
+        admin["pages/1_Admin_Dashboard.py"]
+    end
+
+    models --> b0
+    models --> mock
+    models --> b1a
+    models --> b1b
+    models --> b12
+    models --> b2
+    models --> b3
+    models --> guardrails
+    models --> db
+    models --> app
+
+    config --> b0
+    config --> b12
+    config --> b2
+    config --> b3
+    config --> app
+
+    mock --> b0
+
+    b0 --> app
+    b1a --> app
+    b1b --> app
+    b12 --> app
+    b2 --> app
+    b3 --> app
+
+    guardrails --> app
+    db --> app
+    db --> admin
+    trace --> app
+    trace --> admin
+```
+
+### 2.2.2 Data Flow Between Modules
+
+Each arrow in the pipeline carries a **typed** Python object — no raw dicts
+cross a module boundary:
+
+```
+models.RawStudentInput
+    └──▶ guardrails.check_input()          [G-01..G-05]
+    └──▶ b0_intake_agent.LearnerProfilingAgent.run()
+              └── Tier 1: azure-ai-projects AIProjectClient
+              └── Tier 2: openai.AzureOpenAI  (gpt-4o JSON mode)
+              └── Tier 3: b1_mock_profiler.generate_mock_profile()
+              └──▶ models.LearnerProfile
+
+models.LearnerProfile
+    └──▶ guardrails.check_profile()        [G-06..G-08]
+    └──▶ b1_1_study_plan_agent             ─┐  ThreadPoolExecutor
+    └──▶ b1_1_learning_path_curator        ─┘  (parallel, independent)
+              └──▶ StudyPlan + LearningPath
+    └──▶ guardrails.check_plan()           [G-09..G-10]
+    └──▶ database.save_profile() / save_plan()
+
+         *** HITL Gate 1 — learner fills progress check-in form ***
+
+models.ProgressSnapshot
+    └──▶ guardrails.check_progress()       [G-11..G-13]
+    └──▶ b1_2_progress_agent.ProgressAgent.assess()
+              └──▶ ReadinessAssessment
+    └──▶ database.save_progress()
+
+         *** HITL Gate 2 — learner answers 30-question quiz ***
+
+models.LearnerProfile (re-used)
+    └──▶ b2_assessment_agent.AssessmentAgent.generate()
+              └──▶ Assessment (quiz bank)
+    └──▶ guardrails.check_assessment()     [G-14..G-15]
+    └──▶ b2_assessment_agent.AssessmentAgent.evaluate(answers)
+              └──▶ AssessmentResult
+
+AssessmentResult + LearnerProfile
+    └──▶ b3_cert_recommendation_agent.CertificationRecommendationAgent.run()
+              └──▶ CertRecommendation
+    └──▶ database.save_cert_recommendation()
 ```
 
 ---
@@ -753,6 +888,77 @@ This reduces wall-clock latency by ~50% compared to sequential execution. The pa
 | **Self-Reflection and Iteration** | Remediation loop: `ProgressAgent` returns NOT YET → weak domain confidence reset → `StudyPlanAgent` re-runs with updated weights |
 | **Role-based Specialisation** | Each agent has a single bounded responsibility and a distinct typed input/output contract; no agent knows about another's implementation |
 
+### 8.4 Full Orchestrator Sequence
+
+The diagram below shows the **complete call sequence** from the student pressing
+"Generate My Plan" through to the final certification recommendation being
+rendered.  The orchestrator is `streamlit_app.py`; all agent code lives in
+`src/cert_prep/`.
+
+```mermaid
+sequenceDiagram
+    actor Student
+    participant UI as streamlit_app.py<br/>(Orchestrator)
+    participant GR as guardrails.py
+    participant B0 as b0_intake_agent.py<br/>LearnerProfilingAgent
+    participant Mock as b1_mock_profiler.py
+    participant B1a as b1_1_study_plan_agent.py
+    participant B1b as b1_1_learning_path_curator.py
+    participant B12 as b1_2_progress_agent.py<br/>ProgressAgent
+    participant B2 as b2_assessment_agent.py<br/>AssessmentAgent
+    participant B3 as b3_cert_recommendation_agent.py
+    participant DB as database.py
+
+    Student->>UI: Submit intake form (Tab 1)
+    UI->>GR: check_input(RawStudentInput) [G-01..G-05]
+    GR-->>UI: GuardrailResult (PASS or BLOCK → st.stop())
+
+    UI->>B0: LearnerProfilingAgent.run(raw)
+    B0->>Mock: generate_mock_profile(raw)  [Tier 3 fallback]
+    Mock-->>B0: LearnerProfile
+    B0-->>UI: LearnerProfile
+
+    UI->>GR: check_profile(profile) [G-06..G-08]
+    GR-->>UI: GuardrailResult
+
+    par Thread A
+        UI->>B1a: StudyPlanAgent.run(profile, certs)
+        B1a-->>UI: StudyPlan
+    and Thread B
+        UI->>B1b: LearningPathCuratorAgent.run(profile)
+        B1b-->>UI: LearningPath
+    end
+
+    UI->>GR: check_plan(plan) [G-09..G-10]
+    GR-->>UI: GuardrailResult
+    UI->>DB: save_profile() + save_plan()
+    UI-->>Student: Tabs 2 & 3 rendered (study plan + learning path)
+
+    Note over Student,UI: ⏸ HITL Gate 1 — pipeline pauses<br/>Tab 4 waits for progress check-in form
+
+    Student->>UI: Submit progress form (Tab 4)
+    UI->>GR: check_progress(snapshot) [G-11..G-13]
+    GR-->>UI: GuardrailResult
+    UI->>B12: ProgressAgent.assess(snapshot, profile)
+    B12-->>UI: ReadinessAssessment
+    UI->>DB: save_progress()
+    UI-->>Student: Tab 4 renders readiness verdict + nudges
+
+    Note over Student,UI: ⏸ HITL Gate 2 — pipeline pauses<br/>Tab 5 waits for all 30 quiz answers
+
+    Student->>UI: Submit quiz (Tab 5)
+    UI->>B2: AssessmentAgent.generate(profile)
+    B2-->>UI: Assessment (30 questions)
+    UI->>GR: check_assessment(assessment) [G-14..G-15]
+    GR-->>UI: GuardrailResult
+    UI->>B2: AssessmentAgent.evaluate(answers, assessment)
+    B2-->>UI: AssessmentResult
+    UI->>B3: CertificationRecommendationAgent.run(result, profile)
+    B3-->>UI: CertRecommendation
+    UI->>DB: save_assessment() + save_cert_recommendation()
+    UI-->>Student: Tab 6 renders booking checklist / remediation plan
+```
+
 ---
 
 ## 9. Human-in-the-Loop Gates
@@ -776,6 +982,65 @@ The learner answers a 30-question adaptive quiz. All questions must be answered 
 2. `CertRecommendationAgent` produces the final certification guidance
 
 **Design intent:** Both gates ensure AI output is always grounded in the learner's current real-world state, not built from stale cached data.
+
+### 9.3 HITL Gate Lifecycle
+
+```mermaid
+flowchart TD
+    A([Student: Submit intake form]) --> B{Guardrails\nG-01..G-05}
+    B -- BLOCK --> C([st.stop — fix input])
+    B -- PASS --> D[B0: LearnerProfilingAgent]
+    D --> E{Guardrails\nG-06..G-10}
+    E -- BLOCK --> C
+    E -- PASS --> F[B1.1a + B1.1b\nStudy Plan + Learning Path\nThreadPoolExecutor]
+    F --> G[(SQLite: save profile + plan)]
+    G --> H([UI: Tabs 2 & 3 rendered])
+
+    H --> GATE1
+
+    subgraph GATE1["⏸ HITL Gate 1 — Tab 4: Progress Check-In"]
+        direction TB
+        I([Student fills in:\nhours studied, domain ratings,\npractice score, notes])
+        I --> J["ProgressSnapshot\n(Pydantic-validated)"]
+    end
+
+    J --> K{Guardrails\nG-11..G-13}
+    K -- BLOCK --> C
+    K -- PASS --> L[B1.2: ProgressAgent.assess]
+    L --> M{Readiness verdict}
+    M -- "≥ 75%\nEXAM READY" --> N([Unlock Tab 5: Quiz])
+    M -- "60-75%\nNEARLY READY" --> N
+    M -- "< 60%\nNEEDS WORK / NOT READY" --> O([Show nudges + lock Quiz tab])
+    O -. "Learner may resubmit\nafter more study" .-> GATE1
+
+    N --> GATE2
+
+    subgraph GATE2["⏸ HITL Gate 2 — Tab 5: Quiz Submission"]
+        direction TB
+        P([Student answers all 30 questions\nSubmit button activates only\nwhen all answered])
+        P --> Q["Answers dict\n30 × option index"]
+    end
+
+    Q --> R[B2: AssessmentAgent.evaluate]
+    R --> S{score ≥ 70%?}
+    S -- PASS --> T[B3: CertRecommendationAgent\nready_to_book = True]
+    S -- FAIL --> U[B3: CertRecommendationAgent\nremediation_steps list]
+    T --> V[(SQLite: save result + rec)]
+    U --> V
+    V --> W([Tab 6: Booking checklist /\nRemediation plan rendered])
+```
+
+### 9.4 UI Trigger Points in `streamlit_app.py`
+
+| Gate | Streamlit trigger | Key session_state keys set |
+|------|------------------|---------------------------|
+| Gate 1 | `st.button("Assess My Readiness")` in Tab 4 | `progress_submitted = True`, `readiness`, `progress_snapshot` |
+| Gate 2 | `st.button("Submit Quiz")` in Tab 5 — hidden until all 30 answers selected | `quiz_submitted = True`, `assessment_result`, `cert_recommendation` |
+
+Both buttons call `st.rerun()` after updating session state.  Downstream
+tabs check `st.session_state.get("progress_submitted")` /
+`st.session_state.get("quiz_submitted")` and render an empty placeholder
+with an explanatory message if the gate has not been passed yet.
 
 ---
 

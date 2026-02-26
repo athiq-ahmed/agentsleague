@@ -1,29 +1,61 @@
 """
-assessment_agent.py – Readiness Assessment Agent (Block 2)
-===========================================================
-Generates domain-weighted multiple-choice questions, evaluates the learner's
-answers, and returns a scored `AssessmentResult`.
+b2_assessment_agent.py — Readiness Assessment Agent (Block 2)
+=============================================================
+Generates a domain-weighted multiple-choice quiz, evaluates the learner's
+answers, and returns a scored AssessmentResult.  This is the second and
+final Human-in-the-Loop (HITL) gate in the pipeline.
 
-Architecture role:
-  Block 1.1 / Progress Check-In
-    ↓
-  AssessmentAgent  ←  (human confirms ready for assessment)
-    ↓
-  Block 3: CertificationRecommendationAgent
+---------------------------------------------------------------------------
+HITL Gate 2 (Tab 5 — "Mock Quiz")
+---------------------------------------------------------------------------
+  The student answers a 30-question quiz rendered by the Streamlit UI.
+  All questions must be answered before the "Submit Quiz" button activates.
+  On submission, AssessmentAgent.evaluate() scores the answers and
+  CertRecommendationAgent immediately runs to produce the final verdict.
 
-The mock bank contains 5 questions per AI-102 domain (30 total).
-In live mode the agent calls Azure OpenAI to generate novel questions.
+---------------------------------------------------------------------------
+Agent: AssessmentAgent
+---------------------------------------------------------------------------
+  Input:   LearnerProfile
+  Output:  Assessment (quiz bank)  →  AssessmentResult (after submission)
+  Pattern: Role-based Specialisation + HITL
 
-Output
-------
-Assessment
-  └── questions: list[QuizQuestion]
+  Question allocation — Largest Remainder algorithm applied to question counts:
+    • Total: 30 questions distributed across domains by exam weight.
+    • Minimum: 3 questions per domain regardless of weight.
+    • Risk domains (confidence < 0.40) receive +1 bonus question.
 
-AssessmentResult
-  └── score_pct: float
-  └── passed: bool
-  └── domain_scores: dict[domain_id → float]
-  └── feedback: list[QuestionFeedback]
+  Scoring:
+    weighted_score = Σ (domain_exam_weight × domain_correct_pct)
+    pass_fail      = "PASS" if weighted_score ≥ 70.0 else "FAIL"
+    weak_domains   = domains where domain_correct_pct < 70%
+
+  Mock question bank:
+    5 questions × 6 AI-102 domains = 30 questions total.
+    In live mode the agent calls Azure OpenAI to generate novel questions
+    with temperature=0.7 for variety.
+
+---------------------------------------------------------------------------
+Data models defined in this file
+---------------------------------------------------------------------------
+  QuizQuestion      Single MCQ: question text, 4 options, correct index, explanation
+  Assessment        30-question bank generated from LearnerProfile
+  QuestionFeedback  Post-submission feedback for one question (correct/wrong + explanation)
+  AssessmentResult  Scored outcome: score_pct, passed, domain_scores, feedback list
+
+---------------------------------------------------------------------------
+Architecture role
+---------------------------------------------------------------------------
+  Block 1.2 (ProgressAgent) → HITL Gate 2 → AssessmentAgent
+                              ↓
+                        CertificationRecommendationAgent (Block 3)
+
+---------------------------------------------------------------------------
+Consumers
+---------------------------------------------------------------------------
+  streamlit_app.py   — Tab 5: renders quiz, collects answers, calls evaluate()
+  database.py        — save_assessment() persists assessment + result JSON
+  b3_cert_recommendation_agent — reads AssessmentResult.score_pct + domain_scores
 """
 
 from __future__ import annotations

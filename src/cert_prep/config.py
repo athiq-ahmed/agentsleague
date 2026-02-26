@@ -6,6 +6,29 @@ Edit .env in place — it ships with commented example values for every variable
 
 Live mode activates automatically when AZURE_OPENAI_ENDPOINT and
 AZURE_OPENAI_API_KEY contain real (non-placeholder) values.
+
+Settings hierarchy
+------------------
+Settings                          ← master frozen dataclass; import via get_settings()
+  ├── AzureOpenAIConfig           AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY,
+  │                               AZURE_OPENAI_DEPLOYMENT, AZURE_OPENAI_API_VERSION
+  ├── AzureFoundryConfig          AZURE_AI_PROJECT_CONNECTION_STRING
+  ├── AzureContentSafetyConfig    AZURE_CONTENT_SAFETY_ENDPOINT, AZURE_CONTENT_SAFETY_KEY,
+  │                               AZURE_CONTENT_SAFETY_THRESHOLD
+  ├── AzureCommConfig             AZURE_COMM_CONNECTION_STRING, AZURE_COMM_SENDER_EMAIL
+  ├── McpConfig                   MCP_MSLEARN_URL
+  └── AppConfig                   FORCE_MOCK_MODE, APP_PIN, ADMIN_USERNAME, ADMIN_PASSWORD
+
+Usage
+-----
+    from cert_prep.config import get_settings
+    cfg = get_settings()
+    if cfg.live_mode:
+        client = AzureOpenAI(endpoint=cfg.openai.endpoint, ...)
+
+Each service config exposes an `is_configured` property that detects
+unfilled placeholder values such as "<your-key>" so callers never need
+to write their own validation logic.
 """
 
 from __future__ import annotations
