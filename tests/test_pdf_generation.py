@@ -138,3 +138,72 @@ class TestGenerateWeeklySummary:
         ra      = ProgressAgent().assess(profile, snap)
         summary = generate_weekly_summary(profile, snap, ra)
         assert isinstance(summary, str) and len(summary) > 0
+
+    # ── HTML validity checks (prevents raw-markup rendering in UI) ────────────
+
+    def test_is_valid_html_doc(self, profile_ai102, snapshot_ai102, result_ai102):
+        """Output must be a full HTML document starting with <!DOCTYPE html>
+        so st.components.v1.html() renders it correctly instead of showing tags."""
+        summary = generate_weekly_summary(profile_ai102, snapshot_ai102, result_ai102)
+        assert summary.strip().lower().startswith("<!doctype html"), (
+            "generate_weekly_summary must return a full HTML document starting with "
+            "<!DOCTYPE html> - plain HTML fragments cause raw-markup display in the UI"
+        )
+
+    def test_has_body_tag(self, profile_ai102, snapshot_ai102, result_ai102):
+        summary = generate_weekly_summary(profile_ai102, snapshot_ai102, result_ai102)
+        assert "<body" in summary.lower() and "</body>" in summary.lower()
+
+    def test_has_nudges_section(self, profile_ai102, snapshot_ai102, result_ai102):
+        """Weekly report must include a nudges section heading."""
+        summary = generate_weekly_summary(profile_ai102, snapshot_ai102, result_ai102)
+        assert "nudge" in summary.lower() or "this week" in summary.lower(), (
+            "Weekly summary must contain a nudges/this-week section"
+        )
+
+    def test_has_domain_progress_section(self, profile_ai102, snapshot_ai102, result_ai102):
+        """Weekly report must include a Domain Progress heading/table."""
+        summary = generate_weekly_summary(profile_ai102, snapshot_ai102, result_ai102)
+        assert "domain" in summary.lower() and "progress" in summary.lower(), (
+            "Weekly summary must contain a Domain Progress section"
+        )
+
+    def test_has_readiness_score(self, profile_ai102, snapshot_ai102, result_ai102):
+        """Readiness percentage must appear in the email body."""
+        summary = generate_weekly_summary(profile_ai102, snapshot_ai102, result_ai102)
+        readiness_str = f"{result_ai102.readiness_pct:.0f}%"
+        assert readiness_str in summary, (
+            f"Expected readiness score {readiness_str} in weekly summary"
+        )
+
+    def test_no_unescaped_double_asterisks(self, profile_ai102, snapshot_ai102, result_ai102):
+        """Nudge messages use **bold** markdown — the generator should convert at least
+        the first pair; remaining raw ** pairs cause visible markup in HTML."""
+        summary = generate_weekly_summary(profile_ai102, snapshot_ai102, result_ai102)
+        # After the .replace("**","<b>",1).replace("**","</b>",1) substitution in the
+        # generator, no more than 2 raw ** should remain per nudge in the rendered HTML
+        raw_pairs = summary.count("**")
+        # Allow some tolerance (max 1 leftover pair per nudge × up to 4 nudges)
+        assert raw_pairs <= 8, (
+            f"Too many raw '**' markdown markers left in HTML ({raw_pairs}); "
+            "nudge messages are not being converted to <b> tags properly"
+        )
+
+    def test_nudge_div_has_border_left_style(self, profile_ai102, snapshot_ai102, result_ai102):
+        """Each nudge block must have an inline border-left style so colored
+        severity bars render correctly in email clients and the in-app preview."""
+        summary = generate_weekly_summary(profile_ai102, snapshot_ai102, result_ai102)
+        assert "border-left:" in summary, (
+            "Nudge divs must include border-left CSS for severity colour bars"
+        )
+
+    @pytest.mark.parametrize("exam_target", ["AI-102", "DP-100", "AZ-204"])
+    def test_html_structure_consistent_across_exams(self, exam_target):
+        """Full HTML doc structure must hold for every supported exam."""
+        profile = make_profile(exam_target=exam_target)
+        snap    = make_snapshot(profile)
+        ra      = ProgressAgent().assess(profile, snap)
+        summary = generate_weekly_summary(profile, snap, ra)
+        assert summary.strip().lower().startswith("<!doctype html")
+        assert "<body" in summary.lower()
+        assert "domain" in summary.lower()

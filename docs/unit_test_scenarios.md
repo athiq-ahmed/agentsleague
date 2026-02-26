@@ -1,7 +1,7 @@
 # Unit Test Scenarios — Certification Prep Multi-Agent System
 
-> **Last updated:** 2026-02-25  
-> **Test suite:** `tests/` — 14 modules, **289 tests passing**  
+> **Last updated:** 2026-02-26  
+> **Test suite:** `tests/` — 14 modules, **299 tests passing**  
 > **Run:** `python -m pytest tests/ -q`
 
 When "do unit test" is requested, run the full suite against this file and add any new scenarios at the bottom.
@@ -21,7 +21,7 @@ When "do unit test" is requested, run the full suite against this file and add a
 | `test_cert_recommendation_agent.py` | 13 | CertRecommendationAgent: GO/NO-GO logic |
 | `test_guardrails.py` | 17 | 17-rule guardrail pipeline basics |
 | `test_guardrails_full.py` | 69 | Full guardrail coverage: BLOCK/WARN/INFO |
-| `test_pdf_generation.py` | 20 | PDF generation: profile, study plan, assessment |
+| `test_pdf_generation.py` | 30 | PDF generation + weekly summary HTML validity |
 | `test_pipeline_integration.py` | 14 | End-to-end multi-agent pipeline |
 | `test_config.py` | 10 | Config: env vars, mock/live mode switching |
 | `test_serialization_helpers.py` | 25 | Deserialization helpers: key-filter, enum coercion, round-trips |
@@ -61,6 +61,10 @@ When "do unit test" is requested, run the full suite against this file and add a
 | M-10 | `StudyPlan` round-trip from dict | `test_serialization_helpers.py` | clean construction |
 | M-11 | All 5 exam families run without error | `test_progress_agent.py` | parametrized: AI-102/DP-100/AZ-204/AZ-305/AI-900 |
 | M-12 | PDF bytes returned for valid profile | `test_pdf_generation.py` | `isinstance(pdf, bytes) and len(pdf) > 0` |
+| M-13 | Weekly summary is a full HTML document (not a fragment) | `test_pdf_generation.py` | `summary.startswith('<!doctype html')` |
+| M-14 | Weekly summary contains `<body>` tag | `test_pdf_generation.py` | tag presence check |
+| M-15 | Readiness percentage appears in the email body | `test_pdf_generation.py` | `f"{pct:.0f}%" in summary` |
+| M-16 | Nudge divs have `border-left:` CSS for severity bars | `test_pdf_generation.py` | `"border-left:" in summary` |
 
 ### Hard — Integration & Boundary Checks
 
@@ -75,6 +79,7 @@ When "do unit test" is requested, run the full suite against this file and add a
 | H-07 | PDF renders with `plan=None` (no crash) | `test_pdf_generation.py` | no exception raised |
 | H-08 | Config falls back to mock when no Azure env vars | `test_config.py` | `config.mode == "mock"` |
 | H-09 | Prereq gap detected for exam with hard prereqs | `test_study_plan_agent.py` | `plan.prereq_gap is True` |
+| H-10 | Weekly summary HTML structure consistent across AI-102/DP-100/AZ-204 | `test_pdf_generation.py` | parametrized doctype + body check |
 
 ### Edge Cases — Boundary & Schema Safety
 
@@ -92,6 +97,8 @@ When "do unit test" is requested, run the full suite against this file and add a
 | X-10 | `LearningPath` with extra module key → no crash | `test_serialization_helpers.py` | construction succeeds |
 | X-11 | `AssessmentResult` with extra feedback key → no crash | `test_serialization_helpers.py` | construction succeeds |
 | X-12 | Unknown exam code falls back to AI-102 registry | `test_models.py` | `domains == EXAM_DOMAINS` |
+| X-13 | Nudge messages raw `**` count stays ≤ 8 in rendered HTML | `test_pdf_generation.py` | `summary.count('**') <= 8` |
+| X-14 | Weekly summary contains nudges section heading | `test_pdf_generation.py` | `'nudge'` or `'this week'` in summary |
 
 ---
 

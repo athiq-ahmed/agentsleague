@@ -55,7 +55,7 @@ All documents follow **snake_case** naming (e.g. `user_guide.md`, `qna_playbook.
 | **Reasoning & Multi-step Thinking** | 25% | ✅ 8-agent pipeline with typed handoffs; conditional routing (score ≥ 70% → GO, < 70% → remediation loop); Planner–Executor + Critic patterns |
 | **Creativity & Originality** | 15% | ✅ Exam-agnostic domain registry; Largest Remainder allocation algorithm; configurable readiness formula; concurrent agent fan-out via ThreadPoolExecutor |
 | **User Experience & Presentation** | 15% | ✅ 7-tab Streamlit UI; Admin Dashboard with per-agent reasoning trace; Gantt / radar / bar charts; mock mode for zero-credential demo; optional email for weekly digest |
-| **Reliability & Safety** | 20% | ✅ 17-rule GuardrailsPipeline (BLOCK/WARN/INFO); BLOCK halts pipeline via st.stop(); URL trust guard; content heuristic filter; SQLite persistence; **289 automated tests** |
+| **Reliability & Safety** | 20% | ✅ 17-rule GuardrailsPipeline (BLOCK/WARN/INFO); BLOCK halts pipeline via st.stop(); URL trust guard; content heuristic filter; SQLite persistence; **299 automated tests** |
 
 ---
 
@@ -65,7 +65,7 @@ This project applies **25+ production-grade best practices** across testing, sec
 
 | Category | Practice | Status |
 |----------|----------|--------|
-| **Testing** | 289 automated tests across 14 modules (unit + integration) | ✅ |
+| **Testing** | 299 automated tests across 14 modules (unit + integration) | ✅ |
 | **Testing** | Schema-evolution safe deserialization (`_dc_filter` key guard) | ✅ |
 | **Testing** | Parametrized tests for all 5 exam families | ✅ |
 | **Testing** | Edge-case coverage: empty inputs, None values, unknown enum values | ✅ |
@@ -787,7 +787,7 @@ Alignment with the [Starter Kit README](https://github.com/microsoft/agentsleagu
 | Foundry-compatible typed agent contracts | ✅ | All agents exchange Pydantic `BaseModel` / `@dataclass` |
 | Human-in-the-Loop gates | ✅ | 2 explicit HITL gates in pipeline |
 | Content safety + input validation | ✅ | G-01..G-17 guardrails pipeline |
-| Evaluation / telemetry | ✅ | `AgentStep`/`RunTrace` + 25 pytest tests |
+| Evaluation / telemetry | ✅ | `AgentStep`/`RunTrace` + **299 pytest tests** across 14 modules |
 | `.gitignore` per starter kit guidelines | ✅ | `.env`, `.azure/`, `.secrets/` excluded |
 | GitHub repository with full documentation | ✅ | [athiq-ahmed/agentsleague](https://github.com/athiq-ahmed/agentsleague) — `README.md` + 9 docs under `docs/` (see **Project Documentation** section below) |
 
