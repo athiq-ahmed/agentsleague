@@ -93,40 +93,6 @@ This project applies **25+ production-grade best practices** across testing, sec
 
 ---
 
-## ✅ Engineering Best Practices
-
-This project applies **25+ production-grade best practices** across testing, security, reliability, and AI safety:
-
-| Category | Practice | Status |
-|----------|----------|--------|
-| **Testing** | 289 automated tests across 14 modules (unit + integration) | ✅ |
-| **Testing** | Schema-evolution safe deserialization (`_dc_filter` key guard) | ✅ |
-| **Testing** | Parametrized tests for all 5 exam families | ✅ |
-| **Testing** | Edge-case coverage: empty inputs, None values, unknown enum values | ✅ |
-| **AI Safety** | 17-rule guardrail pipeline — BLOCK, WARN, INFO levels | ✅ |
-| **AI Safety** | PII detection (7 regex patterns) blocks submission | ✅ |
-| **AI Safety** | URL trust allowlist — no hallucinated links reach the UI | ✅ |
-| **AI Safety** | Safe enum coercion — stale DB values fall back gracefully | ✅ |
-| **Reliability** | 3-tier fallback: Foundry SDK → Azure OpenAI → Mock | ✅ |
-| **Reliability** | Concurrent agent fan-out (`ThreadPoolExecutor`) with timeout | ✅ |
-| **Reliability** | All `*_from_dict` helpers filter unknown keys (no future-schema crashes) | ✅ |
-| **Reliability** | `getattr` with safe defaults for all optional model fields | ✅ |
-| **Security** | Credentials in `.env` only — gitignored, never committed | ✅ |
-| **Security** | PIN hashed SHA-256 before SQLite storage | ✅ |
-| **Security** | Demo personas use synthetic data only | ✅ |
-| **Observability** | Per-run `RunTrace` with agent steps, timing, and token counts | ✅ |
-| **Observability** | Admin Dashboard with guardrail audit and reasoning trace | ✅ |
-| **Code Quality** | Pydantic v2 typed contracts at every agent boundary | ✅ |
-| **Code Quality** | `dataclasses.fields()` filtering on all deserialization helpers | ✅ |
-| **Code Quality** | snake_case naming convention across all docs and modules | ✅ |
-| **UX** | Graceful degradation — broken DB fields never crash the UI | ✅ |
-| **UX** | Exam-specific domain weights for all 9 certs (not AI-102 hardcoded) | ✅ |
-| **Documentation** | 10 living docs covering architecture, user guide, Q&A, cost, lessons | ✅ |
-| **Documentation** | Unit test scenarios doc with easy/medium/hard/edge-case coverage | ✅ |
-| **CI/CD** | Auto-deploy to Streamlit Cloud on `git push` to `master` | ✅ |
-
----
-
 ## 🛠️ Development Approach
 
 **Chosen approach: Local code-first development in Visual Studio Code with Azure OpenAI integration**

@@ -4084,12 +4084,12 @@ if "profile" in st.session_state:
                             st.warning(f"⚠️ Email failed — {_msg}")
                             with st.expander("📄 Preview weekly report email", expanded=True):
                                 _html_body = generate_weekly_summary(profile, _snap, _asmt)
-                                st.markdown(_html_body, unsafe_allow_html=True)
+                                st.components.v1.html(_html_body, height=520, scrolling=True)
 
                 # Preview (always available)
                 with st.expander("👁️ Preview weekly report (no email needed)"):
                     _html_prev = generate_weekly_summary(profile, _snap, _asmt)
-                    st.markdown(_html_prev, unsafe_allow_html=True)
+                    st.components.v1.html(_html_prev, height=520, scrolling=True)
                     _prev_col1, _prev_col2 = st.columns(2)
                     with _prev_col1:
                         st.download_button(
