@@ -2334,20 +2334,16 @@ if submitted:
             from cert_prep.b0_intake_agent import LearnerProfilingAgent
             _profiler = LearnerProfilingAgent()
             _using_foundry = _profiler.using_foundry
-            _cache_hit = _profiler.peek_cache(raw)
-            if _cache_hit:
-                _spinner_msg = "⚡ Loading profile from cache — skipping Azure API call…"
-            elif _using_foundry:
-                _spinner_msg = "☁️ Calling Azure AI Foundry Agent Service SDK — creating managed agent…"
-            else:
-                _spinner_msg = "☁️ Calling Azure OpenAI — analysing profile…"
+            _cache_hit = _profiler.peek_cache(raw)  # internal optimisation only
+            _spinner_msg = (
+                "☁️ Calling Azure AI Foundry Agent Service SDK — creating managed agent…"
+                if _using_foundry
+                else "☁️ Calling Azure OpenAI — analysing profile…"
+            )
             with st.spinner(_spinner_msg):
                 profile: LearnerProfile = _profiler.run(raw)
 
-            if _cache_hit:
-                st.success("⚡ Profile loaded instantly from cache (no Azure API call).")
-                mode_badge = "⚡ Cached profile"
-            elif _using_foundry:
+            if _using_foundry:
                 st.success("✅ Profile generated via **Azure AI Foundry Agent Service SDK** (managed agent + thread).")
                 mode_badge = "☁️ Azure AI Foundry SDK"
             else:
