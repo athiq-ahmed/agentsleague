@@ -408,6 +408,22 @@ class LearnerProfilingAgent:
 
     # ── Public interface ──────────────────────────────────────────────────────
 
+    def peek_cache(self, raw: RawStudentInput) -> bool:
+        """Return True if a cached LLM response exists for this input.
+        Zero side-effects — does not count as a cache hit.
+        Used by the Streamlit UI to decide the spinner message before calling run().
+        """
+        try:
+            tier      = "foundry" if (self.using_foundry and self._foundry_client is not None) else "openai"
+            user_msg  = self._build_user_message(raw)
+            cache_key = hashlib.sha256(
+                f"{tier}::{self._cfg.deployment}::{user_msg}".encode()
+            ).hexdigest()
+            from cert_prep.database import get_llm_cache
+            return get_llm_cache(cache_key) is not None
+        except Exception:
+            return False
+
     def run(self, raw: RawStudentInput) -> LearnerProfile:
         """
         Profile the student and return a validated LearnerProfile.
