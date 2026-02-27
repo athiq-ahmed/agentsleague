@@ -3845,7 +3845,10 @@ if "profile" in st.session_state:
                 _login_nm = st.session_state.get("login_name", "")
                 if _login_nm and _login_nm != "Admin":
                     save_progress(_login_nm, _dc_to_json(_snap), _dc_to_json(_asmt))
-                st.rerun()
+                # Update local vars so results render immediately on this pass
+                # (avoids st.rerun() which resets the active tab to "Domain Map")
+                _prior_snap = _snap
+                _prior_asmt = _asmt
 
             # ── Show assessment results ───────────────────────────────────────
             if _prior_asmt:
