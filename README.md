@@ -75,7 +75,7 @@ All documents follow **snake_case** naming (e.g. `user_guide.md`, `qna_playbook.
 
 - **3-tier LLM fallback chain** — `LearnerProfilingAgent` attempts Azure AI Foundry SDK (Tier 1), falls back to direct Azure OpenAI JSON-mode (Tier 2), and finally to a deterministic rule-based engine (Tier 3). All three tiers share the same Pydantic output contract, so downstream agents never know which tier ran.
 
-- **Largest Remainder week allocation** — `StudyPlanAgent` uses the parliamentary Largest Remainder Method to distribute fractional study hours across domains without ever exceeding the learner's total budget or creating zero-hour assignments for risk domains.
+- **Largest Remainder day allocation** — `StudyPlanAgent` uses the parliamentary Largest Remainder Method to distribute study time across domains at the **day level** (`total_days = weeks × 7`), then converts day blocks to week bands and hours. This guarantees: (1) total allocated days exactly equals the learner's budget — never over or under by a single day; (2) every active (non-skip) domain receives at least 1 day (`max(1, int(d))` floor), preventing zero-hour assignments for any domain regardless of priority.
 
 - **Concurrent agent fan-out** — `StudyPlanAgent` and `LearningPathCuratorAgent` have no data dependency on each other; they run in true parallel via `ThreadPoolExecutor`, cutting Block 1 wall-clock time by ~50%.
 
@@ -430,7 +430,7 @@ flowchart TD
 | 2 | **Learner Intake** | `b0_intake_agent.py` | UI form → `RawStudentInput` | **Planner** — collects background, any exam target, constraints, optional email |
 | 3 | **Learner Profiler** | `b1_mock_profiler.py` | `RawStudentInput` → `LearnerProfile` | **Executor** — 40+ regex patterns; exam domain boost matrices; LLM JSON-mode in live |
 | 4 | **Learning Path Curator** | `b1_1_learning_path_curator.py` | `LearnerProfile` → `LearningPath` | **Specialist** — maps weak/risk domains to MS Learn modules; skips strong domains; runs in parallel |
-| 5 | **Study Plan Generator** | `b1_1_study_plan_agent.py` | `LearnerProfile` → `StudyPlan` | **Planner** — Largest Remainder week allocation; prereq gap detection; runs in parallel |
+| 5 | **Study Plan Generator** | `b1_1_study_plan_agent.py` | `LearnerProfile` → `StudyPlan` | **Planner** — Largest Remainder day allocation (day-level budget, min 1 day per active domain); prereq gap detection; runs in parallel |
 | 6 | **Progress Tracker** | `b1_2_progress_agent.py` | `ProgressSnapshot` → `ReadinessAssessment` | **Critic** — weighted readiness formula; GO/CONDITIONAL GO/NOT YET verdict |
 | 7 | **Assessment Builder** | `b2_assessment_agent.py` | `LearnerProfile` → `AssessmentResult` | **Evaluator** — 30-Q bank per exam; domain-weighted sampling; per-domain score breakdown |
 | 8 | **Cert Recommender** | `b3_cert_recommendation_agent.py` | `AssessmentResult` → `CertRecommendation` | **Planner** — next-cert path selection; booking checklist; remediation plan |

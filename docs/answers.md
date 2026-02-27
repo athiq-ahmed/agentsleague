@@ -132,7 +132,7 @@ python -m pytest tests/ -v
 
 - **3-tier LLM fallback chain** — `LearnerProfilingAgent` attempts Azure AI Foundry SDK (Tier 1), falls back to direct Azure OpenAI JSON-mode (Tier 2), and finally to a deterministic rule-based engine (Tier 3). All three tiers share the same Pydantic output contract, so downstream agents never know which tier ran.
 
-- **Largest Remainder week allocation** — `StudyPlanAgent` uses the parliamentary Largest Remainder Method to distribute fractional study hours across domains without ever exceeding the learner's total budget or creating zero-hour assignments for risk domains.
+- **Largest Remainder day allocation** — `StudyPlanAgent` uses the parliamentary Largest Remainder Method to distribute study time at the **day level** (`total_days = weeks × 7`) across domains, then converts day blocks to week bands and hours. Guarantees: (1) total days exactly equals budget; (2) every active domain receives at least 1 day (`max(1, int(d))` floor) — no domain is silently zeroed out.
 
 - **Concurrent agent fan-out** — `StudyPlanAgent` and `LearningPathCuratorAgent` have no data dependency on each other; they run in true parallel via `ThreadPoolExecutor`, cutting Block 1 wall-clock time by ~50%.
 

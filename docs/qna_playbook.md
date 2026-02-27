@@ -164,23 +164,24 @@ Every violation is persisted to the `guardrail_violations` SQLite table. Admin D
 
 ### Largest Remainder Allocation
 
-Allocates `total_hours = hours_per_week × weeks_available` across domains weighted by inverse confidence (weaker domains get more time).
+The algorithm works at the **day level**: `total_days = study_weeks × 7` (one week reserved as review buffer). Each active domain's weight is `exam_domain_weight × priority_multiplier` where multipliers are: critical=2.0, high=1.5, medium=1.0, low=0.5, skip=0.0 (priority is derived from the domain's knowledge level and whether it is a risk domain). Day blocks are then converted to week bands and hours: `week_hours = (alloc_days / 7) × hours_per_week`.
 
-**Worked example: Alex Chen, AI-102, 12hr/wk × 10 weeks = 120 hours**
+**Worked example: Alex Chen, AI-102, 12hr/wk × 9 study weeks = 63 total days**
 
-| Domain | Confidence | Inv. Weight | Normalised | Raw Alloc | Floored | Final |
-|--------|-----------|-------------|------------|-----------|---------|-------|
-| D1 | 0.20 | 0.80 | 0.165 | 19.8 | 19 | 19 |
-| D2 | 0.15 | 0.85 | 0.175 | 21.0 | 21 | 21 |
-| D3 | 0.10 | 0.90 | 0.186 | 22.3 | 22 | 23 |
-| D4 | 0.25 | 0.75 | 0.155 | 18.6 | 18 | 18 |
-| D5 | 0.15 | 0.85 | 0.175 | 21.0 | 21 | 21 |
-| D6 | 0.30 | 0.70 | 0.144 | 17.3 | 17 | 18 |
-| **Total** | | | 1.000 | 120.0 | 118 | **120** |
+| Domain | Priority | Rel. Weight | Normalised | Raw Days | Floor (≥1) | Final |
+|--------|---------|-------------|------------|----------|-----------|-------|
+| D1 | high | 0.338 | 0.191 | 12.0 | 12 | 12 |
+| D2 | critical | 0.360 | 0.204 | 12.8 | 12 | 13 |
+| D3 | critical | 0.360 | 0.204 | 12.8 | 12 | 13 |
+| D4 | medium | 0.175 | 0.099 | 6.2 | 6 | 6 |
+| D5 | high | 0.338 | 0.191 | 12.0 | 12 | 12 |
+| D6 | low | 0.070 | 0.040 | 2.5 | 2 | 2 |
+| skip | skip | 0.000 | — | — | 1 min | — |
+| **Total** | | | 1.000 | 58.3 → 63 | 56 | **63** |
 
-Sum of floored = 118. Deficit = 2. Top 2 remainders: D3 (0.3), D6 (0.3) → each gets +1.
+Sum of floored = 56. Deficit = −7. Top 7 remainder slots get +1 each. Sum = exactly 63 days.
 
-**Key property:** Sum is always exactly `total_hours`. No hours lost to rounding.
+**Key properties:** (1) Sum of allocated days always equals `total_days` exactly — no days lost to rounding. (2) Every active domain gets at least 1 day (`max(1, int(d))` floor) — no domain is silently zeroed out.
 
 ---
 
@@ -358,7 +359,7 @@ A: Three mechanisms: (1) 17 guardrail rules with BLOCK/WARN levels between every
 A: The ProgressAgent cannot know how the learner actually felt studying. Gate 1 captures self-ratings and hours spent. Gate 2 provides a 30-question diagnostic identifying weak domains for remediation. Without these gates, the system only recommends based on background text — no feedback loop.
 
 **Q: Why Largest Remainder for study plan?**  
-A: It guarantees every available study hour is allocated to exactly one domain with no rounding loss. Standard round-to-nearest loses hours when total_hours is not divisible by domain count. LR is O(n log n) and produces provably optimal allocations.
+A: It guarantees every available study day is allocated to exactly one domain with no rounding loss. The algorithm works at the day level (`total_days = study_weeks × 7`), then converts days → hours. Standard round-to-nearest loses days when total_days is not divisible by domain count. The `max(1, int(d))` floor also prevents any active domain from receiving zero time. LR is O(n log n) and produces provably optimal integer allocations given a fixed total.
 
 **Q: Can this scale beyond one learner?**  
 A: SQLite scales to thousands of learners (read-heavy workload). The orchestrator is stateless (all state in SQLite + session_state). Replacing SQLite with Cosmos DB requires changing only the `database.py` connection string.

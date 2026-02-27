@@ -148,7 +148,7 @@ it consumes and produces, and which other modules depend on it.
 | `eval_harness.py` | LLM-as-judge quality metrics via `azure-ai-evaluation` SDK — `CoherenceEvaluator`, `RelevanceEvaluator`, `FluencyEvaluator` per profiling run | `RawStudentInput`, `LearnerProfile`, Azure OpenAI creds | `EvalResult` (per-metric scores + `passed_threshold()`) | `streamlit_app` (post-profiling in live mode); `batch_evaluate()` for regression suites |
 | `b0_intake_agent.py` | **Block 0**: CLI intake interview + LLM/mock profiling (3-tier) | `RawStudentInput`, `config.Settings`, `b1_mock_profiler` | `LearnerProfile` | `streamlit_app`, `src/demo_intake.py` |
 | `b1_mock_profiler.py` | Tier 3 rule-based profiler — deterministic, no credentials needed | `RawStudentInput`, `models.EXAM_DOMAIN_REGISTRY` | `LearnerProfile` | `b0_intake_agent` (Tier 3 fallback), `streamlit_app` (mock mode), all tests |
-| `b1_1_study_plan_agent.py` | **Block 1.1a**: Largest Remainder hour allocation; Gantt study plan | `LearnerProfile`, `existing_certs: list[str]` | `StudyPlan` (list of `StudyTask`) | `streamlit_app` (ThreadPoolExecutor Thread A) |
+| `b1_1_study_plan_agent.py` | **Block 1.1a**: Largest Remainder day allocation (day-level; converts to hours via `alloc_days/7 × hrs_pw`); Gantt study plan | `LearnerProfile`, `existing_certs: list[str]` | `StudyPlan` (list of `StudyTask`) | `streamlit_app` (ThreadPoolExecutor Thread A) |
 | `b1_1_learning_path_curator.py` | **Block 1.1b**: Maps domains → curated MS Learn modules; G-17 URL validation | `LearnerProfile` | `LearningPath` (list of `LearningModule`) | `streamlit_app` (ThreadPoolExecutor Thread B) |
 | `b1_2_progress_agent.py` | **Block 1.2** + HITL Gate 1: Readiness scoring; PDF generation; SMTP email | `ProgressSnapshot`, `LearnerProfile` | `ReadinessAssessment`, PDF bytes, HTML email | `streamlit_app` (Tab 4) |
 | `b2_assessment_agent.py` | **Block 2** + HITL Gate 2: Domain-weighted 30-question quiz; scoring | `LearnerProfile` | `Assessment`, `AssessmentResult` | `streamlit_app` (Tab 5) |
@@ -643,7 +643,7 @@ Output ONLY valid JSON conforming to this schema: {schema}
 **Pattern:** Planner–Executor  
 **Input:** `LearnerProfile`, `existing_certs` → **Output:** `StudyPlan`
 
-Allocates total study hours across exam domains using the **Largest Remainder algorithm** (see Section 7). Domains with existing certification coverage are marked `priority=LOW` and allocated minimal hours. Domains with confidence below 0.40 are front-loaded into the first 40% of weeks (remediation-first scheduling).
+Allocates study time across exam domains using the **Largest Remainder algorithm at the day level** (`total_days = study_weeks × 7`; see Section 7). Each domain's relative weight is `exam_domain_weight × priority_multiplier` (critical=2.0, high=1.5, medium=1.0, low=0.5, skip=0.0). Day blocks are converted to week bands and hours: `week_hours = (alloc_days / 7) × hours_per_week`. Domains already covered by existing certs are marked `priority=LOW`. Domains with confidence below 0.40 are front-loaded into the first 40% of weeks (remediation-first scheduling).
 
 **Prerequisite gap detection:**
 
@@ -784,10 +784,10 @@ else:
 
 ### 7.1 Largest Remainder Algorithm
 
-Used in both `StudyPlanAgent` (allocating study hours) and `AssessmentAgent` (allocating question counts). Guarantees:
+Used in both `StudyPlanAgent` (allocating study **days**, then converting to hours) and `AssessmentAgent` (allocating question counts). Guarantees:
 - The total exactly equals the target (no rounding drift)
 - Higher-weight domains receive proportionally more resources
-- Every domain receives at least a minimum allocation
+- Every active domain receives at least 1 unit (`max(1, int(d))` floor)
 
 ```python
 def largest_remainder(weights: list[float], total: int, minimum: int = 1) -> list[int]:
