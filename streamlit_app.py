@@ -3723,7 +3723,11 @@ if "profile" in st.session_state:
             )
 
     # ── Tab 4: My Progress ────────────────────────────────────────────────────
-    with tab_progress:
+    @st.fragment
+    def _render_progress_tab():
+        profile = st.session_state.get("profile")
+        if profile is None:
+            return
         st.markdown('<a href="#" style="font-size:0.75rem;color:#9CA3AF;text-decoration:none;">↑ Back to top</a>', unsafe_allow_html=True)
         st.caption(
             "📈 **My Progress** — track how far you've come. Log the hours you've studied, "
@@ -3854,8 +3858,6 @@ if "profile" in st.session_state:
 
             # ── Run assessment on submit ──────────────────────────────────────
             if _assess_btn:
-                # Mark Progress tab (index 4) so JS restores it after the rerun
-                st.session_state["_active_tab_idx"] = 4
                 _snap = ProgressSnapshot(
                     total_hours_spent  = _hours_spent,
                     weeks_elapsed      = _weeks_elapsed,
@@ -4154,8 +4156,20 @@ if "profile" in st.session_state:
                         except Exception as _prev_pe:
                             st.caption(f"PDF error: {_prev_pe}")
 
+    with tab_progress:
+        _render_progress_tab()
+
     # ── Tab 6: Knowledge Check (Assessment Agent) ────────────────────────────
-    with tab_quiz:
+    @st.fragment
+    def _render_quiz_tab():
+        profile = st.session_state.get("profile")
+        if profile is None:
+            st.info(
+                "Complete the intake form above and generate your learner profile first, "
+                "then return here to test your knowledge.",
+                icon="ℹ️",
+            )
+            return
         st.markdown('<a href="#" style="font-size:0.75rem;color:#9CA3AF;text-decoration:none;">↑ Back to top</a>', unsafe_allow_html=True)
         st.caption(
             "🧪 **Knowledge Check** — test yourself with a short domain-weighted quiz. "
@@ -4183,7 +4197,7 @@ if "profile" in st.session_state:
                 st.session_state["assessment"] = _new_assess
                 st.session_state.pop("assessment_result", None)  # clear prior result
                 st.session_state.pop("assessment_answers", None)
-                st.rerun()
+                # fragment reruns automatically — no st.rerun() needed
 
         _active_assess: Assessment = st.session_state.get("assessment")
 
@@ -4258,7 +4272,7 @@ if "profile" in st.session_state:
                 if st.button("🔄 Retake Quiz", use_container_width=True):
                     st.session_state.pop("assessment_result", None)
                     st.session_state.pop("assessment_answers", None)
-                    st.rerun()
+                    # fragment reruns automatically — no st.rerun() needed
 
             else:
                 # Show quiz form
@@ -4318,9 +4332,10 @@ if "profile" in st.session_state:
                         )
                     # Clear cert rec so it regenerates
                     st.session_state.pop("cert_recommendation", None)
-                    # Stay on Knowledge Check tab (index 5) after rerun
-                    st.session_state["_active_tab_idx"] = 5
-                    st.rerun()
+                    # fragment reruns automatically — no st.rerun() needed
+
+    with tab_quiz:
+        _render_quiz_tab()
 
     # ── Tab 7: Raw JSON ───────────────────────────────────────────────────────
     with tab_json:
