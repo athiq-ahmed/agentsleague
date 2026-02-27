@@ -2555,6 +2555,25 @@ if "profile" in st.session_state:
         "📄 Raw JSON",
     ])
 
+    # ── Auto-jump back to the correct tab after any form submission ───────────
+    # st.form_submit_button always triggers a rerun which resets st.tabs() to
+    # index 0 (Domain Map). Any handler that needs to stay on its tab stores
+    # the desired tab index in _active_tab_idx before the rerun; the JS snippet
+    # below clicks the right tab button once the DOM has rendered.
+    _jump_tab = st.session_state.pop("_active_tab_idx", None)
+    if _jump_tab is not None:
+        _tab_js = (
+            "<script>(function(){"
+            "var i=" + str(_jump_tab) + ";"
+            "function f(){"
+            "var t=window.parent.document.querySelectorAll('button[data-baseweb=\"tab\"]');"
+            "if(t.length>i){t[i].click();}else{setTimeout(f,100);}"
+            "}"
+            "setTimeout(f,250);"
+            "})();</script>"
+        )
+        st.components.v1.html(_tab_js, height=0)
+
     # ── Tab 1: Domain Map ─────────────────────────────────────────────────────
     with tab_domains:
         st.markdown('<a href="#" style="font-size:0.75rem;color:#9CA3AF;text-decoration:none;">↑ Back to top</a>', unsafe_allow_html=True)
@@ -3820,6 +3839,8 @@ if "profile" in st.session_state:
 
             # ── Run assessment on submit ──────────────────────────────────────
             if _assess_btn:
+                # Mark Progress tab (index 4) so JS restores it after the rerun
+                st.session_state["_active_tab_idx"] = 4
                 _snap = ProgressSnapshot(
                     total_hours_spent  = _hours_spent,
                     weeks_elapsed      = _weeks_elapsed,
@@ -4282,6 +4303,8 @@ if "profile" in st.session_state:
                         )
                     # Clear cert rec so it regenerates
                     st.session_state.pop("cert_recommendation", None)
+                    # Stay on Knowledge Check tab (index 5) after rerun
+                    st.session_state["_active_tab_idx"] = 5
                     st.rerun()
 
     # ── Tab 7: Raw JSON ───────────────────────────────────────────────────────
