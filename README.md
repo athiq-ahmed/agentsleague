@@ -34,6 +34,7 @@ All documents follow **snake_case** naming (e.g. `user_guide.md`, `qna_playbook.
 | Date | Change | Details |
 |------|--------|---------|
 | **2026-02-25** | **Comprehensive audit — 289 tests** | Full proactive audit of every tab, block, and section; 5 bugs fixed; 34 new tests added (`test_serialization_helpers.py` + extended `test_progress_agent.py`); suite grown 255 → **289 passing** |
+| **2026-03-01** | **Agent evaluation suite — 342 tests** | Added `test_agent_evals.py`: 7 rubric-based eval classes (E1–E7), 53 tests covering all 6 agents + full pipeline; suite grown 289 → **342 passing** |
 | **2026-02-25** | **Serialization hardening** | `_dc_filter()` helper added; all 6 `*_from_dict` helpers silently drop unknown keys — prevents `TypeError` crashes on schema-evolution round-trips from SQLite |
 | **2026-02-25** | **Safe enum coercion** | `ReadinessVerdict` / `NudgeLevel` casts fall back to `NEEDS_WORK`/`INFO` instead of raising `ValueError` on stale stored values |
 | **2026-02-25** | **Per-exam domain weights** | `ProgressAgent.assess()` now calls `get_exam_domains(profile.exam_target)` — DP-100, AZ-204, AZ-305, AI-900 readiness uses correct per-exam weights |
@@ -47,7 +48,61 @@ All documents follow **snake_case** naming (e.g. `user_guide.md`, `qna_playbook.
 | **Earlier** | **Email digest** | SMTP simplified to env-vars only — no UI config needed |
 ---
 
-## �🏅 Competition Alignment
+## 🛠️ Key Technologies Used
+
+| Category | Technology | Role |
+|----------|-----------|------|
+| **Agent Framework** | `azure-ai-projects` SDK — Azure AI Foundry Agent Service | `LearnerProfilingAgent` Tier 1: managed agent + conversation thread via `AIProjectClient` |
+| **LLM** | Azure OpenAI GPT-4o | JSON-mode structured profiling; temperature=0.2 for consistent output |
+| **Fallback / Mock** | Rule-based Python engine (`b1_mock_profiler.py`) | Zero-credential deterministic profiler; used in all unit tests |
+| **UI Framework** | Streamlit | 7-tab interactive learner UI + Admin Dashboard |
+| **Data Validation** | Pydantic v2 `BaseModel` | Typed handoff contracts at every agent boundary |
+| **Concurrency** | `concurrent.futures.ThreadPoolExecutor` | Parallel fan-out of `StudyPlanAgent` ∥ `LearningPathCuratorAgent` |
+| **Visualisation** | Plotly | Gantt chart, domain bar charts, agent execution timeline |
+| **Persistence** | SQLite (`sqlite3` stdlib) | Cross-session learner profiles, study plans, reasoning traces |
+| **PDF Generation** | ReportLab | Learner profile PDF + assessment report PDF |
+| **Email** | Python `smtplib` (STARTTLS) | Weekly study-progress digest; works with Gmail, Outlook, SendGrid |
+| **Security** | `hashlib` SHA-256 | PIN hashed before storage; `.env` gitignored |
+| **AI Safety** | Custom `GuardrailsPipeline` (17 rules) | BLOCK / WARN / INFO at every agent boundary; PII detection; URL trust guard |
+| **Testing** | `pytest` + `pytest-parametrize` | 342 automated tests across 15 modules; zero credentials required |
+| **Hosting** | Streamlit Community Cloud | Auto-deploy on `git push`; secrets via environment variables |
+| **IDE + AI Assist** | Visual Studio Code + GitHub Copilot | Primary development environment; AI-assisted code gen and refactoring |
+
+---
+
+## ✨ Technical Highlights
+
+- **3-tier LLM fallback chain** — `LearnerProfilingAgent` attempts Azure AI Foundry SDK (Tier 1), falls back to direct Azure OpenAI JSON-mode (Tier 2), and finally to a deterministic rule-based engine (Tier 3). All three tiers share the same Pydantic output contract, so downstream agents never know which tier ran.
+
+- **Largest Remainder week allocation** — `StudyPlanAgent` uses the parliamentary Largest Remainder Method to distribute fractional study hours across domains without ever exceeding the learner's total budget or creating zero-hour assignments for risk domains.
+
+- **Concurrent agent fan-out** — `StudyPlanAgent` and `LearningPathCuratorAgent` have no data dependency on each other; they run in true parallel via `ThreadPoolExecutor`, cutting Block 1 wall-clock time by ~50%.
+
+- **17-rule exam-agnostic guardrail pipeline** — Every agent input and output is validated by a dedicated `GuardrailsPipeline` before the next stage proceeds. BLOCK-level violations call `st.stop()` immediately; nothing downstream ever sees invalid data.
+
+- **Exam-weighted readiness formula** — Progress scoring uses `0.55 × domain ratings + 0.25 × hours utilisation + 0.20 × practice score`, with domain weights pulled from the per-exam registry (not hardcoded for AI-102), so the formula is accurate across all 9 supported certifications.
+
+- **Demo PDF cache** — For demo personas, PDFs are generated once and served from `demo_pdfs/` on all subsequent clicks — no pipeline re-run needed, making live demos instant and reliable.
+
+- **Schema-evolution safe SQLite** — All `*_from_dict` deserialization helpers use a `_dc_filter()` guard that silently drops unknown keys, preventing `TypeError` crashes when the data model evolves and old rows are read back.
+
+---
+
+## 🧗 Challenges & Learnings
+
+| Challenge | How We Solved It | Learning |
+|-----------|-----------------|----------|
+| **Streamlit + asyncio conflict** — `asyncio.gather()` raises `RuntimeError: event loop already running` inside Streamlit | Replaced with `concurrent.futures.ThreadPoolExecutor` — identical I/O latency, no event-loop conflict, stdlib only | Always profile async options in the target host runtime before committing to the pattern |
+| **Schema evolution crashes** — Adding new fields to agent output dataclasses caused `TypeError` when loading old SQLite rows | Added `_dc_filter()` helper to all `*_from_dict` functions; unknown keys silently dropped | Design for forward and backward compatibility from day one; use a key guard on every deserialization boundary |
+| **Hardcoded AI-102 domain weights** — `ProgressAgent` used AI-102 weights for all exams, giving wrong readiness scores for DP-100 learners | Refactored to call `get_exam_domains(profile.exam_target)` dynamically | Never hardcode domain-specific constants in shared utility functions; always derive from the registry |
+| **`st.checkbox` key collision** — Using `hash()[:8]` string slicing raised `TypeError` in Streamlit widget key generation | Changed to `abs(hash(item))` (integer key) which Streamlit handles natively | Read widget key type requirements; integer keys are always safe |
+| **PDF generation crashes on None fields** — `AttributeError` when optional profile fields were absent | Added `getattr(obj, field, default)` guards on every field access in PDF generation | Defensive attribute access is essential for any code path that renders stored data |
+| **3-tier fallback complexity** — Keeping Foundry SDK, direct OpenAI, and mock engine in sync as the output contract evolved | Defined a single `_PROFILE_JSON_SCHEMA` constant and a shared Pydantic parser used by all three tiers | A single source-of-truth schema makes multi-tier systems maintainable; contract-first design prevents drift |
+| **Live demo reliability** — API latency or missing credentials causing demo failures in front of judges | Mock Mode runs the full 8-agent pipeline with zero credentials in < 1 second; demo personas pre-seeded in SQLite | Always build a zero-dependency demo path; live mode is a bonus, not a requirement |
+
+---
+
+## 🏅 Competition Alignment
 
 | Judging Criterion | Weight | Evidence |
 |---|---|---|
@@ -605,12 +660,12 @@ SMTP_FROM=CertPrep AI <you@gmail.com>
 ---
 ## 🧪 Unit Tests
 
-**289 tests · ~2 seconds · zero Azure credentials required**
+**342 tests · ~3 seconds · zero Azure credentials required**
 
 All tests run fully in mock mode — no `.env` file, no Azure OpenAI keys, no internet needed.  
-The suite covers every agent, all 17 guardrail rules, data models, PDF generation, serialization round-trips, and the end-to-end pipeline.
+The suite covers every agent, all 17 guardrail rules, data models, PDF generation, serialization round-trips, rubric-based agent evaluations, and the end-to-end pipeline.
 
-See [`docs/unit_test_scenarios.md`](docs/unit_test_scenarios.md) for the full catalogue of all 289 test scenarios categorised by difficulty. When running tests, that file is the authoritative reference — it maps every test to its scenario, inputs, and expected outcome.
+See [`docs/unit_test_scenarios.md`](docs/unit_test_scenarios.md) for the full catalogue of all 342 test scenarios categorised by difficulty. When running tests, that file is the authoritative reference — it maps every test to its scenario, inputs, and expected outcome.
 
 | Test file | Tests | What it covers |
 |---|---|---|
@@ -619,7 +674,7 @@ See [`docs/unit_test_scenarios.md`](docs/unit_test_scenarios.md) for the full ca
 | `tests/test_assessment_agent.py` | 24 | Question generation, scoring logic, domain sampling |
 | `tests/test_study_plan_agent.py` | 23 | Plan structure, Largest Remainder allocation, budget compliance |
 | `tests/test_pdf_generation.py` | 20 | PDF bytes output, HTML email generation, field safety |
-| **`tests/test_serialization_helpers.py`** | **25** | **`_dc_filter`, enum coercion safety, all 6 `*_from_dict` round-trips with extra/missing keys (NEW)** |
+| **`tests/test_serialization_helpers.py`** | **25** | **`_dc_filter`, enum coercion safety, all 6 `*_from_dict` round-trips with extra/missing keys** |
 | `tests/test_progress_agent.py` | 26 | Readiness formula, verdicts, per-exam domain weights, 5-exam parametrized (extended) |
 | `tests/test_pipeline_integration.py` | 14 | End-to-end 8-agent chain with typed handoffs |
 | `tests/test_cert_recommendation_agent.py` | 13 | Recommendation paths, confidence thresholds |
@@ -627,6 +682,7 @@ See [`docs/unit_test_scenarios.md`](docs/unit_test_scenarios.md) for the full ca
 | `tests/test_guardrails.py` | 17 | G-16 PII patterns, harmful keyword blocker |
 | `tests/test_config.py` | 10 | Settings loading, placeholder detection |
 | `tests/test_agents.py` | 4 | Mock profiler basic outputs |
+| **`tests/test_agent_evals.py`** | **53** | **Rubric-based quality evals (E1–E7) for all 6 agents + full pipeline; 80% pass threshold** |
 
 ### Run the test suite
 
@@ -641,7 +697,7 @@ See [`docs/unit_test_scenarios.md`](docs/unit_test_scenarios.md) for the full ca
 ### Expected output
 
 ```
-289 passed in ~2.00s
+342 passed in ~3.00s
 ```
 
 ---
