@@ -509,9 +509,6 @@ for col, (lbl, val, clr) in zip(run_cols, summary_items):
     with col:
         st.markdown(_card(lbl, val, clr, wide=True), unsafe_allow_html=True)
 
-_is_live_mode = st.session_state.get("_live_mode_pref", st.session_state.get("live_mode_toggle", False))
-if _demo_mode and not _is_live_mode:
-    st.warning("⚠️ Showing **demo/synthetic data** — generate a real profile to see live run details.", icon="⚠️")
 
 
 # ═════════════════════════════════════════════════════════════════════════════
