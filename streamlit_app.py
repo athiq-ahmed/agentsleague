@@ -1564,12 +1564,22 @@ _missing_svcs     = [(n, env) for n, ok, env, _ in _svc_checks if not ok]
 _configured_svcs  = [(n, env) for n, ok, env, _ in _svc_checks if ok]
 
 # ── Session-state toggle (user can override auto-detected mode) ───────────────
+# _live_mode_pref is a non-widget key that persists across partial reruns.
+# Streamlit clears widget keys for widgets that were not rendered in a run
+# (e.g. when a sidebar button calls st.rerun() before the main-page toggle renders).
+# We keep _live_mode_pref as the source of truth and restore live_mode_toggle from it.
+if "_live_mode_pref" not in st.session_state:
+    # First visit: default to Live if Azure credentials are configured
+    st.session_state["_live_mode_pref"] = _env_live
+
+# Restore widget key if Streamlit cleaned it up during a partial rerun
 if "live_mode_toggle" not in st.session_state:
-    st.session_state["live_mode_toggle"] = False  # always start in Mock mode; user opts in to Live
+    st.session_state["live_mode_toggle"] = st.session_state["_live_mode_pref"]
 
 # Respect FORCE_MOCK_MODE env var — never allow live if it's set
 if _force_mock:
     st.session_state["live_mode_toggle"] = False
+    st.session_state["_live_mode_pref"]  = False
 
 use_live     = st.session_state["live_mode_toggle"]
 az_endpoint  = _env_endpoint   if use_live and _env_live else ""
@@ -1743,6 +1753,8 @@ with _tgl_c1:
         key="live_mode_toggle",
         help="Switch between Live Azure (real OpenAI) and Mock mode (no credentials needed)",
     )
+    # Sync user's choice back to the persistent key so it survives the next partial rerun
+    st.session_state["_live_mode_pref"] = _tog_val
 with _tgl_c2:
     if use_live:
         _foundry_pill = _is_real_value(os.getenv("AZURE_AI_PROJECT_CONNECTION_STRING", ""))
