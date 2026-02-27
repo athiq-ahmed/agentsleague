@@ -489,14 +489,6 @@ This system is built with Microsoft's Responsible AI principles embedded in ever
 | **Fallback & Graceful Degradation** | Prevent silent AI failures | ✅ **Implemented** | 3-tier execution strategy: Foundry SDK → Direct OpenAI → Mock; guardrail BLOCK calls `st.stop()` (never silently skipped); all agent errors surface in UI and agent trace |
 | **Privacy / PII** | Protect personally identifiable information | ✅ **Implemented** | G-05 PII notice: names stored locally only, never transmitted to external APIs; G-16 PII regex (7 patterns: SSN, credit card, passport, UK NI, email, phone, IP) BLOCKS submission if detected; demo data is synthetic only; `.env` is gitignored |
 
-### What Is NOT Yet Implemented (Honest Gaps)
-
-| Gap | Plan |
-|-----|------|
-| Azure Content Safety API (live call) | Upgrade G-16 from heuristic to `azure-ai-contentsafety` SDK when `AZURE_CONTENT_SAFETY_ENDPOINT/KEY` are set; stub + env vars already in place |
-| Formal LLM bias evaluation dataset | Create eval harness in Foundry Evaluation SDK with demographic parity + counterfactual tests |
-| Differential privacy metrics | Track token-level PII exposure rate across sessions via Azure Monitor |
-
 ---
 
 ## 🔮 Futuristic Vision
@@ -506,8 +498,10 @@ This system is built with Microsoft's Responsible AI principles embedded in ever
 - **Azure AI Search integration** — replace static MS Learn lookup table with live vector search across the full ~4 000 module catalogue; semantic matching between learner profile and module descriptions
 - **Email digest — upgrade from SMTP to Azure Communication Services** — the current implementation uses Python `smtplib` (works with Gmail/Outlook); the roadmap upgrade swaps this for the `azure-communication-email` SDK using a managed Azure sender domain (`DoNotReply@<guid>.azurecomm.net`); to set up today: create a **Communication Services** resource in the Azure portal, add an **Email Communication Service** sub-resource, then copy the connection string to `AZURE_COMM_CONNECTION_STRING`
 - **Adaptive quiz engine** — use GPT-4o to generate novel domain-specific questions dynamically rather than sampling from a static bank; item-response theory (IRT) for adaptive difficulty
+- **Foundry Evaluation bias dataset** — `eval_harness.py` and `batch_evaluate()` are ready; next step is labelling pass/fail profiling outcomes across all 9 cert exam families for demographic parity + counterfactual tests
 
 ### Medium Term (6–12 months)
+- **Differential privacy metrics** — track token-level PII exposure rate across sessions via Azure Monitor; per-session anonymisation audit log
 - **Multi-language support** — Azure OpenAI Whisper for voice-based intake; multilingual exam content via Azure AI Translator
 - **Study group / cohort mode** — shared study plans for enterprise teams preparing for the same certification batch
 - **Real-time practice labs** — integrate Azure sandbox environments so learners can attempt actual Azure tasks inline (e.g. deploy an Azure OpenAI endpoint as a graded exercise)

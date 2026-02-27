@@ -640,3 +640,212 @@ A single "CertPrepAgent" that tries to do all of the above would:
 - Produce reasoning traces that are impossible to attribute to specific decisions
 
 The role-based design means the Admin Dashboard can show exactly which agent made each decision, with its specific inputs and outputs — providing the explainability required for responsible AI deployment.
+
+---
+
+## Pipeline Data Flow — How the System Works Without Embeddings or Vector Search
+
+A natural question about this design is: *if the system has no embeddings, no vector index, and no semantic search over the MS Learn catalogue, how does free-text learner input result in precisely targeted learning resources?*
+
+The answer is that the **LLM performs the semantic work once, at intake time**, producing a structured `LearnerProfile` JSON. Every agent downstream reads only typed fields — never the original free text.
+
+### Step 1 — Free text in, structured JSON out (`LearnerProfilingAgent`)
+
+The learner types a paragraph of free-form background:
+> *"5 years Python dev, familiar with scikit-learn and REST APIs, worried about Azure OpenAI and Bot Service, hold AZ-104"*
+
+`LearnerProfilingAgent` sends this to GPT-4o (Tier 1 via Foundry SDK or Tier 2 via direct OpenAI) with the exam domain reference and `_PROFILE_JSON_SCHEMA` in the system prompt. The model returns:
+
+```json
+{
+  "experience_level": "intermediate",
+  "domain_profiles": [
+    { "domain_id": "plan_manage",           "confidence_score": 0.75, "knowledge_level": "strong",   "skip_recommended": true  },
+    { "domain_id": "computer_vision",       "confidence_score": 0.45, "knowledge_level": "weak",     "skip_recommended": false },
+    { "domain_id": "nlp",                   "confidence_score": 0.50, "knowledge_level": "moderate", "skip_recommended": false },
+    { "domain_id": "generative_ai",         "confidence_score": 0.40, "knowledge_level": "weak",     "skip_recommended": false },
+    { "domain_id": "conversational_ai",     "confidence_score": 0.30, "knowledge_level": "unknown",  "skip_recommended": false },
+    { "domain_id": "document_intelligence", "confidence_score": 0.55, "knowledge_level": "moderate", "skip_recommended": false }
+  ],
+  "risk_domains": ["computer_vision", "generative_ai", "conversational_ai"],
+  "total_budget_hours": 80
+}
+```
+
+At this point the free text has been fully consumed. **No downstream agent ever sees the original background paragraph.** Everything that follows is pure data processing on typed Pydantic fields.
+
+---
+
+### Step 2 — Time allocation (`StudyPlanAgent`)
+
+`StudyPlanAgent` receives the `LearnerProfile` and performs pure arithmetic — no LLM call, no text matching:
+
+```python
+# Priority weight from confidence_score and knowledge_level
+for dp in profile.domain_profiles:
+    if dp.skip_recommended:          priority = 0   # skip entirely
+    elif dp.knowledge_level == UNKNOWN: priority = 4  # must cover
+    elif dp.confidence_score < 0.40:    priority = 3  # high
+    elif dp.confidence_score < 0.60:    priority = 2  # medium
+    else:                               priority = 1  # low
+
+# Largest Remainder distributes total_budget_hours proportionally
+# → StudyPlan with StudyTask(domain_id, start_week, end_week, hours)
+```
+
+The `domain_id` strings (`"generative_ai"`, `"conversational_ai"`) are used as **dictionary keys**, not as text to be re-interpreted. The agent never reads the learner background.
+
+---
+
+### Step 3 — Resource lookup (`LearningPathCuratorAgent`)
+
+`LearningPathCuratorAgent` uses `domain_id` as a direct key into the pre-curated MS Learn module catalogue:
+
+```python
+for task in study_plan.tasks:
+    modules = LEARN_CATALOGUE[profile.exam_target][task.domain_id]
+    # e.g. LEARN_CATALOGUE["AI-102"]["generative_ai"] → [
+    #   {"title": "Develop generative AI solutions with Azure OpenAI", "url": "...", "hours": 3},
+    #   {"title": "Apply prompt engineering ...", "url": "...", "hours": 2}
+    # ]
+```
+
+The semantic matching between "what the learner needs" and "which MS Learn module covers it" was handled by the LLM in Step 1 when it assigned `domain_id` values. The curator performs an **O(1) lookup per domain** — no embedding, no cosine similarity, no vector index required.
+
+> **Why this is acceptable and what the roadmap adds:**  
+> The catalogue is curated per exam domain, covering exactly the material the exam tests — a bounded, well-known set. The planned Azure AI Search integration would extend this to dynamic lookup across the full ~4 000 MS Learn module catalogue, enabling resource selection within a domain (e.g. a lab-heavy module for a `lab_first` learner vs. a reference module for a `reference` learner).
+
+---
+
+### Step 4 — Quiz generation (`AssessmentAgent`)
+
+`AssessmentAgent` samples questions proportionally to exam domain weights using `domain_id` as a key:
+
+```python
+for domain in exam_domains:
+    n_questions = round(domain.weight * total_questions)
+    sampled = random.choices(QUESTION_BANK[exam_target][domain.id], k=n_questions)
+```
+
+The agent never looks at the learner profile text — it only needs `exam_target` and the domain weights from the exam blueprint.
+
+---
+
+### Step 5 — Readiness scoring (`ProgressAgent`)
+
+`ProgressAgent` combines HITL-provided data with the `domain_profiles` confidence scores:
+
+```python
+domain_confidence = weighted_mean(
+    hitl.self_rating[d] / 5.0  for d in exam_domain_ids,
+    weights = exam_domain_weight
+)
+hours_utilisation = sum(hitl.hours_spent.values()) / profile.total_budget_hours
+practice_score    = hitl.practice_exam_score / 100
+
+readiness = 0.55 * domain_confidence + 0.25 * hours_utilisation + 0.20 * practice_score
+```
+
+---
+
+### Step 6 — Booking decision (`CertificationRecommendationAgent`)
+
+`CertificationRecommendationAgent` receives `readiness_score`, `quiz_score`, and `exam_go_nogo` — all numbers and enums. It applies a deterministic rule matrix. No LLM call. No text. Pure rule-based decision on typed values.
+
+---
+
+### Summary: Where the "intelligence" lives
+
+| Stage | What processes the data | Input type | Output type |
+|-------|------------------------|------------|-------------|
+| Intake → Profile | GPT-4o (LLM) | Free text | Structured JSON (`LearnerProfile`) |
+| Profile → Study plan | Arithmetic (Largest Remainder) | Confidence scores + hours | `StudyPlan` with week blocks |
+| Profile → Learning path | Dictionary lookup | `domain_id` keys | Module lists with URLs |
+| Profile → Quiz | Proportional sampling | Exam weights + `domain_id` | 10 questions |
+| HITL → Readiness | Weighted formula | Numbers (hours, ratings, score) | `readiness_score` + verdict |
+| Readiness + Quiz → Booking | Rule matrix | Numbers + enum | `go_for_exam` + remediation plan |
+
+The LLM is called **once** per learner session (or zero times in mock mode). All other steps are deterministic, testable, and credential-free.
+
+---
+
+## Human-in-the-Loop (HITL) Design — Where, What, and Why
+
+### Where the HITL gates are
+
+There are exactly **two mandatory human input gates** in the pipeline. Neither can be bypassed by agents:
+
+```
+Intake → Profile → Plan ∥ Curate
+                              ↓
+                   ┌──────────────────────────────┐
+                   │  HITL GATE 1 — Progress Tab   │
+                   │  Learner inputs:               │
+                   │  • hours_spent per domain      │
+                   │  • self_rating per domain      │
+                   │  • practice_exam_score         │
+                   └─────────────┬────────────────┘
+                                 ↓
+                         ProgressAgent
+                         (readiness + go_nogo)
+                                 ↓
+                   ┌──────────────────────────────┐
+                   │  HITL GATE 2 — Assessment Tab  │
+                   │  Learner answers 10 questions  │
+                   │  (domain-proportional quiz)    │
+                   └─────────────┬────────────────┘
+                                 ↓
+                   AssessmentAgent → CertRecommendationAgent
+```
+
+If the learner does not submit Gate 1, `ProgressAgent` never runs and the Assessment tab stays disabled. If the learner does not complete Gate 2, `CertificationRecommendationAgent` never runs. These locks are enforced via `st.session_state` guards in `streamlit_app.py`, not just UI disabling.
+
+---
+
+### Gate 1: What data is collected and how agents use it
+
+| Field | Type | How agents use it |
+|-------|------|------------------|
+| `hours_spent[domain_id]` | `float` slider per domain | `hours_utilisation = Σ hours_spent / total_budget_hours` → 25% of readiness score |
+| `self_rating[domain_id]` | `int` 1–5 stars per domain | `self_rating / 5.0` replaces the profiler's `confidence_score` — **real self-assessment overrides the entry-time LLM estimate** |
+| `practice_exam_score` | `float` 0–100 | `practice_score / 100` → 20% of readiness score |
+
+The key mechanic: the learner's `self_rating` **replaces** the profiler's `confidence_score` in the readiness formula. If the LLM estimated Computer Vision at `0.6` at intake but the learner self-rated it `2/5` after studying, `ProgressAgent` uses `0.40` — reflecting reality over the entry-time estimate. The LLM estimate served as a prior; learner evidence is the posterior.
+
+---
+
+### Gate 2: What data is collected and how agents use it
+
+`AssessmentAgent` generates 10 questions sampled proportionally to exam domain weights. After the learner submits, `AssessmentAgent.score_quiz()` computes:
+
+```python
+correct    = sum(1 for q, a in zip(questions, answers) if a == q.correct_answer)
+quiz_score = correct / len(questions)   # 0.0 → 1.0
+```
+
+`CertificationRecommendationAgent` receives `quiz_score` alongside `readiness_score` and `exam_go_nogo`:
+
+| `go_nogo` | `quiz_score` | Verdict |
+|-----------|-------------|---------|
+| `GO` | ≥ 0.70 | ✅ Book now |
+| `GO` / `CONDITIONAL GO` | 0.50–0.69 | ⚠️ Review weak domains first |
+| `NOT YET` or < 0.50 | any | ❌ Full remediation plan issued |
+
+---
+
+### Why HITL makes the system better
+
+**1. Prevents compounding LLM estimation error**  
+Without HITL the pipeline would chain one estimate into the next: profiler estimates → study plan → readiness estimate → booking decision (all predictions, never grounded). The `self_rating` at Gate 1 and quiz score at Gate 2 inject ground truth at the two points where estimation error would compound most severely.
+
+**2. Detects plan non-adherence**  
+A learner who spent 15 hours instead of the allocated 40 reports low `hours_spent` at Gate 1. `ProgressAgent` catches this — `hours_utilisation = 0.38` pulls readiness below the GO threshold regardless of domain confidence. No agent can advance the learner past a gate they haven't earned through actual study.
+
+**3. Enables the remediation loop**  
+When quiz score at Gate 2 is below 60%, `CertificationRecommendationAgent` issues a `remediation_plan` listing specific weak domains from the quiz. The learner returns to the Profile/Study tabs, re-runs the profiler with updated concern topics, and `StudyPlanAgent` produces a revised schedule front-loading those domains. This full loop is only possible because Gate 2 produced domain-level quiz evidence, not just a global score.
+
+**4. Aligns AI confidence with learner reality**  
+The profiler's `confidence_score` is an entry-time estimate derived from a 30-second background description. After 8 weeks of studying, `self_rating` and `quiz_score` are far more predictive of actual exam performance. HITL gates ensure the final booking recommendation is based on this later, higher-quality evidence rather than the initial LLM prior.
+
+**5. Responsible AI — Human Oversight principle**  
+No automated action — exam booking, study scheduling, or remediation plan — is ever triggered without the learner first providing actual evidence of their current state through HITL gates. Guardrail G-11 prevents `ProgressAgent` from running on all-zero HITL data: a learner who submits zeros gets a WARN asking them to confirm, rather than being silently advanced with misleading readiness scores.
