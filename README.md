@@ -35,6 +35,7 @@ All documents follow **snake_case** naming (e.g. `user_guide.md`, `qna_playbook.
 | Date | Change | Details |
 |------|--------|---------|
 | **2026-02-25** | **Comprehensive audit — 289 tests** | Full proactive audit of every tab, block, and section; 5 bugs fixed; 34 new tests added (`test_serialization_helpers.py` + extended `test_progress_agent.py`); suite grown 255 → **289 passing** |
+| **2026-02-27** | **SQLite-backed LLM response cache — 352 tests** | `database.py` adds `llm_response_cache` table; `b0_intake_agent._call_llm()` wraps every Foundry/OpenAI call with SHA-256 cache key (`tier :: model :: prompt`); cache hit skips API call entirely; eliminates repeat latency (p50 3–5 s → ~0 ms on cache hit); write/read errors silently swallowed — pipeline never fails due to cache; suite grown 342 → **352 passing** |
 | **2026-03-01** | **Agent evaluation suite — 342 tests** | Added `test_agent_evals.py`: 7 rubric-based eval classes (E1–E7), 53 tests covering all 6 agents + full pipeline; suite grown 289 → **342 passing** |
 | **2026-02-25** | **Serialization hardening** | `_dc_filter()` helper added; all 6 `*_from_dict` helpers silently drop unknown keys — prevents `TypeError` crashes on schema-evolution round-trips from SQLite |
 | **2026-02-25** | **Safe enum coercion** | `ReadinessVerdict` / `NudgeLevel` casts fall back to `NEEDS_WORK`/`INFO` instead of raising `ValueError` on stale stored values |
@@ -65,7 +66,8 @@ All documents follow **snake_case** naming (e.g. `user_guide.md`, `qna_playbook.
 | **Email** | Python `smtplib` (STARTTLS) | Weekly study-progress digest; works with Gmail, Outlook, SendGrid |
 | **Security** | `hashlib` SHA-256 | PIN hashed before storage; `.env` gitignored |
 | **AI Safety** | Custom `GuardrailsPipeline` (17 rules) | BLOCK / WARN / INFO at every agent boundary; PII detection; URL trust guard |
-| **Testing** | `pytest` + `pytest-parametrize` | 342 automated tests across 15 modules; zero credentials required |
+| **Testing** | `pytest` + `pytest-parametrize` | 352 automated tests across 15 modules; zero credentials required |
+| **LLM Response Cache** | SQLite `llm_response_cache` table | SHA-256 keyed cache for every Azure OpenAI/Foundry call — cache hit skips API entirely; `hit_count` visible in Admin Dashboard |
 | **Hosting** | Streamlit Community Cloud | Auto-deploy on `git push`; secrets via environment variables |
 | **IDE + AI Assist** | Visual Studio Code + GitHub Copilot | Primary development environment; AI-assisted code gen and refactoring |
 
@@ -109,7 +111,7 @@ Quantified quality and performance indicators for the multi-agent pipeline — *
 
 | Metric | Meaning | Live Mode Value | Industry Best Practice | How to Improve Further |
 |--------|---------|----------------|----------------------|-----------------------|
-| **Automated Test Pass Rate** | % of 342 tests that pass in CI | **100%** (342/342) | ≥ 95% | Maintain ≥ 95% as new features are added; add mutation testing (e.g. `mutmut`) |
+| **Automated Test Pass Rate** | % of 352 tests that pass in CI | **100%** (352/352) | ≥ 95% | Maintain ≥ 95% as new features are added; add mutation testing (e.g. `mutmut`) |
 | **Pipeline Completion Rate** | % of live Azure runs that complete end-to-end (3-tier fallback included) | **~98%** | ≥ 99% | Add exponential backoff + retry on Foundry `create_and_process_run()` transient errors |
 | **LLM JSON Schema Validity Rate** | % of GPT-4o responses that parse into a valid `LearnerProfile` Pydantic model without error | **~97%** (Tier 1 Foundry / Tier 2 OpenAI) | ≥ 95% | Add self-correction retry: on Pydantic parse failure, re-prompt with the exact validation error message |
 | **Guardrail False-Positive Rate** | % of valid learner inputs incorrectly blocked by GuardrailsPipeline | **0%** (0 FP across 71 guardrail tests on real inputs) | < 5% | Tune `AZURE_CONTENT_SAFETY_THRESHOLD`; review G-16 keyword list against domain vocabulary |
@@ -117,8 +119,8 @@ Quantified quality and performance indicators for the multi-agent pipeline — *
 | **Content Safety API Detection Rate** | % of harmful/PII inputs correctly blocked or warned via live Azure Content Safety API (`_check_content_safety_api`) | **~95%** (live API + regex fallback; severity ≥ 2 = BLOCK) | ≥ 95% | Lower `AZURE_CONTENT_SAFETY_THRESHOLD` from 2 → 1 for stricter filtering on borderline content |
 | **Study Plan Budget Accuracy** | Absolute deviation between sum of allocated task hours and learner's total budget | **≤ 20%** (review week deliberately reserved) | ≤ 10% | Reserve review week from budget up-front; apply Largest Remainder to full budget including review block |
 | **Assessment Domain Coverage** | % of distinct exam domains represented across 10 quiz questions | **≥ 88%** (proportional sampling) | ≥ 80% | Guarantee at least 1 question per domain with a floor constraint in the sampler |
-| **Agent Latency p50 — Tier 1 Foundry** | Median wall-clock time for `LearnerProfilingAgent` via `AIProjectClient` | **3–5 s** | < 5 s | Enable streaming response; cache repeat identical inputs via SHA-256 of raw background text |
-| **Agent Latency p50 — Tier 2 OpenAI** | Median wall-clock time for `LearnerProfilingAgent` via direct Azure OpenAI | **2–4 s** | < 5 s | Use `response_format={"type":"json_object"}` to eliminate JSON-extraction overhead |
+| **Agent Latency p50 — Tier 1 Foundry** | Median wall-clock time for `LearnerProfilingAgent` via `AIProjectClient` | **3–5 s first call; ~0 ms on cache hit** | < 5 s | ✅ SHA-256 SQLite cache implemented (`llm_response_cache` table); streaming response is next improvement |
+| **Agent Latency p50 — Tier 2 OpenAI** | Median wall-clock time for `LearnerProfilingAgent` via direct Azure OpenAI | **2–4 s first call; ~0 ms on cache hit** | < 5 s | ✅ Same SHA-256 SQLite cache covers Tier 2; `response_format={"type":"json_object"}` already active |
 | **Concurrent Speedup Ratio** | Wall-clock reduction from parallel `ThreadPoolExecutor` fan-out vs. sequential in live mode | **~50%** (StudyPlan + LearningPath in parallel) | Proportional to agent count | Extend fan-out to `AssessmentAgent` pre-warming |
 | **Schema-Evolution Compatibility** | % of old SQLite rows successfully deserialised after a model field change | **100%** (`_dc_filter` key guard across all 6 `*_from_dict` helpers) | ≥ 99% | Add migration version tag to detect future breaking changes earlier |
 | **LLM Eval — Coherence (Tier 1/2)** | LLM-as-judge Coherence score for `LearnerProfilingAgent` outputs via `eval_harness.py` | **≥ 3.5 / 5** (measured per live run; `CoherenceEvaluator`) | ≥ 3.5 / 5 | Improve system prompt; add few-shot examples of high-coherence profiles |
@@ -135,7 +137,7 @@ Quantified quality and performance indicators for the multi-agent pipeline — *
 | **Reasoning & Multi-step Thinking** | 25% | ✅ 8-agent pipeline with typed handoffs; conditional routing (score ≥ 70% → GO, < 70% → remediation loop); Planner–Executor + Critic patterns |
 | **Creativity & Originality** | 15% | ✅ Exam-agnostic domain registry; Largest Remainder allocation algorithm; configurable readiness formula; concurrent agent fan-out via ThreadPoolExecutor |
 | **User Experience & Presentation** | 15% | ✅ 7-tab Streamlit UI; Admin Dashboard with per-agent reasoning trace; Gantt / radar / bar charts; mock mode for zero-credential demo; optional email for weekly digest |
-| **Reliability & Safety** | 20% | ✅ 17-rule GuardrailsPipeline (BLOCK/WARN/INFO); BLOCK halts pipeline via st.stop(); URL trust guard; Azure Content Safety API live (G-16); SQLite persistence; **342 automated tests** |
+| **Reliability & Safety** | 20% | ✅ 17-rule GuardrailsPipeline (BLOCK/WARN/INFO); BLOCK halts pipeline via st.stop(); URL trust guard; Azure Content Safety API live (G-16); SQLite persistence + LLM response cache; **352 automated tests** |
 
 ---
 
@@ -145,7 +147,8 @@ This project applies **25+ production-grade best practices** across testing, sec
 
 | Category | Practice | Status |
 |----------|----------|--------|
-| **Testing** | 342 automated tests across 15 modules (unit + integration + eval harness) | ✅ |
+| **Testing** | 352 automated tests across 15 modules (unit + integration + eval harness) | ✅ |
+| **Reliability** | SQLite LLM response cache — SHA-256 keyed; repeat identical inputs skip API call entirely | ✅ |
 | **Testing** | Schema-evolution safe deserialization (`_dc_filter` key guard) | ✅ |
 | **Testing** | Parametrized tests for all 5 exam families | ✅ |
 | **Testing** | Edge-case coverage: empty inputs, None values, unknown enum values | ✅ |
@@ -679,12 +682,12 @@ SMTP_FROM=CertPrep AI <you@gmail.com>
 ---
 ## 🧪 Unit Tests
 
-**342 tests · ~3 seconds · zero Azure credentials required**
+**352 tests · ~4 seconds · zero Azure credentials required**
 
 All tests run fully in mock mode — no `.env` file, no Azure OpenAI keys, no internet needed.  
 The suite covers every agent, all 17 guardrail rules, data models, PDF generation, serialization round-trips, rubric-based agent evaluations, and the end-to-end pipeline.
 
-See [`docs/unit_test_scenarios.md`](docs/unit_test_scenarios.md) for the full catalogue of all 342 test scenarios categorised by difficulty. When running tests, that file is the authoritative reference — it maps every test to its scenario, inputs, and expected outcome.
+See [`docs/unit_test_scenarios.md`](docs/unit_test_scenarios.md) for the full catalogue of all 352 test scenarios categorised by difficulty. When running tests, that file is the authoritative reference — it maps every test to its scenario, inputs, and expected outcome.
 
 | Test file | Tests | What it covers |
 |---|---|---|
@@ -716,7 +719,7 @@ See [`docs/unit_test_scenarios.md`](docs/unit_test_scenarios.md) for the full ca
 ### Expected output
 
 ```
-342 passed in ~3.00s
+352 passed in ~4.00s
 ```
 
 ---
@@ -862,7 +865,7 @@ Alignment with the [Starter Kit README](https://github.com/microsoft/agentsleagu
 | Foundry-compatible typed agent contracts | ✅ | All agents exchange Pydantic `BaseModel` / `@dataclass` |
 | Human-in-the-Loop gates | ✅ | 2 explicit HITL gates in pipeline |
 | Content safety + input validation | ✅ | G-01..G-17 guardrails pipeline |
-| Evaluation / telemetry | ✅ | `AgentStep`/`RunTrace` + `eval_harness.py` (LLM-as-judge via `azure-ai-evaluation`) + **342 pytest tests** across 15 modules |
+| Evaluation / telemetry | ✅ | `AgentStep`/`RunTrace` + `eval_harness.py` (LLM-as-judge via `azure-ai-evaluation`) + **352 pytest tests** across 15 modules |
 | `.gitignore` per starter kit guidelines | ✅ | `.env`, `.azure/`, `.secrets/` excluded |
 | GitHub repository with full documentation | ✅ | [athiq-ahmed/agentsleague](https://github.com/athiq-ahmed/agentsleague) — `README.md` + 9 docs under `docs/` (see **Project Documentation** section below) |
 

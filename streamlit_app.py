@@ -629,10 +629,11 @@ if not st.session_state["authenticated"]:
     <div class="ms-top-bar">
       <div class="ms-top-left">
         <h1>Agents League — AI-Powered Certification Prep</h1>
-        <p>A production-grade multi-agent system built entirely on <strong style="color:#fff">Azure AI Foundry</strong>.
-        Six specialised agents — orchestrated via <strong style="color:#fff">Azure OpenAI GPT-4o</strong>, grounded in
-        <strong style="color:#fff">Azure AI Search</strong>, and persisted in <strong style="color:#fff">Azure Cosmos DB</strong>
-        — deliver personalised study plans, adaptive quizzes, and exam-readiness verdicts for every Microsoft certification.</p>
+        <p>A production-grade multi-agent system built on <strong style="color:#fff">Azure AI Foundry</strong>.
+        Eight specialised reasoning agents — powered by <strong style="color:#fff">Azure OpenAI GPT-4o</strong>,
+        safeguarded by <strong style="color:#fff">Azure Content Safety</strong>, and persisted in <strong style="color:#fff">SQLite</strong>
+        — deliver personalised study plans, adaptive quizzes, and exam-readiness verdicts for 9 Microsoft certifications.
+        (Azure AI Search &amp; Cosmos DB on roadmap)</p>
       </div>
       <div class="ms-top-right">
         <div class="hero-visual-col">
@@ -656,7 +657,7 @@ if not st.session_state["authenticated"]:
               <ellipse cx="26" cy="26" rx="21" ry="7.5" stroke="white" stroke-width="2.5" fill="none"/>
               <ellipse cx="26" cy="26" rx="21" ry="7.5" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" fill="none" transform="rotate(60 26 26)"/>
             </svg>
-            <div class="hb-label">Cosmos DB</div>
+            <div class="hb-label">SQLite</div>
           </div>
         </div>
         <div class="hero-visual-col">
