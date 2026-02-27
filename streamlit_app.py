@@ -787,9 +787,9 @@ if not st.session_state["authenticated"]:
         with _d2:
             st.markdown('''
             <div class="demo-card">
-              <div class="dc-icon">📊</div>
-              <div class="dc-title">Data Professional</div>
-              <div class="dc-sub">Returning · DP-100</div>
+              <div class="dc-icon">🏆</div>
+              <div class="dc-title">AI Expert</div>
+              <div class="dc-sub">Returning · AI-102</div>
             </div>
             ''', unsafe_allow_html=True)
             if st.button("​", key="demo_jordan", use_container_width=True):  # invisible overlay
@@ -1657,7 +1657,7 @@ with st.sidebar:
           <span class="sbc-icon">🏆</span>
           <div class="sbc-body">
             <span class="sbc-title">Expert</span>
-            <span class="sbc-badge">DP-100</span>
+            <span class="sbc-badge">AI-102</span>
           </div>
         </div>''', unsafe_allow_html=True)
         if st.button("\u200b", key="sb_sc_jordan", use_container_width=True, disabled=_alex_active):
@@ -1732,16 +1732,16 @@ _PREFILL_SCENARIOS = {
         "motivation": ["Career growth"],
         "style_tags": ["Hands-on labs", "Practice tests"],
     },
-    "Priyanka Sharma — data scientist, DP-100": {
-      "exam": "DP-100 – Azure Data Scientist Associate",
+    "Priyanka Sharma — AI expert, AI-102": {
+      "exam": "AI-102 – Azure AI Engineer Associate",
       "name": "Priyanka Sharma", "email": "priyanka.sharma@demo.com",
-      "background": "5 years in data analytics with Python and SQL. Experienced with scikit-learn, Jupyter notebooks and Azure ML experiments. Looking to formalise ML skills on Azure.",
-      "certs": "AZ-900, AI-900", "style": "Video tutorials and hands-on labs",
-      "hpw": 8.0, "weeks": 6, "concerns": "Azure Machine Learning, hyperparameter tuning, model deployment, MLflow, data drift",
-      "goal": "Earn DP-100 to move into an Azure ML Engineer role",
-      "role": "Data Analyst / Scientist",
-      "motivation": ["Role switch", "Career growth"],
-      "style_tags": ["Video tutorials", "Hands-on labs"],
+      "background": "5 years as an Azure cloud developer. Built production NLP pipelines and Computer Vision solutions using Azure Cognitive Services. Strong on plan/manage and classic AI services; needs to close gaps on Generative AI and Document Intelligence before the exam.",
+      "certs": "AZ-204, AZ-900", "style": "Reference docs and hands-on labs",
+      "hpw": 8.0, "weeks": 6, "concerns": "Azure OpenAI, prompt engineering, Document Intelligence, Azure AI Search",
+      "goal": "Pass AI-102 to formalise 5 years of applied Azure AI work into an official certification",
+      "role": "Azure Cloud Developer / AI Engineer",
+      "motivation": ["Career growth", "Role switch"],
+      "style_tags": ["Reference docs", "Hands-on labs"],
     },
 }
 prefill = {}
@@ -1983,7 +1983,7 @@ if not is_returning:
     if _sb_choice == "alex":
       prefill.update(_PREFILL_SCENARIOS["Alex Chen — complete beginner, AI-102"])
     elif _sb_choice == "priyanka":
-      prefill.update(_PREFILL_SCENARIOS["Priyanka Sharma — data scientist, DP-100"])
+      prefill.update(_PREFILL_SCENARIOS["Priyanka Sharma — AI expert, AI-102"])
 
     # Push prefill values into session state so Streamlit widgets pick them up
     if prefill:

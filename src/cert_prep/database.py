@@ -382,76 +382,78 @@ _SEED_STUDENTS: list[dict] = [
             "rationale": "Strong foundation; Data Scientist cert is a natural progression."
         }),
     },
-    # ── Student 2: Priyanka Sharma — DP-100 demo scenario, data scientist, CONDITIONAL GO ──
+    # ── Student 2: Priyanka Sharma — AI-102 expert scenario, experienced Azure developer, CONDITIONAL GO ──
     {
         "name": "Priyanka Sharma",
         "pin": "1234",
-        "exam_target": "DP-100",
-        "badge": "📊",
+        "exam_target": "AI-102",
+        "badge": "🏆",
         "profile_json": json.dumps({
             "student_name": "Priyanka Sharma",
-            "exam_target": "DP-100",
-            "experience_level": "intermediate",
-            "learning_style": "lab_first",
+            "exam_target": "AI-102",
+            "experience_level": "advanced_azure",
+            "learning_style": "reference",
             "hours_per_week": 8.0,
             "weeks_available": 6,
             "total_budget_hours": 48.0,
             "domain_profiles": [
-                {"domain_id": "ml_solution_design",  "domain_name": "Design & Prepare an ML Solution",   "knowledge_level": "moderate", "confidence_score": 0.65, "skip_recommended": False, "notes": "Azure ML workspace familiar from experiments; advanced compute setup needs practice."},
-                {"domain_id": "explore_train_models", "domain_name": "Explore Data & Train Models",        "knowledge_level": "strong",   "confidence_score": 0.85, "skip_recommended": True,  "notes": "5 years with pandas, scikit-learn, Jupyter; confident in data exploration and training."},
-                {"domain_id": "prepare_deployment",   "domain_name": "Prepare a Model for Deployment",    "knowledge_level": "weak",     "confidence_score": 0.38, "skip_recommended": False, "notes": "MLflow tracking and model packaging are new; needs dedicated lab time."},
-                {"domain_id": "deploy_retrain",       "domain_name": "Deploy & Retrain a Model",          "knowledge_level": "weak",     "confidence_score": 0.35, "skip_recommended": False, "notes": "Managed online endpoints and data drift detection are unfamiliar. Highest risk domain."}
+                {"domain_id": "plan_manage",           "domain_name": "Plan & Manage Azure AI Solutions",                "knowledge_level": "strong",   "confidence_score": 0.88, "skip_recommended": True,  "notes": "Daily Azure governance work; RBAC, monitoring, and cost management are routine."},
+                {"domain_id": "computer_vision",       "domain_name": "Implement Computer Vision Solutions",            "knowledge_level": "strong",   "confidence_score": 0.82, "skip_recommended": True,  "notes": "Built production Azure AI Vision pipelines; Custom Vision models deployed to edge."},
+                {"domain_id": "nlp",                   "domain_name": "Implement NLP Solutions",                       "knowledge_level": "moderate", "confidence_score": 0.70, "skip_recommended": False, "notes": "Language Studio familiar; CLU and newer orchestration workflows need a refresh."},
+                {"domain_id": "document_intelligence", "domain_name": "Implement Document Intelligence & Knowledge Mining", "knowledge_level": "weak",   "confidence_score": 0.42, "skip_recommended": False, "notes": "Form Recognizer used briefly; prebuilt models only — custom model training and Azure AI Search indexing are gaps."},
+                {"domain_id": "conversational_ai",     "domain_name": "Implement Conversational AI Solutions",          "knowledge_level": "moderate", "confidence_score": 0.65, "skip_recommended": False, "notes": "Bot Framework Composer explored; newer Azure Bot Service v4 patterns need hands-on practice."},
+                {"domain_id": "generative_ai",         "domain_name": "Implement Generative AI Solutions",              "knowledge_level": "weak",     "confidence_score": 0.35, "skip_recommended": False, "notes": "Used Azure OpenAI playground but no production deployments; prompt engineering and DALL-E are new."},
             ],
-            "modules_to_skip": ["Explore Data & Train Models"],
-            "risk_domains": ["prepare_deployment", "deploy_retrain"],
-            "analogy_map": {"scikit-learn pipelines": "Azure ML pipelines", "pandas EDA": "Azure ML data assets"},
-            "recommended_approach": "Skip Explore & Train module — Priyanka has strong data science foundations. Concentrate 6 weeks on Azure ML deployment, MLflow, and retraining patterns.",
-            "engagement_notes": "Priyanka prefers video tutorials followed by hands-on labs. Provide scenario-based challenges referencing her analytics background."
+            "modules_to_skip": ["Plan & Manage Azure AI Solutions", "Implement Computer Vision Solutions"],
+            "risk_domains": ["generative_ai", "document_intelligence"],
+            "analogy_map": {"Traditional Cognitive Services": "Azure AI Services unified SDK", "REST API calls": "Azure OpenAI client library"},
+            "recommended_approach": "Skip Plan/Manage and Computer Vision — Priyanka is production-grade in both. Sprint on Generative AI (Azure OpenAI, DALL-E, RAG) and Document Intelligence custom models.",
+            "engagement_notes": "Priyanka prefers reference docs and targeted lab challenges over video walkthroughs. Set exam date 6 weeks out to create urgency."
         }),
         "raw_input_json": json.dumps({
             "student_name": "Priyanka Sharma",
-            "exam_target": "DP-100",
-            "background_text": "5 years in data analytics with Python and SQL. Experienced with scikit-learn, Jupyter notebooks and Azure ML experiments. Looking to formalise ML skills on Azure.",
-            "existing_certs": ["AZ-900", "AI-900"],
+            "exam_target": "AI-102",
+            "background_text": "5 years as an Azure cloud developer. Built production NLP pipelines and Computer Vision solutions using Azure Cognitive Services. Strong on plan/manage and classic AI services; needs to close gaps on Generative AI and Document Intelligence before the exam.",
+            "existing_certs": ["AZ-204", "AZ-900"],
             "hours_per_week": 8.0,
             "weeks_available": 6,
-            "concern_topics": ["Azure Machine Learning", "hyperparameter tuning", "model deployment", "MLflow", "data drift"],
-            "preferred_style": "Video tutorials and hands-on labs",
-            "goal_text": "Earn DP-100 to move into an Azure ML Engineer role",
+            "concern_topics": ["Azure OpenAI", "prompt engineering", "Document Intelligence", "Azure AI Search"],
+            "preferred_style": "Reference docs and hands-on labs",
+            "goal_text": "Pass AI-102 to formalise 5 years of applied Azure AI work into an official certification",
             "email": "priyanka.sharma@demo.com"
         }),
         "plan_json": json.dumps({
             "weeks": [
-                {"week": 1, "focus": "Azure ML workspace setup + compute resources",    "hours": 8},
-                {"week": 2, "focus": "AutoML + hyperparameter tuning + responsible AI",  "hours": 8},
-                {"week": 3, "focus": "MLflow tracking and model registration",           "hours": 8},
-                {"week": 4, "focus": "Scoring scripts + managed online endpoints",       "hours": 8},
-                {"week": 5, "focus": "Batch endpoints + model monitoring + data drift", "hours": 8},
-                {"week": 6, "focus": "Full mock exams + targeted remediation",          "hours": 8}
+                {"week": 1, "focus": "NLP refresh — CLU, orchestration, Language Studio labs",          "hours": 8},
+                {"week": 2, "focus": "Document Intelligence — custom models + Azure AI Search indexing", "hours": 8},
+                {"week": 3, "focus": "Azure AI Search — semantic ranking, knowledge store",             "hours": 8},
+                {"week": 4, "focus": "Generative AI — Azure OpenAI, prompt engineering, DALL-E",        "hours": 8},
+                {"week": 5, "focus": "Conversational AI — Bot Service v4 + Copilot Studio",             "hours": 8},
+                {"week": 6, "focus": "Full mock exam + targeted remediation on weak domains",           "hours": 8}
             ],
             "total_hours": 48,
-            "strategy": "Skip Explore & Train. Video-first then hands-on lab consolidation each week."
+            "strategy": "Skip strong domains. Reference-doc-first then lab consolidation. Sprint finish on Generative AI."
         }),
         "progress_snapshot_json": json.dumps({
-            "domains_completed": ["ml_solution_design", "explore_train_models"],
-            "domains_in_progress": ["prepare_deployment"],
-            "domains_not_started": ["deploy_retrain"],
-            "hours_logged": 28,
-            "labs_completed": 7
+            "domains_completed": ["plan_manage", "computer_vision", "nlp"],
+            "domains_in_progress": ["document_intelligence"],
+            "domains_not_started": ["generative_ai", "conversational_ai"],
+            "hours_logged": 26,
+            "labs_completed": 8
         }),
         "progress_assessment_json": json.dumps({
-            "readiness_pct": 64,
+            "readiness_pct": 67,
             "exam_go_nogo": "CONDITIONAL GO",
-            "strengths": ["Explore Data & Train Models", "Design & Prepare an ML Solution"],
-            "gaps": ["Deploy & Retrain a Model"],
-            "recommended_action": "Complete managed endpoints and data drift labs then book the exam."
+            "strengths": ["Plan & Manage", "Computer Vision", "NLP Solutions"],
+            "gaps": ["Generative AI", "Document Intelligence"],
+            "recommended_action": "Complete Azure OpenAI and Document Intelligence custom model labs then book the exam."
         }),
-        "assessment_json": json.dumps({"questions_attempted": 40, "correct": 29}),
-        "assessment_result_json": json.dumps({"score_pct": 73, "passed": True}),
+        "assessment_json": json.dumps({"questions_attempted": 40, "correct": 30}),
+        "assessment_result_json": json.dumps({"score_pct": 75, "passed": True}),
         "cert_recommendation_json": json.dumps({
-            "primary": "DP-100",
-            "next_recommended": "AI-102",
-            "rationale": "Combining Azure Data Scientist with Azure AI Engineer would complete a full ML + AI cloud portfolio."
+            "primary": "AI-102",
+            "next_recommended": "AZ-204",
+            "rationale": "AI-102 formalises applied AI experience. AZ-204 Developer Associate is the logical next cert to complete the full Azure cloud developer picture."
         }),
     },
     # ── Student 3: Alex Chen — AI-102 demo scenario, complete beginner, CONDITIONAL GO ──
@@ -764,9 +766,11 @@ def seed_demo_students() -> None:
         updated_ts = ts.strftime("%Y-%m-%d %H:%M:%S")
 
         conn = _get_conn()
+        # INSERT OR REPLACE ensures demo data is always refreshed when scenario
+        # definitions change (e.g. switching a persona from DP-100 to AI-102).
         conn.execute(
             """
-            INSERT OR IGNORE INTO students (
+            INSERT OR REPLACE INTO students (
                 name, pin, user_type, exam_target, badge,
                 profile_json, raw_input_json, plan_json,
                 progress_snapshot_json, progress_assessment_json,
