@@ -71,6 +71,83 @@
 
 ---
 
+## Installation & Setup
+
+### Option A — Use the Live Hosted App (no setup required)
+
+Open [agentsleague.streamlit.app](https://agentsleague.streamlit.app) in any browser — no installation needed.  
+Skip straight to [Getting Started](#getting-started).
+
+---
+
+### Option B — Run Locally
+
+**Prerequisites:** Python 3.10 or higher, Git
+
+#### 1. Clone the repo
+
+```bash
+git clone https://github.com/athiq-ahmed/agentsleague.git
+cd agentsleague
+```
+
+#### 2. Create and activate a virtual environment
+
+```bash
+# Windows
+python -m venv .venv
+.venv\Scripts\activate
+
+# macOS / Linux
+python -m venv .venv
+source .venv/bin/activate
+```
+
+#### 3. Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+#### 4. Configure environment variables
+
+The app runs fully in **Mock Mode** with zero configuration — no Azure credentials are required for a complete local demo.
+
+To enable live Azure AI features, open the `.env` file and fill in the relevant values:
+
+```bash
+# Windows
+notepad .env
+
+# macOS / Linux
+nano .env
+```
+
+| Variable | Required for | Where to get it |
+|----------|-------------|-----------------|
+| `AZURE_AI_PROJECT_CONNECTION_STRING` | **Tier 1** — Foundry managed agent | Azure portal → Foundry project → gear icon → Project properties |
+| `AZURE_OPENAI_ENDPOINT` + `AZURE_OPENAI_API_KEY` | **Tier 2** — Direct Azure OpenAI | Azure portal → Azure OpenAI resource → Keys and Endpoint |
+| `SMTP_USER` + `SMTP_PASS` | Email digest (optional) | Gmail App Password or any SMTP provider |
+
+> **Leave all variables blank** to run in Mock Mode — the full app works without any Azure subscription.
+
+#### 5. Run the app
+
+```bash
+streamlit run streamlit_app.py
+```
+
+App opens at **`http://localhost:8501`**
+
+#### 6. Run the test suite (optional)
+
+```bash
+python -m pytest tests/ -q
+# Expected: 289 passed in ~2s  (zero credentials required)
+```
+
+---
+
 ## Getting Started
 
 ### First-Time Login

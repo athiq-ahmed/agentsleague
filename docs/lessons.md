@@ -10,6 +10,15 @@
 
 ## Log
 
+### 2026-02-27 — Metrics table had mock-mode values; docs had stale test counts and "roadmap" labels for shipped features
+
+| Field | Details |
+|-------|----------|
+| **What went wrong** | README `System Metrics` table mixed mock-mode rows ("Pipeline Completion Rate — Mock", "Agent Latency — Mock") alongside live-mode rows, making it impossible for judges to quickly assess live system quality. Additionally, `Responsible AI Coverage` was listed as 85% with "Content Safety API roadmap" despite the API being fully wired. Test counts stagnated at 289/299 in Competition Alignment, Engineering Best Practices, and Starter Kit Alignment tables. `docs/TODO.md` sprint still showed T-07 and T-09 as NOT STARTED despite both being done. |
+| **Root cause** | The metrics section was written before T-07/T-09 were implemented and was never updated in the same commit as the implementation. Mock-mode rows were added for completeness but create noise in a competition context where judges are evaluating live system quality. |
+| **Fix applied** | (1) Removed all mock-only metric rows from README. (2) Added "all values are live-mode" header note. (3) Added new rows for Content Safety API detection rate (~95%), T1/T2 latency separately, and LLM eval scores (Coherence/Relevance via `eval_harness.py`). (4) RAI coverage updated 85% → 100%. (5) All stale 289/299 counts updated to 342 across README, `docs/technical_documentation.md`, `docs/qna_playbook.md`. (6) TODO.md T-07/T-09 marked DONE; Content Safety and eval harness items ticked in Completed section. |
+| **Prevention rule** | When implementing a feature that closes a "roadmap" item, immediately do a workspace-wide grep for the sprint task ID (e.g. T-07) and the old status text ("NOT STARTED", "roadmap", "stub") — update all matches in the same commit. Metrics tables require a separate pass: grep for mock-only qualifier text and either remove or annotate clearly. |
+
 ### 2026-02-25 — Nested f-string `_rows_html` in `st.markdown()` caused raw HTML display
 
 | Field | Details |

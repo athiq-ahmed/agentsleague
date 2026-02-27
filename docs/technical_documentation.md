@@ -45,7 +45,7 @@ The Certification Preparation Multi-Agent System is a **production-grade agentic
 - **Deterministic algorithms** — resource allocation (Largest Remainder), readiness scoring (weighted formula), and domain sampling are fully reproducible
 - **Zero-credential demo mode** — the full 8-agent pipeline runs on rule-based mock agents; Azure credentials are additive, not required
 - **Exam-agnostic registry** — adding a new certification requires only a new entry in `EXAM_DOMAINS`; no agent code changes needed
-- **Testable by design** — 289 unit tests pass in under 2 seconds with no Azure credentials, no network calls, and no side effects
+- **Testable by design** — 342 automated tests pass in under 3 seconds with no Azure credentials, no network calls, and no side effects
 - **Three-tier fallback** — LLM calls automatically fall back from Foundry SDK → OpenAI direct → rule-based mock, so the app never fails due to missing credentials
 
 ---
@@ -145,6 +145,7 @@ it consumes and produces, and which other modules depend on it.
 | `database.py` | SQLite persistence — single `students` table; `save_*` / `load_*` functions | `sqlite3` stdlib | Serialised JSON blobs per student | `streamlit_app`, `pages/1_Admin_Dashboard.py` |
 | `guardrails.py` | 17-rule responsible AI pipeline; Façade over every agent boundary | `RawStudentInput`, `LearnerProfile`, `StudyPlan`, `ProgressSnapshot`, `Assessment` | `GuardrailResult` (list of `GuardrailViolation`) | `streamlit_app` (called at every transition) |
 | `agent_trace.py` | Audit log — `AgentStep` per agent; `RunTrace` per run | *(none — data class only)* | `AgentStep`, `RunTrace` | `streamlit_app`, `pages/1_Admin_Dashboard.py` |
+| `eval_harness.py` | LLM-as-judge quality metrics via `azure-ai-evaluation` SDK — `CoherenceEvaluator`, `RelevanceEvaluator`, `FluencyEvaluator` per profiling run | `RawStudentInput`, `LearnerProfile`, Azure OpenAI creds | `EvalResult` (per-metric scores + `passed_threshold()`) | `streamlit_app` (post-profiling in live mode); `batch_evaluate()` for regression suites |
 | `b0_intake_agent.py` | **Block 0**: CLI intake interview + LLM/mock profiling (3-tier) | `RawStudentInput`, `config.Settings`, `b1_mock_profiler` | `LearnerProfile` | `streamlit_app`, `src/demo_intake.py` |
 | `b1_mock_profiler.py` | Tier 3 rule-based profiler — deterministic, no credentials needed | `RawStudentInput`, `models.EXAM_DOMAIN_REGISTRY` | `LearnerProfile` | `b0_intake_agent` (Tier 3 fallback), `streamlit_app` (mock mode), all tests |
 | `b1_1_study_plan_agent.py` | **Block 1.1a**: Largest Remainder hour allocation; Gantt study plan | `LearnerProfile`, `existing_certs: list[str]` | `StudyPlan` (list of `StudyTask`) | `streamlit_app` (ThreadPoolExecutor Thread A) |
@@ -278,7 +279,7 @@ AssessmentResult + LearnerProfile
 | Visualisation | Plotly | 5.x | Interactive Gantt, radar, bar charts; Streamlit native |
 | PDF generation | ReportLab | 4.x | Programmatic PDF; no browser dependency |
 | Database | SQLite (`sqlite3` stdlib) | built-in | Zero-dependency; schema portable to Cosmos DB |
-| Testing | pytest | 8.x | 289 tests; no Azure credentials required |
+| Testing | pytest | 8.x | 342 tests; no Azure credentials required |
 | Concurrency | `ThreadPoolExecutor` | stdlib | Parallel fan-out for independent agents |
 | Email | `smtplib` + `MIMEMultipart` | stdlib | Works with any SMTP relay |
 
@@ -548,13 +549,18 @@ for v in result.violations:
 
 ### 5.4 G-16 Content Safety Detail
 
-The heuristic content scanner checks free-text fields for:
+G-16 operates in two layers — a **live Azure Content Safety API call** (primary) and a **regex-based heuristic fallback** (when the endpoint is unconfigured).
+
+**Primary — Azure Content Safety API (`_check_content_safety_api`):**  
+When `AZURE_CONTENT_SAFETY_ENDPOINT` and `AZURE_CONTENT_SAFETY_KEY` are set, G-16 makes a live HTTP POST to `{endpoint}/contentsafety/text:analyze?api-version=2024-09-01` with categories `Hate`, `SelfHarm`, `Sexual`, `Violence`. Any category with severity **≥ 2** triggers a BLOCK.
+
+**Fallback — Regex heuristic (when endpoint is unconfigured):**
 - **Harmful keywords** → BLOCK: violence, self-harm, prohibited content (exact word match against blocklist)
 - **SSN pattern** → WARN: regex `\b\d{3}-\d{2}-\d{4}\b`
 - **Credit card pattern** → WARN: regex `\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b`
 - **Email in bio** → WARN: regex `[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`
 
-PII detected via WARN is not forwarded to the LLM in mock mode. In live mode, the WARN banner notifies the user before the LLM call proceeds.
+PII detected via WARN is flagged to the user before any LLM call proceeds. In both layers, a network or credential failure triggers graceful fallback without crashing the pipeline.
 
 ### 5.5 G-17 URL Trust Guard
 
@@ -1374,7 +1380,7 @@ Demo scenarios are defined in `_PREFILL_SCENARIOS`. When a sidebar scenario card
 
 ## 18. Testing Architecture
 
-**289 tests · ~2 seconds · zero Azure credentials required**
+**342 tests · ~3 seconds · zero Azure credentials required**
 
 All tests run in mock mode using rule-based agents. No database writes, no network calls, no side effects.
 

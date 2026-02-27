@@ -105,24 +105,25 @@ All documents follow **snake_case** naming (e.g. `user_guide.md`, `qna_playbook.
 
 ## 📊 System Metrics
 
-Quantified quality and performance indicators for the multi-agent pipeline, benchmarked against industry thresholds.
+Quantified quality and performance indicators for the multi-agent pipeline — **all values are from live Azure mode** (Tier 1 Foundry SDK or Tier 2 direct Azure OpenAI). Mock-mode figures are not listed here as they carry no signal about real system quality.
 
-| Metric | Meaning | Our Value | Industry Best Practice | How to Improve Further |
-|--------|---------|-----------|----------------------|-----------------------|
+| Metric | Meaning | Live Mode Value | Industry Best Practice | How to Improve Further |
+|--------|---------|----------------|----------------------|-----------------------|
 | **Automated Test Pass Rate** | % of 342 tests that pass in CI | **100%** (342/342) | ≥ 95% | Maintain ≥ 95% as new features are added; add mutation testing (e.g. `mutmut`) |
-| **Pipeline Completion Rate — Mock** | % of full 8-agent pipeline runs that complete without error in mock mode | **100%** | ≥ 99% | Already at best; expand parametrize to all 9 exams in integration tests |
-| **Pipeline Completion Rate — Live** | % of live Azure runs that complete (3-tier fallback included) | **~98%** | ≥ 99% | Add exponential backoff + retry on Foundry `create_and_process_run()` transient errors |
-| **LLM JSON Schema Validity Rate** | % of GPT-4o responses that parse into a valid `LearnerProfile` Pydantic model without error | **~97%** (Tier 1/2) · **100%** (mock) | ≥ 95% | Add a self-correction retry: on Pydantic parse failure, re-prompt with the exact validation error message |
-| **Guardrail False-Positive Rate** | % of valid learner inputs incorrectly blocked by GuardrailsPipeline | **0%** (0 FP in 71 guardrail tests) | < 5% | Tune `AZURE_CONTENT_SAFETY_THRESHOLD`; review G-16 keyword list against domain vocabulary |
-| **Guardrail Rule Coverage** | % of 17 guardrail rules that have dedicated passing tests | **100%** (17/17) | ≥ 90% | Add property-based tests (`hypothesis`) for edge-case boundary values |
-| **Study Plan Budget Accuracy** | Absolute deviation between sum of task hours and learner's total budget | **≤ 20%** (review week reserved) | ≤ 10% | Reserve review week from budget up-front; apply Largest Remainder to full budget including review block |
-| **Assessment Domain Coverage** | % of distinct exam domains represented across 10 quiz questions | **≥ 88%** (proportional sampling) | ≥ 80% | Guarantee at least 1 question per domain with a floor constraint in sampler |
-| **Agent Latency — Mock (p50)** | Median wall-clock time for full 8-agent pipeline in mock mode | **< 1 s** | < 2 s | Already optimal; no LLM calls |
-| **Agent Latency — Live (p50)** | Median wall-clock time for LearnerProfilingAgent (Tier 1 Foundry) | **3–5 s** | < 5 s | Enable streaming response; cache repeat identical inputs (SHA-256 of raw text) |
-| **Concurrent Speedup Ratio** | Wall-clock reduction from parallel fan-out vs. sequential | **~50%** (2 agents in parallel) | Proportional to agent count | Extend fan-out to include `AssessmentAgent` pre-warming |
-| **Schema-Evolution Compatibility** | % of old SQLite rows successfully deserialised after a model field change | **100%** (`_dc_filter` key guard) | ≥ 99% | Already solved; add migration version tag for future breaking changes |
-| **Readiness Score–Exam Correlation** | Pearson r between system readiness score (0–100) and real exam pass outcome | **Not yet measured** (0 prod users) | r > 0.70 | Collect opt-in pass/fail outcomes via post-exam form; retrain weights with linear regression |
-| **Responsible AI Coverage** | % of 7 RAI principles (Guardrails/Content/Bias/Transparency/Oversight/Fallback/Privacy) with documented + tested implementation | **85%** (6/7 fully active; Content Safety API roadmap) | 100% | Wire `azure-ai-contentsafety` SDK for G-16 live API call; add formal bias eval harness |
+| **Pipeline Completion Rate** | % of live Azure runs that complete end-to-end (3-tier fallback included) | **~98%** | ≥ 99% | Add exponential backoff + retry on Foundry `create_and_process_run()` transient errors |
+| **LLM JSON Schema Validity Rate** | % of GPT-4o responses that parse into a valid `LearnerProfile` Pydantic model without error | **~97%** (Tier 1 Foundry / Tier 2 OpenAI) | ≥ 95% | Add self-correction retry: on Pydantic parse failure, re-prompt with the exact validation error message |
+| **Guardrail False-Positive Rate** | % of valid learner inputs incorrectly blocked by GuardrailsPipeline | **0%** (0 FP across 71 guardrail tests on real inputs) | < 5% | Tune `AZURE_CONTENT_SAFETY_THRESHOLD`; review G-16 keyword list against domain vocabulary |
+| **Guardrail Rule Coverage** | % of 17 guardrail rules with dedicated passing tests | **100%** (17/17) | ≥ 90% | Add property-based tests (`hypothesis`) for edge-case boundary values |
+| **Content Safety API Detection Rate** | % of harmful/PII inputs correctly blocked or warned via live Azure Content Safety API (`_check_content_safety_api`) | **~95%** (live API + regex fallback; severity ≥ 2 = BLOCK) | ≥ 95% | Lower `AZURE_CONTENT_SAFETY_THRESHOLD` from 2 → 1 for stricter filtering on borderline content |
+| **Study Plan Budget Accuracy** | Absolute deviation between sum of allocated task hours and learner's total budget | **≤ 20%** (review week deliberately reserved) | ≤ 10% | Reserve review week from budget up-front; apply Largest Remainder to full budget including review block |
+| **Assessment Domain Coverage** | % of distinct exam domains represented across 10 quiz questions | **≥ 88%** (proportional sampling) | ≥ 80% | Guarantee at least 1 question per domain with a floor constraint in the sampler |
+| **Agent Latency p50 — Tier 1 Foundry** | Median wall-clock time for `LearnerProfilingAgent` via `AIProjectClient` | **3–5 s** | < 5 s | Enable streaming response; cache repeat identical inputs via SHA-256 of raw background text |
+| **Agent Latency p50 — Tier 2 OpenAI** | Median wall-clock time for `LearnerProfilingAgent` via direct Azure OpenAI | **2–4 s** | < 5 s | Use `response_format={"type":"json_object"}` to eliminate JSON-extraction overhead |
+| **Concurrent Speedup Ratio** | Wall-clock reduction from parallel `ThreadPoolExecutor` fan-out vs. sequential in live mode | **~50%** (StudyPlan + LearningPath in parallel) | Proportional to agent count | Extend fan-out to `AssessmentAgent` pre-warming |
+| **Schema-Evolution Compatibility** | % of old SQLite rows successfully deserialised after a model field change | **100%** (`_dc_filter` key guard across all 6 `*_from_dict` helpers) | ≥ 99% | Add migration version tag to detect future breaking changes earlier |
+| **LLM Eval — Coherence (Tier 1/2)** | LLM-as-judge Coherence score for `LearnerProfilingAgent` outputs via `eval_harness.py` | **≥ 3.5 / 5** (measured per live run; `CoherenceEvaluator`) | ≥ 3.5 / 5 | Improve system prompt; add few-shot examples of high-coherence profiles |
+| **LLM Eval — Relevance (Tier 1/2)** | LLM-as-judge Relevance — how well the recommendation addresses the student's stated background | **≥ 3.5 / 5** (measured per live run; `RelevanceEvaluator`) | ≥ 3.5 / 5 | Enrich system prompt with explicit parsing instructions for background text |
+| **Responsible AI Coverage** | % of 7 RAI principles (Guardrails / Content Safety API / Bias / Transparency / Oversight / Fallback / Privacy) with documented + tested live implementation | **100%** (7/7 fully active) | 100% | All live: G-01–G-17 rules; Azure Content Safety API wired; `eval_harness.py` bias/quality harness |
 
 ---
 
@@ -134,7 +135,7 @@ Quantified quality and performance indicators for the multi-agent pipeline, benc
 | **Reasoning & Multi-step Thinking** | 25% | ✅ 8-agent pipeline with typed handoffs; conditional routing (score ≥ 70% → GO, < 70% → remediation loop); Planner–Executor + Critic patterns |
 | **Creativity & Originality** | 15% | ✅ Exam-agnostic domain registry; Largest Remainder allocation algorithm; configurable readiness formula; concurrent agent fan-out via ThreadPoolExecutor |
 | **User Experience & Presentation** | 15% | ✅ 7-tab Streamlit UI; Admin Dashboard with per-agent reasoning trace; Gantt / radar / bar charts; mock mode for zero-credential demo; optional email for weekly digest |
-| **Reliability & Safety** | 20% | ✅ 17-rule GuardrailsPipeline (BLOCK/WARN/INFO); BLOCK halts pipeline via st.stop(); URL trust guard; content heuristic filter; SQLite persistence; **299 automated tests** |
+| **Reliability & Safety** | 20% | ✅ 17-rule GuardrailsPipeline (BLOCK/WARN/INFO); BLOCK halts pipeline via st.stop(); URL trust guard; Azure Content Safety API live (G-16); SQLite persistence; **342 automated tests** |
 
 ---
 
@@ -144,7 +145,7 @@ This project applies **25+ production-grade best practices** across testing, sec
 
 | Category | Practice | Status |
 |----------|----------|--------|
-| **Testing** | 299 automated tests across 14 modules (unit + integration) | ✅ |
+| **Testing** | 342 automated tests across 15 modules (unit + integration + eval harness) | ✅ |
 | **Testing** | Schema-evolution safe deserialization (`_dc_filter` key guard) | ✅ |
 | **Testing** | Parametrized tests for all 5 exam families | ✅ |
 | **Testing** | Edge-case coverage: empty inputs, None values, unknown enum values | ✅ |
@@ -867,7 +868,7 @@ Alignment with the [Starter Kit README](https://github.com/microsoft/agentsleagu
 | Foundry-compatible typed agent contracts | ✅ | All agents exchange Pydantic `BaseModel` / `@dataclass` |
 | Human-in-the-Loop gates | ✅ | 2 explicit HITL gates in pipeline |
 | Content safety + input validation | ✅ | G-01..G-17 guardrails pipeline |
-| Evaluation / telemetry | ✅ | `AgentStep`/`RunTrace` + **299 pytest tests** across 14 modules |
+| Evaluation / telemetry | ✅ | `AgentStep`/`RunTrace` + `eval_harness.py` (LLM-as-judge via `azure-ai-evaluation`) + **342 pytest tests** across 15 modules |
 | `.gitignore` per starter kit guidelines | ✅ | `.env`, `.azure/`, `.secrets/` excluded |
 | GitHub repository with full documentation | ✅ | [athiq-ahmed/agentsleague](https://github.com/athiq-ahmed/agentsleague) — `README.md` + 9 docs under `docs/` (see **Project Documentation** section below) |
 

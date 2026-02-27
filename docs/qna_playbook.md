@@ -266,13 +266,14 @@ streamlit_app.py (orchestrator)
 | Azure Service | Role in CertPrep | Benefit |
 |---|---|---|
 | Azure OpenAI (GPT-4o) | LearnerProfilingAgent in live mode | Structured JSON output, low temperature |
-| Azure AI Foundry | Agent orchestration (production roadmap) | Native multi-agent patterns, Connected Agent support |
+| Azure AI Foundry | Agent orchestration — Tier 1 SDK live for `LearnerProfilingAgent`; production roadmap for all agents | Native multi-agent patterns, Connected Agent support |
 | Azure AI Search | Knowledge retrieval for module catalogue | Semantic search over MS Learn content |
 | Azure Cosmos DB | Production learner data store | Global distribution, sub-10ms reads, session TTL |
 | Azure Monitor | Telemetry, guardrail violation alerts | Built-in dashboard, alert rules for BLOCK events |
 | Azure Key Vault | Secrets management in production | API key rotation without code deployment |
 | Azure Container Apps | Streamlit hosting in production | Auto-scale, managed TLS, GitHub Actions CD |
-| Azure Content Safety | G-16 content filtering in production | Managed harmful-content detection API |
+| Azure Content Safety | G-16 live content filtering — HTTP POST to `contentsafety/text:analyze`; severity ≥ 2 = BLOCK; regex fallback when unconfigured | Managed harmful-content detection; 4-category coverage (Hate/SelfHarm/Sexual/Violence) |
+| Azure AI Evaluation | LLM-as-judge quality metrics via `eval_harness.py` — Coherence, Relevance, Fluency per profiling run | Programmatic agent quality measurement without manual labelling |
 
 ### AI Foundry Production Migration
 
@@ -282,7 +283,7 @@ Production target:
 
 ```
 AI Foundry Project
-+-- Agent: LearnerProfilerAgent     (Azure OpenAI tool)
++-- Agent: LearnerProfilerAgent     (Azure OpenAI tool) — LIVE (Tier 1)
 +-- Agent: StudyPlanAgent           (Python function tool)
 +-- Agent: LearningPathCuratorAgent (Azure AI Search tool)
 +-- Agent: ProgressTrackerAgent     (Python function tool)
@@ -292,7 +293,7 @@ AI Foundry Project
 Orchestrator: AI Foundry Thread + Assistant API
   -> Supervisor routes tasks to specialist agents
   -> Thread memory maintains context across HITL gates
-  -> Azure AI Evaluation SDK for agent quality metrics
+  -> azure-ai-evaluation SDK for agent quality metrics (LIVE — eval_harness.py)
 ```
 
 ---
@@ -302,8 +303,10 @@ Orchestrator: AI Foundry Thread + Assistant API
 ### Phase 1 — Current (Competition)
 - SQLite (local file)
 - Mock profiler (rule engine) + Azure OpenAI optional; three-tier fallback (Foundry SDK → OpenAI → mock)
+- Azure Content Safety API live on G-16 (`_check_content_safety_api`)
+- `azure-ai-evaluation` SDK wired (`eval_harness.py` — Coherence, Relevance, Fluency)
 - Streamlit Community Cloud
-- 9 exam families, 289 unit tests, 6-tab Streamlit UI
+- 9 exam families, 342 automated tests, 6-tab Streamlit UI
 
 ### Phase 2 — Production MVP
 - Azure Cosmos DB replaces SQLite
@@ -315,7 +318,7 @@ Orchestrator: AI Foundry Thread + Assistant API
 - AI Foundry multi-agent threads
 - Connected Agents (LearnerProfiler sub-calls LearningPathCurator)
 - Azure AI Search integration for live MS Learn catalogue
-- Azure Content Safety for G-16
+- `azure-ai-evaluation` bias + bias dataset (B-01) — Needs labelled test set across 9 cert families
 
 ### Phase 4 — Futuristic Vision (12+ months)
 

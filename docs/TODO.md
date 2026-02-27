@@ -92,7 +92,7 @@
 - [ ] Resource created
 - [x] Placeholder in `.env` (`AZURE_CONTENT_SAFETY_ENDPOINT/KEY/THRESHOLD`)
 - [x] Regex-based G-16 heuristic active (7 PII patterns + 14 harmful keywords)
-- [ ] Upgrade G-16 to use Azure Content Safety API (`check_content_safety()` stub ready in `docs/user_flow.md`)
+- [x] Upgrade G-16 to use Azure Content Safety API — `_check_content_safety_api()` live in `guardrails.py` (HTTP POST, severity ≥ 2 = BLOCK, regex fallback)
 
 ---
 
@@ -166,10 +166,7 @@
 - [ ] **Multi-agent orchestration in Foundry**
   - Define agent pipeline: Intake → Profiling → Learning Path → Study Plan → Assessment → Progress
   - Add human-in-the-loop confirmation at readiness gate
-- [ ] **Evaluation harness**
-  - Add Foundry's built-in evaluation for each agent
-  - Track: latency, token usage, answer relevance, factual accuracy
-  - Create rubric for grading agent reasoning quality
+- [x] **Evaluation harness** — `src/cert_prep/eval_harness.py`; `CoherenceEvaluator`, `RelevanceEvaluator`, `FluencyEvaluator` via `azure-ai-evaluation>=1.0.0`; `batch_evaluate()` for regression suites; graceful no-op in mock mode
 - [ ] **Create Azure resource group** `rg-agentsleague` and provision OpenAI resource
 - [ ] **Deploy gpt-4o model** in Azure OpenAI Studio (30K TPM quota)
 - [ ] **Fill real values** in `.env` — app auto-switches to live mode once done
@@ -177,7 +174,7 @@
 ### 🟡 Should Do (Strengthens Submission)
 
 - [ ] **MCP integration** — real MS Learn content instead of static mock data
-- [ ] **Content Safety API** — upgrade G-16 from regex to `azure-ai-contentsafety` SDK
+- [x] **Content Safety API** — G-16 upgraded: `_check_content_safety_api()` in `guardrails.py` makes live HTTP POST to Azure Content Safety endpoint; severity ≥ 2 = BLOCK; regex fallback when unconfigured
 - [x] **Wire `attempt_send_email()` with SMTP creds** — configure `SMTP_HOST/PORT/USER/PASS/FROM` in `.env` to activate weekly progress summaries; PDF attachment implemented (ACS upgrade is a roadmap item)
 - [ ] **Record demo video** (3–5 min) showing:
   - New learner flow → profile generation → study plan → quiz
@@ -271,6 +268,11 @@
 - [x] `tests/test_progress_agent.py` extended — 9 new tests: 5-exam parametrized readiness, per-exam weight validation, fallback weight smoke test
 - [x] `docs/unit_test_scenarios.md` — created; full catalogue of all 289 test scenarios (easy/medium/hard/edge cases) — authoritative reference for "do unit test" runs
 - [x] All docs updated — README.md, qna_playbook.md, technical_documentation.md, lessons.md — test count 289, new What's New entries, Project Documentation table, 25 best practices, unit_test_scenarios.md created
+- [x] `azure-ai-evaluation>=1.0.0` added to `requirements.txt`; `src/cert_prep/eval_harness.py` created (T-09 ✅)
+- [x] G-16 Content Safety API live in `guardrails.py` — `_check_content_safety_api()` HTTP POST, severity ≥ 2 = BLOCK (T-07 ✅)
+- [x] README Honest Gaps table updated: T-07/T-09 marked Implemented; T-06 clarified as by-design (deterministic agents); Foundry Best Practices rows 4 & 5 updated from Roadmap → Implemented
+- [x] README System Metrics redesigned as live-mode-only; stale test counts fixed (299/289 → 342); RAI coverage 85% → 100%
+- [x] docs/TODO.md, docs/technical_documentation.md, docs/qna_playbook.md updated — test counts, G-16 status, eval harness module entry
 
 ---
 
@@ -281,9 +283,9 @@
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | T-06 | Extend Azure AI Foundry SDK to remaining 4 agents | 🔲 NOT STARTED | `StudyPlanAgent`, `LearningPathCuratorAgent`, `AssessmentAgent`, `CertRecommendationAgent` — same 3-tier pattern as `LearnerProfilingAgent` |
-| T-07 | Upgrade G-16 content safety heuristic → Azure Content Safety API | 🔲 NOT STARTED | Stub + env vars already in `guardrails.py`; needs `AZURE_CONTENT_SAFETY_ENDPOINT/KEY` in `.env` |
+| T-07 | Upgrade G-16 content safety heuristic → Azure Content Safety API | ✅ DONE | `_check_content_safety_api()` in `guardrails.py` makes live HTTP POST to Azure Content Safety endpoint; severity ≥ 2 = BLOCK; regex fallback when unconfigured |
 | T-08 | Wire MCP MS Learn server into `LearningPathCuratorAgent` | 🔲 NOT STARTED | `MCP_MSLEARN_URL` placeholder in `.env`; needs Node.js MCP sidecar + `httpx` client in agent |
-| T-09 | Wire `azure-ai-evaluation` SDK for agent quality metrics | 🔲 NOT STARTED | `AgentStep`/`RunTrace` already schema-compatible; needs `pip install azure-ai-evaluation` + eval harness |
+| T-09 | Wire `azure-ai-evaluation` SDK for agent quality metrics | ✅ DONE | `src/cert_prep/eval_harness.py` created; `CoherenceEvaluator`, `RelevanceEvaluator`, `FluencyEvaluator`; `azure-ai-evaluation>=1.0.0` in `requirements.txt` |
 | T-10 | Record demo video (3–5 min) | 🔲 NOT STARTED | New learner → profile → plan → quiz → recommendation; show Admin Dashboard trace + G-16 PII |
 | T-11 | Deploy to Streamlit Cloud with service principal secrets | 🔲 NOT STARTED | Add `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID` to Streamlit Cloud secrets |
 | T-12 | Docs overhaul | ✅ DONE | Merged `technical_architecture.md` + `technical_documentation.md`; rewrote `user_flow.md` (prose); updated `qna_playbook.md`, `demo_guide.md`, `user_guide.md`, created `unit_test_scenarios.md` |
