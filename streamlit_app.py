@@ -1629,7 +1629,7 @@ with st.sidebar:
         )
         _active_prefill = st.session_state.get("sidebar_prefill")
         _alex_active    = _active_prefill == "alex"
-        _jordan_active  = _active_prefill == "priyanka"
+        _jordan_active  = _active_prefill == "alex_expert"
 
         # active → bright; other card selected → dim with disabled style
         _alex_cls   = ("sb-sc-card active"   if _alex_active
@@ -1662,7 +1662,7 @@ with st.sidebar:
         </div>''', unsafe_allow_html=True)
         if st.button("\u200b", key="sb_sc_jordan", use_container_width=True, disabled=_alex_active):
             if not _jordan_active:
-                st.session_state["sidebar_prefill"] = "priyanka"
+                st.session_state["sidebar_prefill"] = "alex_expert"
                 st.rerun()
         if _active_prefill:
             if st.button(
@@ -1732,9 +1732,9 @@ _PREFILL_SCENARIOS = {
         "motivation": ["Career growth"],
         "style_tags": ["Hands-on labs", "Practice tests"],
     },
-    "Priyanka Sharma — AI expert, AI-102": {
+    "Alex Chen — expert, AI-102": {
       "exam": "AI-102 – Azure AI Engineer Associate",
-      "name": "Priyanka Sharma", "email": "priyanka.sharma@demo.com",
+      "name": "Alex Chen", "email": "alex.chen@demo.com",
       "background": "5 years as an Azure cloud developer. Built production NLP pipelines and Computer Vision solutions using Azure Cognitive Services. Strong on plan/manage and classic AI services; needs to close gaps on Generative AI and Document Intelligence before the exam.",
       "certs": "AZ-204, AZ-900", "style": "Reference docs and hands-on labs",
       "hpw": 8.0, "weeks": 6, "concerns": "Azure OpenAI, prompt engineering, Document Intelligence, Azure AI Search",
@@ -1982,8 +1982,8 @@ if not is_returning:
     _sb_choice = st.session_state.get("sidebar_prefill", "")
     if _sb_choice == "alex":
       prefill.update(_PREFILL_SCENARIOS["Alex Chen — complete beginner, AI-102"])
-    elif _sb_choice == "priyanka":
-      prefill.update(_PREFILL_SCENARIOS["Priyanka Sharma — AI expert, AI-102"])
+    elif _sb_choice == "alex_expert":
+      prefill.update(_PREFILL_SCENARIOS["Alex Chen — expert, AI-102"])
 
     # Push prefill values into session state so Streamlit widgets pick them up
     if prefill:
