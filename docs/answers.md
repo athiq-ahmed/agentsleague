@@ -242,6 +242,224 @@ The remaining agents (`StudyPlanAgent`, `LearningPathCuratorAgent`, `ProgressAge
 
 ---
 
+## LearnerProfilingAgent — Technical Deep Dive
+
+This agent is the **only LLM-calling agent in the system**. Everything downstream is deterministic once the profile is produced. Understanding how it works internally explains the whole system's reliability model.
+
+### Input: `RawStudentInput`
+
+Before any LLM call, the agent receives a typed `RawStudentInput` dataclass built from the Streamlit intake form (or the CLI interview agent):
+
+| Field | Type | Example |
+|-------|------|---------|
+| `student_name` | `str` | `"Alex Chen"` |
+| `exam_target` | `str` | `"AI-102"` |
+| `background_text` | `str` | `"5 years Python dev, familiar with scikit-learn and REST APIs"` |
+| `existing_certs` | `list[str]` | `["AZ-104", "AI-900"]` |
+| `hours_per_week` | `float` | `10.0` |
+| `weeks_available` | `int` | `8` |
+| `concern_topics` | `list[str]` | `["Azure OpenAI", "Bot Service"]` |
+| `preferred_style` | `str` | `"hands-on labs first"` |
+| `goal_text` | `str` | `"Moving into AI consulting"` |
+
+---
+
+### Tier Selection: `__init__`
+
+During initialisation the agent tries the highest available tier and stores the result as instance state:
+
+```python
+# __init__ checks in priority order
+if settings.foundry.is_configured:          # AZURE_AI_PROJECT_CONNECTION_STRING set
+    self._foundry_client = AIProjectClient.from_connection_string(...)
+    self.using_foundry = True
+elif cfg.is_configured:                      # AZURE_OPENAI_ENDPOINT + API_KEY set
+    self._openai_client = AzureOpenAI(...)
+# else: neither configured → _call_llm() raises EnvironmentError
+#       → caller (streamlit_app.py) catches and calls generate_mock_profile() instead
+```
+
+The tier decision happens **once at construction time**, not per request, so the same agent instance always produces output from the same tier. `streamlit_app.py` catches `EnvironmentError` and automatically falls back to the mock engine.
+
+---
+
+### Prompt Engineering
+
+The system prompt sent to every tier is assembled from three parts at module load time:
+
+**Part 1 — Exam domain reference** (`_DOMAIN_REF`): a JSON array of all 6 AI-102 domains (or the exam-specific domains), each with `id`, `name`, `exam_weight`, and `covers`. This grounds the model's domain reasoning in the actual exam blueprint.
+
+**Part 2 — Seven personalisation rules** embedded in `_SYSTEM_PROMPT`:
+1. AZ-104 / AZ-305 holders → `plan_manage` domain gets `STRONG` + `skip_recommended=true`
+2. Data science / ML background → `generative_ai` elevated to `MODERATE`
+3. Explicit concern topic → mark domain `WEAK` unless background contradicts it
+4. `total_budget_hours = hours_per_week × weeks_available` (model must compute this exactly)
+5. `risk_domains` = any domain where `confidence_score < 0.50`
+6. `analogy_map` = only when non-Azure skills map to Azure AI services
+7. `experience_level` ladder: `beginner` → `intermediate` → `advanced_azure` → `expert_ml`
+
+**Part 3 — Single-source schema** (`_PROFILE_JSON_SCHEMA`): the exact JSON structure the model must return, including all field names, types, allowed enums, and the nested `domain_profiles` array:
+
+```json
+{
+  "experience_level": "beginner | intermediate | advanced_azure | expert_ml",
+  "learning_style": "linear | lab_first | reference | adaptive",
+  "domain_profiles": [
+    {
+      "domain_id": "plan_manage | computer_vision | nlp | ...",
+      "knowledge_level": "unknown | weak | moderate | strong",
+      "confidence_score": "float 0.0-1.0",
+      "skip_recommended": "boolean",
+      "notes": "string (1-2 sentences)"
+    }
+  ],
+  "risk_domains": ["string (domain_id)"],
+  "analogy_map": {"existing skill": "Azure AI equivalent"},
+  "recommended_approach": "string (2-3 sentences)",
+  "engagement_notes": "string"
+}
+```
+
+The system prompt ends with `"Respond with ONLY a valid JSON object … Do NOT include any explanation, markdown, or extra text outside the JSON."` — this instruction is what enables JSON-mode parsing on both Tier 1 and Tier 2 without post-processing.
+
+---
+
+### User Message Construction: `_build_user_message()`
+
+The 8 `RawStudentInput` fields are formatted as a labelled text block (not a chat-style prompt), which gives the model a clean, unambiguous encoding of each field:
+
+```
+Student: Alex Chen
+Exam: AI-102
+Background: 5 years Python dev, familiar with scikit-learn and REST APIs
+Existing certifications: AZ-104, AI-900
+Time budget: 10.0 hours/week for 8 weeks
+Topics of concern: Azure OpenAI, Bot Service
+Learning preference: hands-on labs first
+Goal: Moving into AI consulting
+
+Please produce the learner profile JSON.
+```
+
+This structured format avoids natural-language framing that could confuse the model about where the background description ends and the concern topics begin.
+
+---
+
+### Tier 1 — Azure AI Foundry Agent Service
+
+Activated when `AZURE_AI_PROJECT_CONNECTION_STRING` is set and Foundry SDK initialises without error.
+
+```python
+# _call_via_foundry()
+agent = client.agents.create_agent(
+    model="gpt-4o",
+    name="LearnerProfilerAgent",
+    instructions=_SYSTEM_PROMPT,          # full system prompt as agent instructions
+)
+try:
+    thread = client.agents.create_thread()
+    client.agents.create_message(
+        thread_id=thread.id,
+        role="user",
+        content=user_message,             # the _build_user_message() output
+    )
+    run = client.agents.create_and_process_run(
+        thread_id=thread.id,
+        agent_id=agent.id,                # blocks until run.status == "completed"
+    )
+    if run.status == "failed":
+        raise RuntimeError(run.last_error)
+    messages = client.agents.list_messages(thread_id=thread.id)
+    text = messages.get_last_message_by_role("assistant").content[0].text.value
+    return json.loads(text)               # dict; will be validated by Pydantic next
+finally:
+    client.agents.delete_agent(agent.id) # clean up; avoid quota accumulation
+```
+
+`create_and_process_run()` handles model routing, retries, and polling internally — the call blocks until the run completes. The **Foundry portal Tracing view** automatically captures the request/response payload, latency, and token counts for every run.
+
+> **Why Foundry for this agent?**  
+> `LearnerProfilingAgent` is the only agent that touches free-text user input and needs the richest reasoning context. Foundry's thread model preserves context if the session is extended (e.g. re-profiling after a remediation loop), and the built-in tracing gives instant observability without custom logging.
+
+---
+
+### Tier 2 — Direct Azure OpenAI JSON Mode
+
+Activated when `AZURE_OPENAI_ENDPOINT` + `AZURE_OPENAI_API_KEY` are set and Foundry is not available.
+
+```python
+# _call_via_openai()
+response = self._openai_client.chat.completions.create(
+    model=self._cfg.deployment,           # gpt-4o
+    response_format={"type": "json_object"},  # enforces JSON-only output at API level
+    messages=[
+        {"role": "system", "content": _SYSTEM_PROMPT},
+        {"role": "user",   "content": user_message},
+    ],
+    temperature=0.2,    # low temperature = consistent, reproducible domain scores
+    max_tokens=2000,    # profile JSON is ~600–900 tokens; 2000 leaves room for verbose notes
+)
+raw_json = response.choices[0].message.content
+return json.loads(raw_json)
+```
+
+`response_format={"type": "json_object"}` is the Azure OpenAI JSON-mode flag. It constrains the model to output only a valid JSON object — it will never produce prose before or after the JSON, which means `json.loads()` on the raw content is safe without a regex extraction step.
+
+`temperature=0.2` produces near-deterministic confidence scores: the same background text run twice will produce `confidence_score` values within ±0.05 of each other, which matters because confidence scores directly drive domain priority in `StudyPlanAgent`.
+
+---
+
+### Tier 3 — Rule-Based Mock Engine (`b1_mock_profiler.py`)
+
+Called directly by `streamlit_app.py` when `live_mode=False` or credentials are absent. Uses three passes over `RawStudentInput`:
+
+| Pass | Input fields | Algorithm |
+|------|-------------|-----------|
+| **1 — Experience level** | `background_text` | Keyword scoring: `"machine learning"/"data scientist"` → `EXPERT_ML`; `"architect"/"azure"` → `ADVANCED_AZURE`; `"developer"/"engineer"` → `INTERMEDIATE`; else → `BEGINNER` |
+| **2 — Domain confidence** | `existing_certs`, `background_text` | Cert → domain boost table (per target exam) + keyword co-occurrence scan; `EXPERT_ML`/`ADVANCED_AZURE` baselines start higher than `BEGINNER` |
+| **3 — Risk domains** | `concern_topics` | Each concern topic maps to a domain ID; matched domains receive −0.15 penalty (floor: 0.05) and are appended to `risk_domains` |
+
+Post-processing derives `knowledge_level` from confidence thresholds (`< 0.30 → UNKNOWN`, `0.30–0.50 → WEAK`, `0.50–0.70 → MODERATE`, `≥ 0.70 → STRONG`), sets `skip_recommended=True` when confidence ≥ 0.80, builds an `analogy_map` for ML/data-science backgrounds, and selects `learning_style` from `preferred_style` text keywords.
+
+---
+
+### Schema Validation: `run()`
+
+After any tier returns a `dict`, the `.run()` method applies safety patches before Pydantic validation:
+
+```python
+data.setdefault("student_name", raw.student_name)
+data.setdefault("exam_target",  raw.exam_target)
+data.setdefault("hours_per_week", raw.hours_per_week)
+data.setdefault("weeks_available", raw.weeks_available)
+data.setdefault("total_budget_hours", raw.hours_per_week * raw.weeks_available)
+
+profile = LearnerProfile.model_validate(data)   # raises ValidationError if schema violated
+```
+
+`setdefault` ensures passthrough fields the LLM might abbreviate are always present. `model_validate` is Pydantic v2's strict deserialiser — if any domain has a `confidence_score` outside 0.0–1.0, or an invalid `knowledge_level` enum value, a `ValidationError` is raised before the profile ever reaches a downstream agent.
+
+---
+
+### Output: `LearnerProfile`
+
+On success `.run()` returns a validated Pydantic `LearnerProfile`:
+
+| Field | Type | Downstream Consumer |
+|-------|------|-------------------|
+| `experience_level` | `ExperienceLevel` enum | `StudyPlanAgent` (priority weights), `LearningPathCuratorAgent` (resource level) |
+| `learning_style` | `LearningStyle` enum | `LearningPathCuratorAgent` (resource type filter) |
+| `domain_profiles` | `list[DomainProfile]` | `StudyPlanAgent` (Largest Remainder allocation), `AssessmentAgent` (question sampling) |
+| `risk_domains` | `list[str]` | `StudyPlanAgent` (front-loads risky domains), `ProgressAgent` (domain nudges) |
+| `modules_to_skip` | `list[str]` | `StudyPlanAgent` (skip_recommended domains get zero hours) |
+| `analogy_map` | `dict[str, str]` | `LearningPathCuratorAgent` (adds bridge resources), PDF report |
+| `recommended_approach` | `str` | `StudyPlanAgent` notes, displayed in Streamlit UI |
+| `total_budget_hours` | `float` | `StudyPlanAgent` (budget constraint for Largest Remainder) |
+
+`DomainProfile.confidence_score` (0.0–1.0) is the **single most influential value** in the system: it directly sets domain priority weights in `StudyPlanAgent`, determines `risk_domains` for `ProgressAgent` nudges, and controls question sampling rates in `AssessmentAgent`. Correct profiling at this step cascades into every downstream decision.
+
+---
+
 ### 3. Reasoning and multi-step decision-making across agents
 
 The pipeline demonstrates **five distinct forms of reasoning**:
