@@ -108,7 +108,59 @@ def init_db() -> None:
         created_at      TEXT    DEFAULT (datetime('now')),
         updated_at      TEXT    DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS llm_response_cache (
+        cache_key     TEXT PRIMARY KEY,
+        tier          TEXT NOT NULL,
+        model         TEXT NOT NULL,
+        response_json TEXT NOT NULL,
+        created_at    TEXT DEFAULT (datetime('now')),
+        hit_count     INTEGER DEFAULT 0
+    );
     """)
+    conn.commit()
+    conn.close()
+
+
+# ─── LLM Response Cache ──────────────────────────────────────────────────────
+
+def get_llm_cache(cache_key: str) -> Optional[dict]:
+    """Return the cached LLM response dict, or None on miss.
+    Also increments hit_count so the Admin Dashboard can show reuse rate.
+    """
+    conn = _get_conn()
+    row = conn.execute(
+        "SELECT response_json FROM llm_response_cache WHERE cache_key = ?",
+        (cache_key,),
+    ).fetchone()
+    if row is None:
+        conn.close()
+        return None
+    # Increment hit counter (best-effort — ignore errors)
+    try:
+        conn.execute(
+            "UPDATE llm_response_cache SET hit_count = hit_count + 1 WHERE cache_key = ?",
+            (cache_key,),
+        )
+        conn.commit()
+    except Exception:
+        pass
+    conn.close()
+    return json.loads(row["response_json"])
+
+
+def set_llm_cache(cache_key: str, tier: str, model: str, response: dict) -> None:
+    """Persist an LLM response dict keyed by its SHA-256 hash.
+    Silently ignores duplicate keys (same input → same result).
+    """
+    conn = _get_conn()
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO llm_response_cache
+            (cache_key, tier, model, response_json)
+        VALUES (?, ?, ?, ?)
+        """,
+        (cache_key, tier, model, json.dumps(response)),
+    )
     conn.commit()
     conn.close()
 

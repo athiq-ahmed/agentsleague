@@ -54,6 +54,7 @@ Downstream consumers of LearnerProfile
 
 from __future__ import annotations
 
+import hashlib
 import json
 import textwrap
 from typing import Any
@@ -66,6 +67,7 @@ from rich.table import Table
 from rich import box
 
 from cert_prep.config import get_config, get_settings, AzureOpenAIConfig
+from cert_prep.database import get_llm_cache, set_llm_cache
 from cert_prep.models import (
     EXAM_DOMAINS,
     DomainKnowledge,
@@ -288,16 +290,46 @@ class LearnerProfilingAgent:
     # ── Routing ──────────────────────────────────────────────────────────────
 
     def _call_llm(self, user_message: str) -> dict[str, Any]:
-        """Dispatch to highest available tier."""
+        """Dispatch to the highest available tier, with SQLite-backed response caching.
+
+        Cache key = SHA-256(tier :: model :: user_message).
+        A cache hit skips the API call entirely and returns the stored dict.
+        Cache read/write errors are silently swallowed so the pipeline never
+        fails due to a SQLite issue.
+        """
+        tier      = "foundry" if (self.using_foundry and self._foundry_client is not None) else "openai"
+        cache_key = hashlib.sha256(
+            f"{tier}::{self._cfg.deployment}::{user_message}".encode()
+        ).hexdigest()
+
+        # ── Cache hit ──────────────────────────────────────────────────────
+        try:
+            cached = get_llm_cache(cache_key)
+            if cached is not None:
+                console.print("[dim]↩ LLM response cache hit — skipping Azure API call.[/dim]")
+                return cached
+        except Exception:
+            pass  # never let a cache read break the pipeline
+
+        # ── Cache miss — call the real tier ───────────────────────────────
         if self.using_foundry and self._foundry_client is not None:
-            return self._call_via_foundry(user_message)
-        if self._openai_client is not None:
-            return self._call_via_openai(user_message)
-        raise EnvironmentError(
-            "Neither Azure AI Foundry nor Azure OpenAI is configured. "
-            "Set AZURE_AI_PROJECT_CONNECTION_STRING (Foundry) or "
-            "AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY (direct)."
-        )
+            result = self._call_via_foundry(user_message)
+        elif self._openai_client is not None:
+            result = self._call_via_openai(user_message)
+        else:
+            raise EnvironmentError(
+                "Neither Azure AI Foundry nor Azure OpenAI is configured. "
+                "Set AZURE_AI_PROJECT_CONNECTION_STRING (Foundry) or "
+                "AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY (direct)."
+            )
+
+        # ── Store result for future calls ──────────────────────────────────
+        try:
+            set_llm_cache(cache_key, tier, self._cfg.deployment, result)
+        except Exception:
+            pass  # never let a cache write break the pipeline
+
+        return result
 
     # ── Tier 1 implementation ─────────────────────────────────────────────────
 
