@@ -718,7 +718,9 @@ st.caption("Every agent's role, inputs, outputs, decisions and timing — always
 
 for step in trace.steps:
     clr          = AGENT_COLORS.get(step.agent_id, BLUE)
-    status_color = GREEN if step.status == "success" else ORANGE
+    _status_map  = {"success": "✓ Completed", "warning": "⚠ Review", "error": "✗ Failed"}
+    status_color = GREEN if step.status == "success" else (RED if step.status == "error" else ORANGE)
+    _status_lbl  = _html.escape(_status_map.get(step.status, step.status.title()))
 
     # Escape I/O text so angle-brackets / ampersands never break the HTML card
     _in_html  = _html.escape(str(step.input_summary)).replace("\n", "<br>")
@@ -741,8 +743,6 @@ for step in trace.steps:
     # Build card HTML via concatenation — never inject _dec_html inside an
     # f-string, which causes Streamlit to render it as escaped plain text.
     _agent_label = _html.escape(step.agent_name.split("(")[0].strip())
-    _agent_id    = _html.escape(str(step.agent_id))
-    _status_lbl  = _html.escape(str(step.status))
     _dur_lbl     = f"{step.duration_ms:.0f}&nbsp;ms"
     _icon_lbl    = _html.escape(str(step.icon))
 
@@ -757,7 +757,6 @@ for step in trace.steps:
         f'<span style="font-size:1.3rem;">{_icon_lbl}</span>'
         f'<div>'
         f'<span style="color:#fff;font-size:0.95rem;font-weight:700;display:block;">{_agent_label}</span>'
-        f'<span style="color:rgba(255,255,255,0.65);font-size:0.7rem;font-family:monospace;">id:&nbsp;{_agent_id}</span>'
         f'</div></div>'
         f'<div style="display:flex;gap:6px;align-items:center;">'
         f'<span style="background:{status_color}25;color:{status_color};'
