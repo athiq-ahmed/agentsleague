@@ -8,3 +8,5 @@ plotly>=5.0.0
 # Azure AI Foundry Agent Service SDK (code-first approach)
 azure-ai-projects>=1.0.0b9
 azure-identity>=1.19.0
+# Azure AI Evaluation SDK — LLM-as-judge metrics (Coherence, Relevance, Fluency)
+azure-ai-evaluation>=1.0.0
