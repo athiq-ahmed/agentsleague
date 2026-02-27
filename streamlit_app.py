@@ -789,7 +789,7 @@ if not st.session_state["authenticated"]:
             <div class="demo-card">
               <div class="dc-icon">🏆</div>
               <div class="dc-title">AI Expert</div>
-              <div class="dc-sub">Returning · AI-102</div>
+              <div class="dc-sub">Returning · DP-100</div>
             </div>
             ''', unsafe_allow_html=True)
             if st.button("​", key="demo_jordan", use_container_width=True):  # invisible overlay
