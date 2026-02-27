@@ -1739,7 +1739,7 @@ _PREFILL_SCENARIOS = {
       "certs": "AZ-204, AZ-900", "style": "Reference docs and hands-on labs",
       "hpw": 8.0, "weeks": 6, "concerns": "Azure OpenAI, prompt engineering, Document Intelligence, Azure AI Search",
       "goal": "Pass AI-102 to formalise 5 years of applied Azure AI work into an official certification",
-      "role": "Azure Cloud Developer / AI Engineer",
+      "role": "Data Analyst / Scientist",
       "motivation": ["Career growth", "Role switch"],
       "style_tags": ["Reference docs", "Hands-on labs"],
     },
