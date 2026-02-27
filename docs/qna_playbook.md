@@ -44,7 +44,7 @@ A single GPT-4 prompt doing all 6 phases would require ~4000 tokens of instructi
 - **StudyPlanAgent:** domain scores → weekly schedule
 - **LearningPathCurator:** domain scores → MS Learn module list
 - **ProgressAgent:** self-ratings + practice score → readiness percentage
-- **AssessmentAgent:** domain weaknesses → 30 weighted questions
+- **AssessmentAgent:** domain weaknesses → 10 questions (5–30 configurable)
 - **CertRecommender:** quiz score → booking decision + next cert
 
 ### Parallelism
@@ -73,7 +73,7 @@ Different agents have different failure modes. A hallucinated module URL is a di
 
 Two HITL gates interrupt the pipeline:
 - **Gate 1:** How much have you studied? How confident do you feel?
-- **Gate 2:** Answer these 30 questions.
+- **Gate 2:** Answer a domain-weighted quiz (default 10 questions, configurable 5–30).
 
 The agents produce the inputs for these gates and interpret the outputs — humans provide the data.
 
@@ -88,7 +88,7 @@ The agents produce the inputs for these gates and interpret the outputs — huma
 | 2 | Study Planner | b1_1_study_plan_agent.py | LearnerProfile | StudyPlan | Largest Remainder allocation |
 | 3 | Path Curator | b1_1_learning_path_curator.py | LearnerProfile | LearningPath | 9 exam families; curated MS Learn modules per family |
 | 4 | Progress Tracker | b1_2_progress_agent.py | ProgressSnapshot | ReadinessAssessment + PDF | PDF reports via reportlab; SMTP email |
-| 5 | Assessment | b2_assessment_agent.py | LearnerProfile | AssessmentResult | 30-question adaptive quiz |
+| 5 | Assessment | b2_assessment_agent.py | LearnerProfile | AssessmentResult | 10-question adaptive quiz (5–30 configurable) |
 | 6 | Cert Recommender | b3_cert_recommendation_agent.py | AssessmentResult | CertRecommendation | GO / CONDITIONAL GO / NOT YET |
 
 ---
@@ -233,10 +233,10 @@ streamlit_app.py (orchestrator)
   |
   +-- [G-09..G-10] WARN, [G-17] WARN
   |
-  +-- HITL Gate 1 (Tab 4) -> user fills form
+  +-- HITL Gate 1 (Tab 5) -> user fills form
   |    +-- ProgressAgent -> ReadinessAssessment
   |
-  +-- HITL Gate 2 (Tab 5) -> user answers quiz
+  +-- HITL Gate 2 (Tab 6) -> user answers quiz
   |    +-- AssessmentAgent -> AssessmentResult -> SQLite
   |
   +-- CertRecommendationAgent -> CertRecommendation -> SQLite
@@ -356,7 +356,7 @@ A: Each agent is a separate Python class with its own typed input-output contrac
 A: Three mechanisms: (1) 17 guardrail rules with BLOCK/WARN levels between every phase, (2) `response_format=json_object` for all GPT-4o calls with Pydantic validation, (3) URL allowlisting (G-17) prevents hallucinated links from reaching users.
 
 **Q: What is the HITL value-add?**  
-A: The ProgressAgent cannot know how the learner actually felt studying. Gate 1 captures self-ratings and hours spent. Gate 2 provides a 30-question diagnostic identifying weak domains for remediation. Without these gates, the system only recommends based on background text — no feedback loop.
+A: The ProgressAgent cannot know how the learner actually felt studying. Gate 1 captures self-ratings and hours spent. Gate 2 provides a configurable diagnostic quiz (default 10 questions, 5–30 via slider) identifying weak domains for remediation. Without these gates, the system only recommends based on background text — no feedback loop.
 
 **Q: Why Largest Remainder for study plan?**  
 A: It guarantees every available study day is allocated to exactly one domain with no rounding loss. The algorithm works at the day level (`total_days = study_weeks × 7`), then converts days → hours. Standard round-to-nearest loses days when total_days is not divisible by domain count. The `max(1, int(d))` floor also prevents any active domain from receiving zero time. LR is O(n log n) and produces provably optimal integer allocations given a fixed total.

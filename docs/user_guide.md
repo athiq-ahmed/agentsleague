@@ -29,23 +29,29 @@
           │
           ▼
  ┌────────────────────────────────────────┐
- │  6-TAB PANEL                               │
+ │  7-TAB PANEL                               │
  ├────────────────────────────────────────│
- │ Tab 1: Learner Profile                     │
- │   • Domain radar + confidence bars         │
+ │ Tab 1: 🗺️ Domain Map                       │
+ │   • Domain confidence bars                 │
  │   • Exam score contribution chart          │
  │   • Download PDF / Email buttons           │
  ├────────────────────────────────────────│
- │ Tab 2: Study Setup                         │
+ │ Tab 2: 📅 Study Setup                      │
  │   • Prerequisite gap check                 │
  │   • Gantt chart (domain × week)            │
  │   • Hour allocation per domain             │
  ├────────────────────────────────────────│
- │ Tab 3: Learning Path                       │
+ │ Tab 3: 📚 Learning Path                    │
  │   • MS Learn module cards per domain       │
  │   • Links, module types, estimated hours   │
  ├────────────────────────────────────────│
- │ Tab 4: Progress  ◄ HUMAN IN THE LOOP ►    │
+ │ Tab 4: 💡 Recommendations                  │
+ │   • Learning style + risk domain cards     │
+ │   • Prioritised study action plan          │
+ │   • Exam booking guidance + next cert path │
+ │   • Remediation plan (if quiz done)        │
+ ├────────────────────────────────────────│
+ │ Tab 5: 📈 My Progress  ◄ HUMAN IN THE LOOP │
  │   Fill: hours studied + domain ratings     │
  │         + practice exam score             │
  │   ↓ submit                                 │
@@ -55,17 +61,16 @@
  │   └────────┴─────────┴─────────┘     │
  │           └─────────────── NOT YET → Regenerate plan
  ├────────────────────────────────────────│
- │ Tab 5: Mock Quiz  ◄ HUMAN IN THE LOOP ►  │
- │   30 questions (domain-weighted)           │
+ │ Tab 6: 🧪 Knowledge Check  ◄ HITL ►       │
+ │   5–30 questions (domain-weighted)         │
  │   answer all → [Submit Quiz]               │
  │   │                                       │
- │   ├─ score ≥ 70% → PASS ✓                │
- │   └─ score < 70% → FAIL + domain gaps      │
+ │   ├─ score ≥ 60% → PASS ✓                │
+ │   └─ score < 60% → FAIL + domain gaps      │
  ├────────────────────────────────────────│
- │ Tab 6: Certification Advice                │
- │   PASS → Booking checklist (Pearson VUE)  │
- │   FAIL → Remediation plan per domain       │
- │   Both → Next cert recommendation          │
+ │ Tab 7: 📄 Raw JSON                         │
+ │   Full session data • Profile JSON         │
+ │   Download profile as .json file           │
  └────────────────────────────────────────┘
 ```
 
@@ -143,7 +148,7 @@ App opens at **`http://localhost:8501`**
 
 ```bash
 python -m pytest tests/ -q
-# Expected: 289 passed in ~2s  (zero credentials required)
+# Expected: 342 passed in ~3s  (zero credentials required)
 ```
 
 ---
@@ -171,7 +176,7 @@ python -m pytest tests/ -q
 
 ## Tab-by-Tab Walkthrough
 
-The app starts with an **intake form**. After submitting it, **six output tabs** appear across the top of the page. Complete them in order — some tabs unlock only after earlier ones are filled in.
+The app starts with an **intake form**. After submitting it, **seven output tabs** appear across the top of the page. Complete them in order — some tabs unlock only after earlier ones are filled in.
 
 ---
 
@@ -199,7 +204,7 @@ The app starts with an **intake form**. After submitting it, **six output tabs**
 
 ---
 
-### Tab 1: 📊 Learner Profile
+### Tab 1: �️ Domain Map
 
 **What it does:** Shows your starting knowledge level for each exam domain as a visual map, plus your PDF download and email buttons.
 
@@ -258,7 +263,35 @@ The app starts with an **intake form**. After submitting it, **six output tabs**
 
 ---
 
-### Tab 4: 📊 Progress
+### Tab 4: � Recommendations
+
+**What it does:** A plain-English summary of what your profile means and what to do. This tab is available immediately after plan generation — it does not require the quiz or progress check-in.
+
+**Sections:**
+1. **Personalised Recommendation** — Three cards side by side:
+   - *Learning Style* — your inferred style (LINEAR, LAB_FIRST, REFERENCE, ADAPTIVE) and budget summary
+   - *Focus Domains* — domains flagged as risk areas (confidence below threshold) shown as red tags
+   - *Fast-Track Candidates* — domains you can skim or skip shown as green tags
+   - Below the cards: the Agent's recommended approach text from the profiler
+
+2. **Predicted Readiness Outlook** — Four metric tiles (Average Confidence %, Domains Ready ≥70%, At-Risk Domain count, Study Budget hours) and a coloured verdict banner:
+   - ✅ On Track — First-Attempt Pass Likely
+   - ⚠️ Nearly Ready — 1 Remediation Cycle Needed
+   - 📖 Structured Full Prep Recommended
+
+3. **Prioritised Study Action Plan** — Every exam domain ranked by urgency with colour-coded cards. Each card shows the urgency label (🚨 Critical / ⚠️ Below threshold / 📈 Building / ✅ Ready / ⏩ Fast-track), a concrete action tip matched to your learning style, and a suggested hour budget.
+
+4. **Exam Booking Guidance** — Populated after you complete the **Knowledge Check** quiz or the **My Progress** check-in:
+   - **Exam info tile** (code, passing score, duration, cost, Pearson VUE link)
+   - **Pre-Exam Booking Checklist** — interactive checkboxes for GO path
+   - **Remediation Plan** — specific domains and resources for NOT YET path
+   - **Next Certification Recommendations** — colour-coded cards for 2–3 follow-on certs with rationale and timeline estimates
+
+> **Note:** The booking guidance is derived from the `CertificationRecommendationAgent`. If neither the quiz nor the progress check-in has been submitted yet, the section shows a prompt to complete one of those gates first.
+
+---
+
+### Tab 5: 📈 My Progress
 
 **What it does:** This is your **first Human-in-the-Loop checkpoint** — you must fill this in honestly for readiness scoring to be meaningful.
 
@@ -285,38 +318,42 @@ Readiness = 55% × (your domain ratings) + 25% × (hours studied / total budget)
 
 **Tips:**
 - Be honest with self-ratings — rating yourself 5/5 on everything when you haven't studied doesn't help you prepare
-- if readiness is below 70%, the system shows a remediation plan and suggests specific resources
+- if readiness is below 70%, the system shows nudge messages and suggests specific resources; below 50% triggers the NOT YET verdict
 - Resubmit the form as you study more — readiness updates each time
 
 ---
 
-### Tab 5: 🧠 Mock Quiz
+### Tab 6: 🧪 Knowledge Check
 
-**What it does:** This is your **second Human-in-the-Loop checkpoint** — a domain-weighted 30-question practice quiz.
+**What it does:** This is your **second Human-in-the-Loop checkpoint** — a domain-weighted practice quiz.
 
 **How it works:**
-1. All 30 questions load at once — answer every question (all must be answered before Submit activates)
-2. For each question, select one answer (A / B / C / D)
-3. Click `Submit Quiz` when all questions are answered
+1. Use the **Number of questions slider** to choose how many questions to attempt (5–30; default 10)
+2. Click **Generate New Quiz** — questions are sampled proportionally to your exam's domain weights
+3. For each question, select one answer (A / B / C / D)
+4. Click `Submit Quiz` when all questions are answered
 
 **After submitting:**
-- **Score %**: Your percentage correct (weighted by domain)
+- **Score %**: Your percentage correct
 - **Domain Breakdown**: Which domains you got right vs wrong
 - **Answer Review**: Each question with your answer, correct answer, and explanation
 
-The 30 questions are distributed across all exam domains proportionally to real exam weights — this mirrors the actual exam distribution.
+The quiz mirrors the actual exam domain distribution — domains weighted more heavily on the real exam appear more often in your quiz.
+
+**Passing threshold:** 60%
+
+> 💡 After submitting the quiz, the **Recommendations** tab (Tab 4) updates to show personalised exam booking guidance based on your score.
 
 ---
 
-### Tab 6: 🏆 Certification Advice
+### Tab 7: 📄 Raw JSON
 
-**What it does:** Final verdict — next certification path, exam booking checklist, and remediation plan if needed.
+**What it does:** Shows the complete raw JSON data behind your session — useful for debugging, sharing your profile with a colleague, or keeping an offline record.
 
 **Sections:**
-1. **Booking Checklist** (GO path) — Step-by-step Pearson VUE exam registration guide shown when quiz score ≥ 70%
-2. **Remediation Plan** (NOT YET path) — Specific domains with resources and estimated additional hours
-3. **Next Certification Path** — Recommended cert chain after current exam (e.g., AI-102 → AZ-204)
-4. **Verdict Banner** — GO / CONDITIONAL GO / NOT YET with coloured banner and explanation
+- **Raw Student Input** — the exact data you entered in the intake form, as a JSON object
+- **Generated Learner Profile** — the full `LearnerProfile` produced by the profiling agent, including all domain confidence scores, risk domains, analogy map, and recommended approach
+- **⬇️ Download profile as JSON** — saves `learner_profile_<name>.json` to your device
 
 ---
 
@@ -350,19 +387,19 @@ The 30 questions are distributed across all exam domains proportionally to real 
 A: Yes — click **Edit Profile** on the Learner Profile tab, change the exam, and click `Create My AI Study Plan` again. A new profile and plan will be generated. Your previous session data is preserved in the database.
 
 **Q: The system says I'm "NOT YET READY" — what should I do?**
-A: The remediation plan in the **Certification Advice** tab (Tab 6) shows exactly which domains need work and links directly to the relevant MS Learn modules. Focus on those domains, then resubmit your progress in Tab 4 to see your readiness update.
+A: The remediation plan in the **Recommendations** tab (Tab 4) shows exactly which domains need work and links directly to the relevant MS Learn modules. Focus on those domains, then resubmit your progress in Tab 5 to see your readiness update.
 
 **Q: My reading says 0% readiness even though I've studied a lot.**
-A: You need to fill in the **Progress Check-In form** in **Tab 4** first. Until you submit real study data, the system doesn't know about your progress.
+A: You need to fill in the **Progress Check-In form** in **Tab 5** first. Until you submit real study data, the system doesn't know about your progress.
 
 **Q: How many questions are in the quiz?**
-A: The quiz pulls 10 questions from a 30-question bank, proportional to real exam domain weights. This ensures the quiz reflects the actual exam balance.
+A: The quiz is configurable via a slider on Tab 6 (Knowledge Check) — choose between 5 and 30 questions; the default is 10. All questions are distributed across exam domains proportionally to the real exam weights.
 
 **Q: Can I retake the quiz?**
-A: Yes — click `Reset Quiz` on Tab 5 to clear answers and generate a new sample from the question bank.
+A: Yes — click `Generate New Quiz` on Tab 6 to generate a fresh set of domain-weighted questions. You can adjust the question count with the slider each time.
 
 **Q: Does the system use AI / ChatGPT?**
-A: By default, all profiling and planning runs in **mock mode** — a rule-based system that works without any AI API. If an Azure OpenAI key is configured in settings, the profiler and learning path curator switch to live GPT-4o calls for richer analysis.
+A: By default, all profiling and planning runs in **mock mode** — a rule-based system that works without any AI API. If an Azure OpenAI key is configured in `.env`, the **Learner Profiler** switches to live GPT-4o calls for richer analysis. All other agents (study planner, learning path curator, progress scorer, quiz, cert recommender) are deterministic — they never call an LLM regardless of mode.
 
 **Q: My session data disappeared after closing the browser.**
 A: Because your name and PIN were saved to the database, re-enter them on the Welcome tab to restore your plan and progress.
@@ -381,8 +418,8 @@ A: If your profile shows STRONG confidence in a domain (e.g., you hold a cert th
 | Quiz Score % | How well you did on the knowledge check questions |
 | Domain Rating | Your own 1–5 self-assessment (1=very weak, 5=confident) |
 
-| Verdict | Readiness Range | Meaning |
+| Verdict | Quiz Score Range | Meaning |
 |---------|----------------|---------|
-| ✅ GO | ≥ 70% | Evidence suggests you're ready — book the exam |
-| 🟡 CONDITIONAL GO | 50–69% | Close but not there — targeted review recommended |
+| ✅ GO | ≥ 60% | Evidence suggests you're ready — book the exam |
+| 🟡 CONDITIONAL GO | 50–59% | Close — targeted review recommended before booking |
 | ❌ NOT YET | < 50% | More preparation needed — follow the remediation plan |

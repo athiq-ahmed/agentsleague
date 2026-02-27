@@ -49,13 +49,13 @@ Intake Agent
          └──► Learner Profiling Agent
                 ├──► Study Plan Agent  ──────────────────────────────────┐
                 └──► Learning Path Curator                               │
-                       └──► Domain Confidence Scorer                    │
-                              └──► Readiness Gate                        │
-                                     ├── PASS (≥70%) → Cert Recommender ┤
-                                     └── FAIL (<70%) → Remediation loop ┘
+                       └──► Progress Agent (HITL Gate 1)                 │
+                              └──► Assessment Agent (HITL Gate 2)        │
+                                     ├── PASS (≥60%) → Cert Recommender ┤
+                                     └── FAIL (<60%) → Remediation loop ┘
 ```
 
-All agents run in **mock mode by default** — zero Azure OpenAI cost, instant sub-second response. Switch to live mode via `src/cert_prep/config.py → USE_MOCK = False`.
+All agents run in **mock mode by default** — zero Azure OpenAI cost, instant sub-second response. Live mode activates automatically when real Azure credentials are present in `.env`. Set `FORCE_MOCK_MODE=false` to force live mode explicitly.
 
 ![Application home screen — intake form](screenshots/01_home_intake_form.png)
 *Caption: Home screen showing the two-column intake form, demo scenario buttons in the sidebar, and the Agents League branding.*
@@ -72,7 +72,7 @@ All agents run in **mock mode by default** — zero Azure OpenAI cost, instant s
    - 🌱 **AI Beginner · AI-102** — loads Alex Chen's profile
    - 📊 **Data Professional · DP-100** — loads Priyanka Sharma's profile
 4. Review the pre-filled form, then click **Create My AI Study Plan**
-5. The six output tabs appear instantly
+5. The seven output tabs appear instantly
 
 ### Option B — Custom Profile
 
@@ -152,35 +152,38 @@ The **Learning Path** tab shows a week-by-week curated curriculum with:
 ![Alex — Learning Path weekly plan](screenshots/06_alex_learning_path.png)
 *Caption: Learning Path for Alex Chen — week-by-week breakdown with module links.*
 
-### Step 6 — Certification Advice (Tab 6)
+### Step 6 — Recommendations (Tab 4)
 
-The **Certification Advice** tab (populated after the quiz is submitted) shows:
+The **Recommendations** tab shows:
 
-- Booking checklist with Pearson VUE steps (GO path)
-- Remediation plan with specific domain resources (NOT YET path)
-- Next certification recommendation (AI-102 → AZ-204)
+- Learning style card + risk-domain cards + Agent-recommended study approach
+- Predicted Readiness Outlook metrics
+- Prioritised Study Action Plan per domain
+- Exam Booking Guidance (populated after the quiz is submitted or progress gate is passed)
+  - GO path: Pearson VUE booking checklist
+  - NOT YET path: Remediation plan with domain-specific resources + next cert recommendation (AI-102 → AZ-204)
 
-**For Alex:** Likely a NOT YET or CONDITIONAL GO on first visit — the remediation plan will flag computer vision and generative AI as priority focus areas.
+**For Alex:** Likely a NOT YET or CONDITIONAL GO on first visit — risk-domain cards will flag computer vision and generative AI as priority focus areas.
 
 ![Alex — Recommendations panel](screenshots/07_alex_recommendations.png)
 *Caption: Recommendations panel showing readiness indicator, risk domains, and suggested pre-study steps.*
 
-### Step 7 — Progress (Tab 4)
+### Step 7 — My Progress (Tab 5)
 
 First visit shows a **Progress Check-In** form (HITL gate 1) — the learner self-reports hours studied and confidence. Submit to unlock the full progress analytics.
 
 ![Alex — Progress Check-In form](screenshots/08_alex_progress_gate.png)
 *Caption: Human-in-the-loop gate 1 — learner submits self-reported progress before analytics unlock.*
 
-### Step 8 — Mock Quiz (Tab 5)
+### Step 8 — Knowledge Check (Tab 6)
 
-All 30 questions must be answered before the Submit button activates. After submission the `AssessmentAgent` scores the quiz with domain-weighted scoring. Score ≥ 70% → **PASS** badge. Score < 70% → **FAIL** with per-domain breakdown and weak domain highlights.
+Use the slider to choose 5–30 questions (default 10). All selected questions must be answered before the Submit button activates. After submission the `AssessmentAgent` scores the quiz with domain-weighted scoring. Score ≥ 60% → **PASS** badge. Score < 60% → **FAIL** with per-domain breakdown and weak domain highlights.
 
 ![Alex — Knowledge Check quiz in progress](screenshots/09_alex_quiz.png)
-*Caption: Knowledge Check tab showing a 5-question quiz for the Azure OpenAI domain.*
+*Caption: Knowledge Check tab showing a quiz for the Azure OpenAI domain.*
 
-![Alex — Quiz result with score < 70%](screenshots/10_alex_quiz_fail.png)
-*Caption: Readiness Gate result for Alex — score below 70% triggers the REMEDIATION path with targeted review links.*
+![Alex — Quiz result with score < 60%](screenshots/10_alex_quiz_fail.png)
+*Caption: Readiness Gate result for Alex — score below 60% triggers the REMEDIATION path with targeted review links.*
 
 ---
 
@@ -232,7 +235,7 @@ With an existing Python + Azure ML background, Priyanka's Domain Map looks stark
 
 ### Step 4 — Cert Recommendation: GO Path
 
-Because Priyanka holds prior certs and has strong fundamentals, the Readiness Gate score is typically above 70% — she is placed on the **GO** path immediately.
+Because Priyanka holds prior certs and has strong fundamentals, the Readiness Gate score is typically above 60% — she is placed on the **GO** path immediately.
 
 ![Priyanka — Readiness Gate passes — GO badge](screenshots/14_priyanka_go_path.png)
 *Caption: Readiness Gate result for Priyanka — GO path badge with cert booking recommendation.*
@@ -358,16 +361,17 @@ A full dataframe of all profiling runs in the current browser session, including
 
 ## Learning Tabs Deep-Dive
 
-After generating a profile, six output tabs appear across the top of the page:
+After generating a profile, seven output tabs appear across the top of the page:
 
 | Tab | What it shows | Key agent |
 |-----|--------------|----------|
-| **1 · Learner Profile** | Domain radar, confidence scores, exam score contribution chart, PDF download | Learner Profiling Agent |
-| **2 · Study Setup** | Gantt chart, prerequisite gap check, weekly hour breakdown | Study Plan Agent |
-| **3 · Learning Path** | MS Learn module cards with links, module types, estimated hours | Learning Path Curator |
-| **4 · Progress** | HITL Gate 1 check-in form → ReadinessAssessment (GO / CONDITIONAL GO / NOT YET) | Progress Agent |
-| **5 · Mock Quiz** | HITL Gate 2 — 30-question domain-weighted quiz → scored result with domain breakdown | Assessment Agent |
-| **6 · Certification Advice** | Booking checklist (GO path) or remediation plan + next cert recommendation (NOT YET path) | Cert Recommendation Agent |
+| **1 · 🗺️ Domain Map** | Domain radar, confidence scores, exam score contribution chart, PDF download | Learner Profiling Agent |
+| **2 · 📅 Study Setup** | Gantt chart, prerequisite gap check, weekly hour breakdown | Study Plan Agent |
+| **3 · 📚 Learning Path** | MS Learn module cards with links, module types, estimated hours | Learning Path Curator |
+| **4 · 💡 Recommendations** | Learning style + risk-domain cards, Predicted Readiness Outlook, Study Action Plan, Exam Booking Guidance (GO or NOT YET) | Cert Recommendation Agent |
+| **5 · 📈 My Progress** | HITL Gate 1 check-in form → ReadinessAssessment with readiness %, domain breakdown | Progress Agent |
+| **6 · 🧪 Knowledge Check** | HITL Gate 2 — configurable quiz (5–30 questions, default 10) → scored result with domain breakdown; 60% pass threshold | Assessment Agent |
+| **7 · 📄 Raw JSON** | Raw student input JSON + generated learner profile JSON + download button | *(display only)* |
 
 Each tab has a **↑ Back to top** anchor and a one-liner purpose caption.
 
@@ -386,7 +390,7 @@ The `GuardrailsPipeline` runs **at every agent transition** — 17 rules across 
 | Scope Guard | Non-Microsoft exam targets | WARN |
 | Session Integrity | Tampered or missing session state | BLOCK |
 
-**Demo tip:** On the intake form, try typing `sarah@email.com` in the background field. The guardrail fires a PII warning badge visible in Tab 7 (Raw Data) and in the Admin Dashboard per-agent card for the Intake Agent.
+**Demo tip:** On the intake form, try typing `sarah@email.com` in the background field. The guardrail fires a PII warning badge visible in **Tab 7 (Raw JSON)** and in the Admin Dashboard per-agent card for the Intake Agent.
 
 ---
 

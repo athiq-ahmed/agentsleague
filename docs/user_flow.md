@@ -51,16 +51,16 @@
                              │ persisted to SQLite
                              ▼
                     ┌───────────────────┐
-                    │  6-Tab UI renders         │
+                    │  7-Tab UI renders         │
                     └───────────────────┘
              ┌───────┴────────┴────────┴───────┐
              ▼              ▼              ▼              ▼
-         Tab 1-3       HITL Gate 1      HITL Gate 2    Tab 6
-        (read-only)    Tab 4 Progress   Tab 5 Quiz   (unlocks after
+         Tab 1–3       HITL Gate 1      HITL Gate 2    Tab 4
+        (read-only)    Tab 5 Progress   Tab 6 Quiz   (unlocks after
                            │               │          quiz submitted)
                            ▼               ▼
                     B1.2 ProgressAgent  B2 AssessmentAgent
-                    readiness formula   30-question quiz
+                    readiness formula   configurable quiz (5–30, default 10)
                            │               │
                     ┌──────┴──────┐       │ scored result
                     ▼      ▼      ▼       ▼
@@ -68,7 +68,8 @@
                          GO    YET ───► Rebuild plan → B1.1a
                     └──────┘       │
                                    ▼
-                          Tab 6: Booking checklist
+                          Tab 4: Recommendations
+                               Booking checklist
                                or Remediation plan
 ```
 
@@ -113,16 +114,16 @@
    └───────────────────┘
    │ persisted to SQLite
    ▼
- 6-tab UI renders: Tab 1 (radar + PDF download)
+ 7-tab UI renders: Tab 1 (radar + PDF download)
    │
    ▼
- Tab 4 → HITL Gate 1: fill progress form → submit
+ Tab 5 → HITL Gate 1: fill progress form → submit
    │
    ▼
  B1.2 ProgressAgent → readiness 74% → GO ✓
    │
    ▼
- Tab 5 → HITL Gate 2: answer 30 questions → submit
+ Tab 6 → HITL Gate 2: answer questions (5–30, default 10) → submit
    │
    ▼
  B2 AssessmentAgent → score 78% → PASS
@@ -131,7 +132,7 @@
  B3 CertRecommendationAgent → ready to book + next cert AZ-204
    │
    ▼
- Tab 6: Booking checklist displayed
+ Tab 4: Recommendations / Booking checklist displayed
 ```
 
 **Persona:** Alex Chen — a developer with 2 years of Azure experience targeting the AI-102 exam in 10 weeks, studying 8 hours per week.
@@ -154,7 +155,7 @@
 
 8. The `StudyPlanAgent` (B1.1a) and `LearningPathCuratorAgent` (B1.1b) run in parallel. The study plan allocates 80 study hours across the six domains using the Largest Remainder algorithm. The learning path curator selects 3 Microsoft Learn modules per domain, ordered with labs first to match Alex's learning style.
 
-9. On completion, the six-tab UI renders. Alex is on **Tab 1: Learner Profile**, which shows a domain radar chart, confidence score bars, and an exam score contribution bar chart. Two buttons appear at the bottom: **Download PDF Report** and an email button showing "No email configured" (greyed out with a tooltip).
+9. On completion, the seven-tab UI renders. Alex is on **Tab 1: 🗺️ Domain Map**, which shows a domain radar chart, confidence score bars, and an exam score contribution bar chart. Two buttons appear at the bottom: **Download PDF Report** and an email button showing "No email configured" (greyed out with a tooltip).
 
 10. Alex clicks **Download PDF Report**. A multi-page PDF downloads immediately, containing the domain confidence breakdown, study plan Gantt table, and full learning path.
 
@@ -162,15 +163,15 @@
 
 12. Alex navigates to **Tab 3: Learning Path**, which shows 18 MS Learn module cards across all six domains. Each card shows a clickable link to `learn.microsoft.com`, the module type (lab, module, or learning path), and estimated hours.
 
-13. After several study weeks, Alex returns to the app and navigates to **Tab 4: Progress**. The progress check-in form appears. Alex fills in hours spent (32 out of 80), rates each domain's self-confidence on a 1–5 slider, enters a practice exam score of 74, and submits.
+13. After several study weeks, Alex returns to the app and navigates to **Tab 5: My Progress**. The progress check-in form appears. Alex fills in hours spent (32 out of 80), rates each domain's self-confidence on a 1–5 slider, enters a practice exam score of 74, and submits.
 
 14. The `ProgressAgent` computes the readiness percentage using the weighted formula and returns a **GO** verdict (readiness above 70%). A green success banner appears. The nudges section lists one suggestion: "Computer Vision scored below 0.50 — complete 2 additional practice labs."
 
-15. Alex navigates to **Tab 5: Mock Quiz**. A 30-question adaptive quiz appears, with questions distributed across all six AI-102 domains proportionally. Alex answers all 30 questions and clicks **Submit Quiz**.
+15. Alex navigates to **Tab 6: Knowledge Check**. A quiz appears (10 questions by default, adjustable via slider to 5–30), with questions distributed across all six AI-102 domains proportionally. Alex answers all questions and clicks **Submit Quiz**.
 
 16. The `AssessmentAgent` scores the submission with a weighted domain score of 78%. The result panel shows PASS, a domain-by-domain breakdown bar chart, and highlights Computer Vision as the lowest scoring domain at 63%.
 
-17. The `CertRecommendationAgent` (B3) runs and the result appears in **Tab 6: Certification Advice**. Alex is marked as ready to book the real exam. The booking checklist includes steps for Pearson VUE registration, accepted ID types, and the recommended study week before booking. The next-cert recommendation suggests AZ-204 as the logical progression after AI-102.
+17. The `CertRecommendationAgent` (B3) runs and the result appears in **Tab 4: Recommendations**. Alex is marked as ready to book the real exam. The booking checklist includes steps for Pearson VUE registration, accepted ID types, and the recommended study week before booking. The next-cert recommendation suggests AZ-204 as the logical progression after AI-102.
 
 ---
 
@@ -192,14 +193,15 @@
    (no agents re-run)
    │
    ▼
- 6-tab UI renders immediately (all tabs populated, read-only)
+ 7-tab UI renders immediately (all tabs populated, read-only)
    │
    ├─ Tab 1: domain radar + PDF download  (available)
    ├─ Tab 2: Gantt chart                  (available)
    ├─ Tab 3: learning path modules        (available)
-   ├─ Tab 4: last readiness assessment    (interactive for new update)
-   ├─ Tab 5: last quiz score              (interactive for re-take)
-   └─ Tab 6: last cert recommendation     (available)
+   ├─ Tab 4: cert recommendations         (available)
+   ├─ Tab 5: last readiness assessment    (interactive for new update)
+   ├─ Tab 6: last quiz score              (interactive for re-take)
+   └─ Tab 7: raw JSON                     (available)
 ```
 
 **Persona:** Priyanka Sharma — a data scientist who previously completed the DP-100 study plan and saved all results. Returning to review her plan after two weeks away.
@@ -210,13 +212,13 @@
 
 2. The system finds a prior profile in SQLite. Session state is populated immediately with her `LearnerProfile`, `StudyPlan`, `LearningPath`, and the most recent `ProgressSnapshot` and `ReadinessAssessment` — no agents re-run.
 
-3. The six-tab UI renders with a notification at the top: "Welcome back, Priyanka — your DP-100 plan has been restored."
+3. The seven-tab UI renders with a notification at the top: "Welcome back, Priyanka — your DP-100 plan has been restored."
 
-4. All tabs are populated. Priyanka can see her domain confidence radar (Tab 1), her study Gantt chart (Tab 2), her 12 learning path modules (Tab 3), her last readiness verdict — **CONDITIONAL GO** at 61% — with the domain nudges from her previous session (Tab 4), and her last quiz score (68%) in Tab 5.
+4. All tabs are populated. Priyanka can see her domain confidence radar (Tab 1), her study Gantt chart (Tab 2), her 12 learning path modules (Tab 3), her cert recommendations (Tab 4), her last readiness verdict — **CONDITIONAL GO** at 61% — with the domain nudges from her previous session (Tab 5), and her last quiz score (68%) in Tab 6.
 
 5. The data is in read-only viewing mode. Priyanka can download her PDF using the button on Tab 1 and review her entire history without triggering any agent calls.
 
-6. If Priyanka wants to update her progress or re-take the quiz, she navigates to Tabs 4 and 5 respectively, which remain interactive for new submissions.
+6. If Priyanka wants to update her progress or re-take the quiz, she navigates to Tabs 5 and 6 respectively, which remain interactive for new submissions.
 
 ---
 
@@ -318,7 +320,7 @@
 ## S5 — Remediation Loop: Score Below Threshold
 
 ```
- Tab 4 → HITL Gate 1
+ Tab 5 → HITL Gate 1
    │ 20hrs studied, ratings 2-3/5, practice 42%
    ▼
  B1.2 ProgressAgent

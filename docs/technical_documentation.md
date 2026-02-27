@@ -58,9 +58,9 @@ The Certification Preparation Multi-Agent System is a **production-grade agentic
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
 │  │  Streamlit Web UI  (streamlit_app.py)                                │   │
 │  │  ┌──────────────┐  ┌──────────────────────────────────────────────┐ │   │
-│  │  │   Sidebar    │  │  Main Panel — 6 Tabs                         │ │   │
-│  │  │  Login       │  │  Profile · Study Setup · Learning Path ·     │ │   │
-│  │  │  Scenarios   │  │  Progress · Quiz · Certification Advice      │ │   │
+│  │  │   Sidebar    │  │  Main Panel — 7 Tabs                         │ │   │
+│  │  │  Login       │  │  Domain Map · Study Setup · Learning Path ·  │ │   │
+│  │  │  Scenarios   │  │  Recommendations · Progress · Quiz · JSON    │ │   │
 │  │  │  Mode badge  │  └──────────────────────────────────────────────┘ │   │
 │  │  └──────────────┘                                                    │   │
 │  └──────────────────────────────────────────────────────────────────────┘   │
@@ -117,9 +117,9 @@ The Certification Preparation Multi-Agent System is a **production-grade agentic
                 │               │               │
                 └───────────────┘               └──── rebuild plan → B1.1a
                            │
-                           ▼  (HITL Gate 2 — user submits 30-question quiz)
+                           ▼  (HITL Gate 2 — user submits quiz, 5–30 questions, default 10)
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│  B2 — AssessmentAgent   30-question domain-weighted quiz bank                │
+│  B2 — AssessmentAgent   configurable domain-weighted quiz (5–30 questions, default 10) │
 └──────────────────────────────────────────────────────────────────────────────┘
                            │  AssessmentResult
                            ▼
@@ -127,7 +127,7 @@ The Certification Preparation Multi-Agent System is a **production-grade agentic
 │  B3 — CertRecommendationAgent   next-cert path + booking checklist           │
 └──────────────────────────────────────────────────────────────────────────────┘
                            │
-                           ▼  persisted to SQLite, rendered in all 6 tabs
+                           ▼  persisted to SQLite, rendered in all 7 tabs
 ```
 
 ---
@@ -150,9 +150,9 @@ it consumes and produces, and which other modules depend on it.
 | `b1_mock_profiler.py` | Tier 3 rule-based profiler — deterministic, no credentials needed | `RawStudentInput`, `models.EXAM_DOMAIN_REGISTRY` | `LearnerProfile` | `b0_intake_agent` (Tier 3 fallback), `streamlit_app` (mock mode), all tests |
 | `b1_1_study_plan_agent.py` | **Block 1.1a**: Largest Remainder day allocation (day-level; converts to hours via `alloc_days/7 × hrs_pw`); Gantt study plan | `LearnerProfile`, `existing_certs: list[str]` | `StudyPlan` (list of `StudyTask`) | `streamlit_app` (ThreadPoolExecutor Thread A) |
 | `b1_1_learning_path_curator.py` | **Block 1.1b**: Maps domains → curated MS Learn modules; G-17 URL validation | `LearnerProfile` | `LearningPath` (list of `LearningModule`) | `streamlit_app` (ThreadPoolExecutor Thread B) |
-| `b1_2_progress_agent.py` | **Block 1.2** + HITL Gate 1: Readiness scoring; PDF generation; SMTP email | `ProgressSnapshot`, `LearnerProfile` | `ReadinessAssessment`, PDF bytes, HTML email | `streamlit_app` (Tab 4) |
-| `b2_assessment_agent.py` | **Block 2** + HITL Gate 2: Domain-weighted 30-question quiz; scoring | `LearnerProfile` | `Assessment`, `AssessmentResult` | `streamlit_app` (Tab 5) |
-| `b3_cert_recommendation_agent.py` | **Block 3**: Booking checklist; next-cert progression; remediation plan | `AssessmentResult`, `LearnerProfile` | `CertRecommendation` | `streamlit_app` (Tab 6) |
+| `b1_2_progress_agent.py` | **Block 1.2** + HITL Gate 1: Readiness scoring; PDF generation; SMTP email | `ProgressSnapshot`, `LearnerProfile` | `ReadinessAssessment`, PDF bytes, HTML email | `streamlit_app` (Tab 5) |
+| `b2_assessment_agent.py` | **Block 2** + HITL Gate 2: Domain-weighted configurable quiz (5–30, default 10); scoring | `LearnerProfile` | `Assessment`, `AssessmentResult` | `streamlit_app` (Tab 6) |
+| `b3_cert_recommendation_agent.py` | **Block 3**: Booking checklist; next-cert progression; remediation plan | `AssessmentResult`, `LearnerProfile` | `CertRecommendation` | `streamlit_app` (Tab 4) |
 
 ### 2.2.1 Module Dependency Graph
 
@@ -248,7 +248,7 @@ models.ProgressSnapshot
               └──▶ ReadinessAssessment
     └──▶ database.save_progress()
 
-         *** HITL Gate 2 — learner answers 30-question quiz ***
+         *** HITL Gate 2 — learner answers quiz (5–30 questions, default 10) ***
 
 models.LearnerProfile (re-used)
     └──▶ b2_assessment_agent.AssessmentAgent.generate()
@@ -446,18 +446,18 @@ class QuizQuestion:
 
 @dataclass
 class Assessment:
-    questions: list[QuizQuestion]   # 30 questions, domain-weighted
+    questions: list[QuizQuestion]   # n questions, domain-weighted (5–30 configurable)
 
 @dataclass
 class AssessmentResult:
     total_score:     float           # 0–100, weighted by domain
-    passed:          bool            # total_score >= 70
+    passed:          bool            # total_score >= 60
     domain_scores:   dict[str,float] # domain_id → percentage
     score_pct:       float           # alias for total_score
     pass_fail:       str             # "PASS" / "FAIL"
     correct_count:   int
     total_questions: int
-    weak_domains:    list[str]       # domains scored < 70%
+    weak_domains:    list[str]       # domains scored < 60%
 ```
 
 ### 4.8 CertRecommendation
@@ -729,7 +729,7 @@ Required env vars: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FRO
 **Pattern:** Role-based Specialisation + HITL  
 **Input:** `LearnerProfile` → **Output:** `Assessment` (question bank), `AssessmentResult` (after submission)
 
-Generates a 30-question mock quiz using domain-weighted sampling (Largest Remainder applied to question counts). Domains with confidence below 0.40 receive a minimum of 3 questions regardless of weight.
+Generates a configurable domain-weighted quiz (default 10 questions, 5–30 via slider) using domain-weighted sampling (Largest Remainder applied to question counts). Domains with confidence below 0.40 receive a minimum of 3 questions regardless of weight.
 
 **Scoring:**
 
@@ -764,7 +764,7 @@ next_cert = SYNERGY_MAP.get(current_exam, "AZ-305")
 **Booking vs remediation branch:**
 
 ```python
-if result.score_pct >= 70:
+if result.score_pct >= 60:
     return CertRecommendation(
         ready_to_book=True,
         next_cert=next_cert,
@@ -773,8 +773,8 @@ if result.score_pct >= 70:
 else:
     return CertRecommendation(
         ready_to_book=False,
-        remediation_steps=[f"{d}: scored {s:.0f}%, target 70%"
-                            for d, s in result.domain_scores.items() if s < 70]
+        remediation_steps=[f"{d}: scored {s:.0f}%, target 60%"
+                            for d, s in result.domain_scores.items() if s < 60]
     )
 ```
 
@@ -862,7 +862,7 @@ Where:
 2. Stores all agent outputs to `st.session_state`
 3. Persists all outputs to SQLite
 4. Records per-agent timing metadata
-5. Drives the 6-tab UI from session state
+5. Drives the 7-tab UI from session state
 
 The pipeline is **non-speculative** — it only runs the next phase when the current phase has passed all guardrails and the human has completed any required HITL gate.
 
@@ -940,21 +940,21 @@ sequenceDiagram
     UI->>DB: save_profile() + save_plan()
     UI-->>Student: Tabs 2 & 3 rendered (study plan + learning path)
 
-    Note over Student,UI: ⏸ HITL Gate 1 — pipeline pauses<br/>Tab 4 waits for progress check-in form
+    Note over Student,UI: ⏸ HITL Gate 1 — pipeline pauses<br/>Tab 5 waits for progress check-in form
 
-    Student->>UI: Submit progress form (Tab 4)
+    Student->>UI: Submit progress form (Tab 5)
     UI->>GR: check_progress(snapshot) [G-11..G-13]
     GR-->>UI: GuardrailResult
     UI->>B12: ProgressAgent.assess(snapshot, profile)
     B12-->>UI: ReadinessAssessment
     UI->>DB: save_progress()
-    UI-->>Student: Tab 4 renders readiness verdict + nudges
+    UI-->>Student: Tab 5 renders readiness verdict + nudges
 
-    Note over Student,UI: ⏸ HITL Gate 2 — pipeline pauses<br/>Tab 5 waits for all 30 quiz answers
+    Note over Student,UI: ⏸ HITL Gate 2 — pipeline pauses<br/>Tab 6 waits for quiz answers (5–30 questions, default 10)
 
-    Student->>UI: Submit quiz (Tab 5)
+    Student->>UI: Submit quiz (Tab 6)
     UI->>B2: AssessmentAgent.generate(profile)
-    B2-->>UI: Assessment (30 questions)
+    B2-->>UI: Assessment (n questions, 5–30 configurable)
     UI->>GR: check_assessment(assessment) [G-14..G-15]
     GR-->>UI: GuardrailResult
     UI->>B2: AssessmentAgent.evaluate(answers, assessment)
@@ -962,7 +962,7 @@ sequenceDiagram
     UI->>B3: CertificationRecommendationAgent.run(result, profile)
     B3-->>UI: CertRecommendation
     UI->>DB: save_assessment() + save_cert_recommendation()
-    UI-->>Student: Tab 6 renders booking checklist / remediation plan
+    UI-->>Student: Tab 4 renders recommendations / booking checklist / remediation plan
 ```
 
 ---
@@ -971,7 +971,7 @@ sequenceDiagram
 
 Two explicit HITL gates pause the pipeline until the human provides input. Both use `st.stop()` — downstream agents do not run until the gate is completed.
 
-### Gate 1 — Progress Check-In (Tab 4)
+### Gate 1 — Progress Check-In (Tab 5)
 
 The learner self-reports:
 - Hours spent studying so far
@@ -981,9 +981,9 @@ The learner self-reports:
 
 This snapshot feeds `ProgressAgent`. Without Gate 1, the quiz and certification recommendation tabs are intentionally empty — the system cannot assess readiness without a human-provided progress snapshot.
 
-### Gate 2 — Quiz Submission (Tab 5)
+### Gate 2 — Quiz Submission (Tab 6)
 
-The learner answers a 30-question adaptive quiz. All questions must be answered before the submit button activates. Submission triggers:
+The learner answers a configurable quiz (5–30 questions, default 10). All selected questions must be answered before the submit button activates. Submission triggers:
 1. `AssessmentAgent` scores the quiz (weighted domain scoring)
 2. `CertRecommendationAgent` produces the final certification guidance
 
@@ -1004,7 +1004,7 @@ flowchart TD
 
     H --> GATE1
 
-    subgraph GATE1["⏸ HITL Gate 1 — Tab 4: Progress Check-In"]
+    subgraph GATE1["⏸ HITL Gate 1 — Tab 5: Progress Check-In"]
         direction TB
         I([Student fills in:\nhours studied, domain ratings,\npractice score, notes])
         I --> J["ProgressSnapshot\n(Pydantic-validated)"]
@@ -1014,34 +1014,34 @@ flowchart TD
     K -- BLOCK --> C
     K -- PASS --> L[B1.2: ProgressAgent.assess]
     L --> M{Readiness verdict}
-    M -- "≥ 75%\nEXAM READY" --> N([Unlock Tab 5: Quiz])
+    M -- "≥ 75%\nEXAM READY" --> N([Unlock Tab 6: Quiz])
     M -- "60-75%\nNEARLY READY" --> N
     M -- "< 60%\nNEEDS WORK / NOT READY" --> O([Show nudges + lock Quiz tab])
     O -. "Learner may resubmit\nafter more study" .-> GATE1
 
     N --> GATE2
 
-    subgraph GATE2["⏸ HITL Gate 2 — Tab 5: Quiz Submission"]
+    subgraph GATE2["⏸ HITL Gate 2 — Tab 6: Quiz Submission"]
         direction TB
-        P([Student answers all 30 questions\nSubmit button activates only\nwhen all answered])
-        P --> Q["Answers dict\n30 × option index"]
+        P([Student answers questions (5–30, default 10)\nSubmit button activates only\nwhen all answered])
+        P --> Q["Answers dict\nn × option index"]
     end
 
     Q --> R[B2: AssessmentAgent.evaluate]
-    R --> S{score ≥ 70%?}
+    R --> S{score ≥ 60%?}
     S -- PASS --> T[B3: CertRecommendationAgent\nready_to_book = True]
     S -- FAIL --> U[B3: CertRecommendationAgent\nremediation_steps list]
     T --> V[(SQLite: save result + rec)]
     U --> V
-    V --> W([Tab 6: Booking checklist /\nRemediation plan rendered])
+    V --> W([Tab 4: Recommendations / Booking checklist /\nRemediation plan rendered])
 ```
 
 ### 9.4 UI Trigger Points in `streamlit_app.py`
 
 | Gate | Streamlit trigger | Key session_state keys set |
 |------|------------------|---------------------------|
-| Gate 1 | `st.button("Assess My Readiness")` in Tab 4 | `progress_submitted = True`, `readiness`, `progress_snapshot` |
-| Gate 2 | `st.button("Submit Quiz")` in Tab 5 — hidden until all 30 answers selected | `quiz_submitted = True`, `assessment_result`, `cert_recommendation` |
+| Gate 1 | `st.button("Assess My Readiness")` in Tab 5 | `progress_submitted = True`, `readiness`, `progress_snapshot` |
+| Gate 2 | `st.button("Submit Quiz")` in Tab 6 — hidden until all answers selected | `quiz_submitted = True`, `assessment_result`, `cert_recommendation` |
 
 Both buttons call `st.rerun()` after updating session state.  Downstream
 tabs check `st.session_state.get("progress_submitted")` /
@@ -1339,13 +1339,14 @@ streamlit_app.py
     ├── Top bar (branded header)
     ├── Credentials notification panel
     ├── Intake form (new users) / Profile cards (returning users)
-    └── 6-tab navigator (after plan generated)
-        ├── Tab 1: Learner Profile  — Domain radar, confidence scores, score contribution chart, PDF download
-        ├── Tab 2: Study Setup      — Gantt chart, prerequisite gap, weekly breakdown
-        ├── Tab 3: Learning Path    — MS Learn module cards, links, estimated hours
-        ├── Tab 4: Progress         — [HITL Gate 1 form | ReadinessAssessment result]
-        ├── Tab 5: Mock Quiz        — [HITL Gate 2 quiz | Scored result + domain breakdown]
-        └── Tab 6: Certification    — Booking checklist / Remediation plan + next cert
+    └── 7-tab navigator (after plan generated)
+        ├── Tab 1: 🗺️ Domain Map     — Domain radar, confidence scores, score contribution chart, PDF download
+        ├── Tab 2: 📅 Study Setup    — Gantt chart, prerequisite gap, weekly breakdown
+        ├── Tab 3: 📚 Learning Path  — MS Learn module cards, links, estimated hours
+        ├── Tab 4: 💡 Recommendations — Risk domains, readiness outlook, study action plan, exam booking guidance
+        ├── Tab 5: 📈 My Progress     — [HITL Gate 1 form | ReadinessAssessment result]
+        ├── Tab 6: 🧪 Knowledge Check — [HITL Gate 2 quiz (5–30 questions) | Scored result + domain breakdown]
+        └── Tab 7: 📄 Raw JSON        — Raw student input + generated profile JSON + download
 ```
 
 ### Custom Theming
