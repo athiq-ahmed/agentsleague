@@ -2562,17 +2562,32 @@ if "profile" in st.session_state:
     # below clicks the right tab button once the DOM has rendered.
     _jump_tab = st.session_state.pop("_active_tab_idx", None)
     if _jump_tab is not None:
-        _tab_js = (
-            "<script>(function(){"
-            "var i=" + str(_jump_tab) + ";"
-            "function f(){"
-            "var t=window.parent.document.querySelectorAll('button[data-baseweb=\"tab\"]');"
-            "if(t.length>i){t[i].click();}else{setTimeout(f,100);}"
-            "}"
-            "setTimeout(f,250);"
-            "})();</script>"
-        )
-        st.components.v1.html(_tab_js, height=0)
+        _tab_js = f"""
+        <script>
+        (function() {{
+            var targetIdx = {_jump_tab};
+            var attempts  = 0;
+            var maxTries  = 30;
+            function clickTab() {{
+                try {{
+                    var doc = window.parent.document;
+                    // Try multiple selectors for Streamlit 1.31+ through 1.54+
+                    var tabs = doc.querySelectorAll('[data-baseweb="tab"]');
+                    if (!tabs.length) tabs = doc.querySelectorAll('[role="tab"]');
+                    if (!tabs.length) tabs = doc.querySelectorAll('.stTabs button');
+                    if (tabs.length > targetIdx) {{
+                        tabs[targetIdx].click();
+                        return;
+                    }}
+                }} catch(e) {{}}
+                if (attempts++ < maxTries) setTimeout(clickTab, 100);
+            }}
+            // First attempt after 400ms — enough for Streamlit to paint the tabs
+            setTimeout(clickTab, 400);
+        }})();
+        </script>
+        """
+        st.components.v1.html(_tab_js, height=1)
 
     # ── Tab 1: Domain Map ─────────────────────────────────────────────────────
     with tab_domains:
