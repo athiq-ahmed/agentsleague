@@ -16,8 +16,8 @@ All documents follow **snake_case** naming (e.g. `user_guide.md`, `qna_playbook.
 | Document | Path | Purpose |
 |----------|------|---------|
 | **README** | [`README.md`](README.md) | Project overview, architecture, setup, competition alignment |
-| **Changelog** | [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | Full issue log — all changes by date |
-| **Architecture** | [`docs/architecture.md`](docs/architecture.md) | Deep-dive: data flow, algorithms, DB schema, design decisions |
+| **Changelog** | [`docs/changelog.md`](docs/changelog.md) | Full issue log — all changes by date |
+| **Architecture Diagram** | [`docs/Solution_architecture.drawio`](docs/Solution_architecture.drawio) | Visual system architecture — open with draw.io / VS Code Draw.io extension |
 | **Technical Documentation** | [`docs/technical_documentation.md`](docs/technical_documentation.md) | Agent internals, Pydantic contracts, guardrail rules, API reference |
 | **User Guide** | [`docs/user_guide.md`](docs/user_guide.md) | End-to-end walkthrough for learners using the app |
 | **User Flow** | [`docs/user_flow.md`](docs/user_flow.md) | Step-by-step user journey and screen transitions |
@@ -27,13 +27,12 @@ All documents follow **snake_case** naming (e.g. `user_guide.md`, `qna_playbook.
 | **Lessons Learned** | [`docs/lessons.md`](docs/lessons.md) | Decisions, pivots, and trade-offs made during development |
 | **Azure AI Cost Guide** | [`docs/azure_ai_cost_guide.md`](docs/azure_ai_cost_guide.md) | Token costs, mock vs live mode, budget tips |
 | **TODO** | [`docs/TODO.md`](docs/TODO.md) | Azure service setup checklist and roadmap items |
-| **Submission Answers** | [`docs/answers.md`](docs/answers.md) | All GitHub issue submission form answers + reasoning pattern deep-dive |
 
 ---
 
 ## 🆕 What's New
 
-See the full issue log → [`docs/CHANGELOG.md`](docs/CHANGELOG.md)
+See the full issue log → [`docs/changelog.md`](docs/changelog.md)
 
 ---
 
@@ -784,14 +783,18 @@ agentsleague/
 │   └── test_agents.py                   # 4 tests — mock profiler outputs
 │
 ├── docs/
-│   ├── architecture.md                  # System design + agent pipeline diagrams
 │   ├── technical_documentation.md       # Deep-dive: agent internals, algorithms, data models
+│   ├── user_guide.md                    # End-to-end walkthrough for learners
 │   ├── user_flow.md                     # All 8 user journey scenarios (S1–S8 incl. PII)
+│   ├── demo_guide.md                    # Live demo script and persona walkthroughs
+│   ├── qna_playbook.md                  # Hackathon judging Q&A; scoring rationale
+│   ├── changelog.md                     # Issue log — all changes by date
+│   ├── lessons.md                       # Decisions, pivots, trade-offs
+│   ├── unit_test_scenarios.md           # Test scenarios by difficulty
+│   ├── azure_ai_cost_guide.md           # Token costs, mock vs live mode, budget tips
 │   ├── Solution_architecture.pdf        # Solution architecture (PDF)
-│   ├── Solution_architecture.drawio     # Solution architecture diagram source
-│   ├── judge_playbook.md               # Hackathon judging Q&A
-│   ├── TODO.md                          # Task tracker (completed + pending items)
-│   └── CertPrep_MultiAgent_Architecture.drawio  # Architecture diagram source
+│   ├── Solution_architecture.drawio     # Architecture diagram source (draw.io)
+│   └── TODO.md                          # Task tracker (completed + pending items)
 │
 └── archive/                             # Old planning files (not in production path)
 ```
@@ -814,8 +817,8 @@ Complete alignment with the [Battle #2 Submission Requirements](https://github.c
 | 2 | **Use Microsoft Foundry (UI or SDK)** and/or the Microsoft Agent Framework for agent development and orchestration | ✅ **Met** | `azure-ai-projects` SDK (`AIProjectClient.from_connection_string()`) is live for `LearnerProfilingAgent` — creates managed agent + thread, calls `create_and_process_run()`, deletes ephemeral agent after response; Tier 2 fallback to direct Azure OpenAI; remaining agents use Foundry-compatible typed contracts |
 | 3 | **Demonstrate reasoning and multi-step decision-making** across agents | ✅ **Met** | 8-agent sequential + parallel pipeline; Planner–Executor pattern (Intake → Profiler → Planner); Critic/Verifier pattern (GuardrailsPipeline at every agent boundary); conditional routing (`score ≥ 70%` → CertRecommender, `50–70%` → targeted review, `< 50%` → remediation loop); self-reflection iteration (re-plan on score drop); HITL gates |
 | 4 | **Integrate with external tools, APIs, and/or MCP servers** to meaningfully extend agent capabilities | ✅ **Met** | Azure OpenAI GPT-4o (LLM backbone); Azure AI Foundry Agent Service SDK (managed agent execution); SQLite persistence (cross-session learner profiles); SMTP email digest (progress notifications); MS Learn module catalogue (9-cert static registry; live MCP `/ms-learn` server integration via `MCP_MSLEARN_URL` is active roadmap — placeholder wired) |
-| 5 | **Be demoable** (live or recorded) and clearly explain the agent interactions | ✅ **Met** | Live at [agentsleague.streamlit.app](https://agentsleague.streamlit.app) (Streamlit Cloud); Admin Dashboard shows per-agent reasoning trace, input/output, guardrail violations, latency; mock mode runs zero-credential locally; `docs/judge_playbook.md` guides live demo walkthrough |
-| 6 | **Clear documentation** describing: agent roles and responsibilities, reasoning flow and orchestration logic, tools/API/MCP integrations | ✅ **Met** | `README.md` (this file — full architecture, agent table, reasoning patterns, tool integrations, Foundry SDK integration); `docs/architecture.md` (sequence diagrams, agent contracts, compliance map); `docs/technical_documentation.md` (deep-dive: agent internals, algorithms, data models, orchestration); `docs/judge_playbook.md` (demo script, scenario walkthroughs, guardrail evidence); `docs/user_flow.md` (full user journey with PII edge cases) |
+| 5 | **Be demoable** (live or recorded) and clearly explain the agent interactions | ✅ **Met** | Live at [agentsleague.streamlit.app](https://agentsleague.streamlit.app) (Streamlit Cloud); Admin Dashboard shows per-agent reasoning trace, input/output, guardrail violations, latency; mock mode runs zero-credential locally; `docs/demo_guide.md` + `docs/qna_playbook.md` guide live demo walkthrough |
+| 6 | **Clear documentation** describing: agent roles and responsibilities, reasoning flow and orchestration logic, tools/API/MCP integrations | ✅ **Met** | `README.md` (this file — full architecture, agent table, reasoning patterns, tool integrations, Foundry SDK integration); `docs/technical_documentation.md` (sequence diagrams, agent contracts, algorithms, data models, orchestration); `docs/qna_playbook.md` (demo script, scenario walkthroughs, guardrail evidence); `docs/user_flow.md` (full user journey with PII edge cases) |
 
 ### Optional But Highly Valued
 
@@ -889,7 +892,7 @@ Alignment with the [Starter Kit README](https://github.com/microsoft/agentsleagu
 - ✅ **`.env` is gitignored** — commented example placeholders are inside `.env` itself; no secrets can be accidentally committed
 - ✅ **Demo data only** — no real customer data or production datasets in the repository
 - ✅ **PIN hashed (SHA-256)** — demo PINs are hashed before SQLite storage
-- ✅ **Production path** uses Azure Key Vault + Managed Identity (documented in `docs/architecture.md`)
+- ✅ **Production path** uses Azure Key Vault + Managed Identity (documented in `docs/technical_documentation.md`)
 
 ### Responsible AI in This System
 
