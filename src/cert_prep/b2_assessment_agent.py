@@ -583,6 +583,203 @@ _QUESTION_BANK: dict[str, list[tuple]] = {
             "medium",
         ),
     ],
+    # ── DP-100: Azure Data Scientist Associate ────────────────────────────────
+    "ml_solution_design": [
+        (
+            "dp_msd_01",
+            "Which Azure Machine Learning compute target is best suited for large-scale "
+            "distributed training jobs that require GPU clusters?",
+            [
+                "A. Azure Container Instance (ACI)",
+                "B. Azure ML Compute Cluster",
+                "C. Azure Kubernetes Service (AKS) Inference",
+                "D. Local compute",
+            ],
+            1,
+            "Azure ML Compute Clusters support multi-node, GPU-enabled distributed training "
+            "and scale to zero when idle, making them ideal for large training workloads.",
+            "medium",
+        ),
+        (
+            "dp_msd_02",
+            "In Azure Machine Learning, what is the recommended way to version and track "
+            "datasets used in training experiments?",
+            [
+                "A. Store them in Azure Blob Storage with manual naming conventions",
+                "B. Register them as Azure ML Data Assets with versioning",
+                "C. Upload them as experiment artifacts after each run",
+                "D. Use Azure DevOps Artifacts",
+            ],
+            1,
+            "Registering data as Azure ML Data Assets provides built-in versioning, lineage "
+            "tracking, and reuse across experiments without duplicating data.",
+            "easy",
+        ),
+        (
+            "dp_msd_03",
+            "Which Azure ML feature lets you define reusable Python packages and system "
+            "dependencies for training and inference jobs?",
+            [
+                "A. Azure ML Datastores",
+                "B. Azure ML Environments",
+                "C. Azure ML Pipelines",
+                "D. Azure ML Compute Instances",
+            ],
+            1,
+            "Azure ML Environments capture conda/pip dependencies and Docker base images, "
+            "ensuring reproducible runs by pinning exact software versions.",
+            "easy",
+        ),
+    ],
+    "explore_train_models": [
+        (
+            "dp_etm_01",
+            "You want to automatically find the best algorithm and hyperparameters for a "
+            "classification task without writing training code. Which Azure ML feature should you use?",
+            [
+                "A. Azure ML Pipelines",
+                "B. Azure ML AutoML",
+                "C. Azure ML Designer",
+                "D. Azure Databricks AutoML",
+            ],
+            1,
+            "Azure ML AutoML iterates over many algorithm and hyperparameter combinations "
+            "automatically, selecting the best model by cross-validation score.",
+            "easy",
+        ),
+        (
+            "dp_etm_02",
+            "Which MLflow function should you call inside a training script to log a "
+            "metric (e.g. accuracy) to the Azure ML run?",
+            [
+                "A. mlflow.register_model()",
+                "B. mlflow.log_artifact()",
+                "C. mlflow.log_metric()",
+                "D. mlflow.set_tag()",
+            ],
+            2,
+            "mlflow.log_metric(key, value) records a scalar metric to the active MLflow "
+            "run, which is surfaced in Azure ML studio under the Metrics tab.",
+            "easy",
+        ),
+        (
+            "dp_etm_03",
+            "A data scientist wants to tune the learning rate and batch size of a neural "
+            "network across 20 combinations efficiently. Which Azure ML feature minimises "
+            "compute cost while still finding good hyperparameters?",
+            [
+                "A. Grid search with 20 child runs",
+                "B. Random search with early termination policy (Bandit)",
+                "C. Manual trial and error",
+                "D. AutoML classification",
+            ],
+            1,
+            "Random search + a Bandit early termination policy stops low-performing runs "
+            "early, saving compute while exploring the hyperparameter space effectively.",
+            "medium",
+        ),
+    ],
+    "prepare_deployment": [
+        (
+            "dp_pd_01",
+            "What is the purpose of a scoring script (score.py) when deploying an "
+            "Azure ML model as a managed online endpoint?",
+            [
+                "A. It trains the model at inference time",
+                "B. It defines init() to load the model and run() to handle requests",
+                "C. It packages the model into a Docker image",
+                "D. It configures the endpoint's network isolation",
+            ],
+            1,
+            "The scoring script must implement init() (called once at startup to load "
+            "the model) and run(data) (called per request to return predictions).",
+            "medium",
+        ),
+        (
+            "dp_pd_02",
+            "Which MLflow model flavour allows you to deploy a scikit-learn Pipeline "
+            "to an Azure ML endpoint without writing a custom scoring script?",
+            [
+                "A. mlflow.tensorflow",
+                "B. mlflow.sklearn",
+                "C. mlflow.pyfunc",
+                "D. mlflow.onnx",
+            ],
+            1,
+            "mlflow.sklearn logs scikit-learn models in the MLflow format. Azure ML "
+            "recognises this flavour and can auto-generate the scoring script, "
+            "eliminating boilerplate.",
+            "medium",
+        ),
+        (
+            "dp_pd_03",
+            "Before deploying a model to production, a data scientist wants to confirm "
+            "the container image and dependencies are correct. Which Azure ML feature "
+            "allows local testing before cloud deployment?",
+            [
+                "A. Azure ML Pipelines debug mode",
+                "B. Local endpoint deployment using the Azure ML CLI v2",
+                "C. Azure Container Registry scanning",
+                "D. Azure ML Compute Instance notebook",
+            ],
+            1,
+            "The Azure ML CLI v2 supports `az ml online-endpoint create --local` which "
+            "runs the scoring container locally using Docker, letting you validate "
+            "the environment before incurring cloud costs.",
+            "hard",
+        ),
+    ],
+    "deploy_retrain": [
+        (
+            "dp_dr_01",
+            "Which type of Azure ML managed endpoint is designed for real-time, "
+            "low-latency inference where you need immediate responses?",
+            [
+                "A. Batch endpoint",
+                "B. Managed online endpoint",
+                "C. Azure Functions HTTP trigger",
+                "D. Azure Container Apps endpoint",
+            ],
+            1,
+            "Managed online endpoints are designed for synchronous, real-time inference "
+            "with sub-second latency, autoscaling, and a stable HTTPS URL.",
+            "easy",
+        ),
+        (
+            "dp_dr_02",
+            "A model's prediction accuracy has degraded because the distribution of "
+            "incoming data has shifted from training data. What is this phenomenon called "
+            "and which Azure ML feature helps detect it?",
+            [
+                "A. Overfitting — detected by cross-validation",
+                "B. Data drift — detected by Azure ML Model Monitoring",
+                "C. Underfitting — detected by AutoML",
+                "D. Concept drift — detected by Azure Monitor alerts",
+            ],
+            1,
+            "Data drift occurs when the statistical properties of the input features "
+            "change over time. Azure ML Model Monitoring can compare production data "
+            "distributions against the training baseline and alert when drift is detected.",
+            "medium",
+        ),
+        (
+            "dp_dr_03",
+            "You need to automate weekly retraining of a model triggered by a data drift "
+            "alert. Which Azure ML construct lets you define and schedule this retraining "
+            "workflow?",
+            [
+                "A. Azure ML Compute Cluster auto-scale",
+                "B. Azure ML Pipeline with a schedule or event trigger",
+                "C. Azure Data Factory copy pipeline",
+                "D. Azure ML AutoML continuous training",
+            ],
+            1,
+            "Azure ML Pipelines can be scheduled (cron) or triggered by events. "
+            "A retraining pipeline typically includes data prep, training, evaluation "
+            "and conditional model registration steps.",
+            "hard",
+        ),
+    ],
 }
 
 
@@ -604,10 +801,10 @@ class AssessmentAgent:
 
     def generate(self, profile, n_questions: int = 10) -> Assessment:
         """Return an `Assessment` of `n_questions` questions, domain-weighted."""
-        from cert_prep.models import EXAM_DOMAINS
+        from cert_prep.models import get_exam_domains
 
-        # Build domain → weight map
-        weight_map = {d["id"]: d["weight"] for d in EXAM_DOMAINS}
+        # Build domain → weight map using the profile's actual exam target
+        weight_map = {d["id"]: d["weight"] for d in get_exam_domains(profile.exam_target)}
 
         # Exclude skipped domains
         skip_ids = set(profile.domains_to_skip())

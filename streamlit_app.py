@@ -377,7 +377,58 @@ def _load_priyanka_session() -> None:
         ),
     )
 
+    # ── Build learning path ──────────────────────────────────────────────────
+    _lp_modules_raw = [
+        LearningModule(title="Design and implement data ingestion pipelines",
+            url="https://learn.microsoft.com/en-us/training/modules/design-implement-data-ingestion/",
+            domain_id="ml_solution_design", duration_min=60, difficulty="intermediate", module_type="module", priority="core"),
+        LearningModule(title="Manage and monitor data engineering workloads on Azure",
+            url="https://learn.microsoft.com/en-us/training/paths/data-engineering-with-azure-databricks/",
+            domain_id="ml_solution_design", duration_min=120, difficulty="intermediate", module_type="learning-path", priority="core"),
+        LearningModule(title="Create and manage a workspace in Azure Machine Learning",
+            url="https://learn.microsoft.com/en-us/training/modules/intro-to-azure-machine-learning-service/",
+            domain_id="ml_solution_design", duration_min=45, difficulty="beginner", module_type="module", priority="supplemental"),
+        LearningModule(title="Explore and analyze data with Python",
+            url="https://learn.microsoft.com/en-us/training/paths/explore-data-science-tools-in-azure/",
+            domain_id="explore_train_models", duration_min=90, difficulty="intermediate", module_type="learning-path", priority="core"),
+        LearningModule(title="Train and evaluate deep learning models",
+            url="https://learn.microsoft.com/en-us/training/modules/train-evaluate-deep-learn-models/",
+            domain_id="explore_train_models", duration_min=75, difficulty="advanced", module_type="module", priority="core"),
+        LearningModule(title="Automate machine learning model selection with Azure Machine Learning",
+            url="https://learn.microsoft.com/en-us/training/modules/automate-model-selection-with-azure-automl/",
+            domain_id="explore_train_models", duration_min=50, difficulty="intermediate", module_type="module", priority="supplemental"),
+        LearningModule(title="Register and deploy machine learning models with Azure ML",
+            url="https://learn.microsoft.com/en-us/training/modules/register-and-deploy-model-with-amls/",
+            domain_id="prepare_deployment", duration_min=60, difficulty="intermediate", module_type="module", priority="core"),
+        LearningModule(title="Make predictions with Azure Machine Learning designer",
+            url="https://learn.microsoft.com/en-us/training/modules/score-model-introduction-to-inferencing/",
+            domain_id="prepare_deployment", duration_min=45, difficulty="intermediate", module_type="module", priority="core"),
+        LearningModule(title="Deploy and consume models with Azure Machine Learning",
+            url="https://learn.microsoft.com/en-us/training/paths/deploy-consume-models-azure-machine-learning/",
+            domain_id="deploy_retrain", duration_min=120, difficulty="advanced", module_type="learning-path", priority="core"),
+        LearningModule(title="Monitor models with Azure Machine Learning",
+            url="https://learn.microsoft.com/en-us/training/modules/monitor-models-with-azure-machine-learning/",
+            domain_id="deploy_retrain", duration_min=50, difficulty="advanced", module_type="module", priority="core"),
+        LearningModule(title="Retrain and update machine learning models with Azure ML pipelines",
+            url="https://learn.microsoft.com/en-us/training/modules/retrain-update-models-with-azure-machine-learning-pipeline/",
+            domain_id="deploy_retrain", duration_min=55, difficulty="advanced", module_type="module", priority="core"),
+    ]
+    _curated = {}
+    for _mod in _lp_modules_raw:
+        _curated.setdefault(_mod.domain_id, []).append(_mod)
+    _lp = LearningPath(
+        student_name="Priyanka Sharma",
+        exam_target="DP-100",
+        curated_paths=_curated,
+        all_modules=_lp_modules_raw,
+        total_hours_est=round(sum(m.duration_min for m in _lp_modules_raw) / 60.0, 1),
+        skipped_domains=["explore_train_models"],
+        summary=("Curated DP-100 path focused on deployment packaging and MLOps. "
+                 "Training and exploration domains are in rapid-review mode."),
+    )
+
     # ── Set session state ─────────────────────────────────────────────────────
+    st.session_state["learning_path"]    = _lp
     st.session_state["profile"]          = LearnerProfile.model_validate(_profile_dict)
     st.session_state["raw"]              = RawStudentInput(**{k: v for k, v in _raw_dict.items()
                                                               if k in {f.name for f in _dc.fields(RawStudentInput)}})
@@ -400,6 +451,7 @@ def _load_priyanka_session() -> None:
         }
         save_profile("Priyanka Sharma", _js.dumps(_profile_dict), _js.dumps(_raw_dict), "DP-100")
         save_plan("Priyanka Sharma", _js.dumps(_plan_dict))
+        save_learning_path("Priyanka Sharma", _dc_to_json(_lp))
     except Exception:
         pass  # DB write failure is acceptable — session state is already set
 
@@ -2270,8 +2322,8 @@ if is_returning and not st.session_state.get("editing_profile", False):
     _email_disp   = getattr(_raw_r, "email", "") or st.session_state.get("user_email", "")
     _email_row    = f'<div class="pfc-label">📧 Email</div><div class="pfc-val">{_email_disp if _email_disp else "—"}</div>'
     _certs_disp   = ", ".join(_raw_r.existing_certs) if _raw_r.existing_certs else "None yet"
-    _concern_disp = ", ".join(_raw_r.concern_topics[:3]) if _raw_r.concern_topics else "None specified"
-    _bg_short     = (_raw_r.background_text[:120] + "\u2026") if len(_raw_r.background_text) > 120 else _raw_r.background_text
+    _concern_disp = ", ".join(_raw_r.concern_topics) if _raw_r.concern_topics else "None specified"
+    _bg_short     = (_raw_r.background_text[:300] + "\u2026") if len(_raw_r.background_text) > 300 else _raw_r.background_text
     _style_disp   = _raw_r.preferred_style if _raw_r.preferred_style else "Not specified"
     st.markdown(f"""
     <style>
@@ -4598,7 +4650,7 @@ if "profile" in st.session_state:
                         )
                     # Clear cert rec so it regenerates
                     st.session_state.pop("cert_recommendation", None)
-                    # fragment reruns automatically — no st.rerun() needed
+                    st.rerun()
 
     with tab_quiz:
         _render_quiz_tab()

@@ -635,6 +635,99 @@ _LEARN_CATALOGUE: dict[str, list[tuple]] = {
             "az305-migrations",
         ),
     ],
+    # ── DP-100: Azure Data Scientist Associate ────────────────────────────────
+    "ml_solution_design": [
+        (
+            "Create and manage an Azure Machine Learning workspace",
+            "https://learn.microsoft.com/en-us/training/modules/intro-to-azure-machine-learning-service/",
+            45, "beginner", "module", "core",
+            "dp100-create-workspace",
+        ),
+        (
+            "Work with data in Azure Machine Learning",
+            "https://learn.microsoft.com/en-us/training/modules/work-with-data-in-aml/",
+            50, "intermediate", "module", "core",
+            "dp100-work-data",
+        ),
+        (
+            "Work with compute in Azure Machine Learning",
+            "https://learn.microsoft.com/en-us/training/modules/work-with-compute-in-aml/",
+            50, "intermediate", "module", "core",
+            "dp100-work-compute",
+        ),
+    ],
+    "explore_train_models": [
+        (
+            "Make predictions with Azure Machine Learning AutoML",
+            "https://learn.microsoft.com/en-us/training/modules/automate-model-selection-with-azure-automl/",
+            50, "intermediate", "module", "core",
+            "dp100-automl",
+        ),
+        (
+            "Find the best classification model with Automated Machine Learning",
+            "https://learn.microsoft.com/en-us/training/modules/find-best-classification-model-automated-machine-learning/",
+            45, "intermediate", "module", "supplemental",
+            "dp100-automl-classif",
+        ),
+        (
+            "Use MLflow to track Jupyter Notebooks",
+            "https://learn.microsoft.com/en-us/training/modules/use-mlflow-to-track-jupyter-notebooks/",
+            40, "intermediate", "module", "core",
+            "dp100-mlflow-track",
+        ),
+        (
+            "Tune hyperparameters with Azure Machine Learning",
+            "https://learn.microsoft.com/en-us/training/modules/perform-hyperparameter-tuning-azure-machine-learning-pipelines/",
+            55, "advanced", "module", "core",
+            "dp100-hparam-tune",
+        ),
+    ],
+    "prepare_deployment": [
+        (
+            "Register an MLflow model in Azure Machine Learning",
+            "https://learn.microsoft.com/en-us/training/modules/register-and-deploy-model-with-amls/",
+            60, "intermediate", "module", "core",
+            "dp100-register-model",
+        ),
+        (
+            "Convert a model to ONNX with MLflow",
+            "https://learn.microsoft.com/en-us/training/modules/convert-model-onnx/",
+            40, "intermediate", "module", "supplemental",
+            "dp100-onnx",
+        ),
+        (
+            "Deploy an MLflow model to an online endpoint",
+            "https://learn.microsoft.com/en-us/training/modules/deploy-mlflow-model-to-managed-online-endpoint/",
+            55, "advanced", "module", "core",
+            "dp100-deploy-mlflow",
+        ),
+    ],
+    "deploy_retrain": [
+        (
+            "Deploy a model to a managed online endpoint in Azure ML",
+            "https://learn.microsoft.com/en-us/training/modules/deploy-model-managed-online-endpoint/",
+            60, "advanced", "module", "core",
+            "dp100-online-endpoint",
+        ),
+        (
+            "Run batch inference using Azure Machine Learning batch endpoints",
+            "https://learn.microsoft.com/en-us/training/modules/run-batch-inference-using-azure-machine-learning-endpoints/",
+            55, "advanced", "module", "core",
+            "dp100-batch-endpoint",
+        ),
+        (
+            "Monitor models with Azure Machine Learning",
+            "https://learn.microsoft.com/en-us/training/modules/monitor-models-with-azure-machine-learning/",
+            50, "advanced", "module", "core",
+            "dp100-monitor",
+        ),
+        (
+            "Retrain and update machine learning models with ML pipelines",
+            "https://learn.microsoft.com/en-us/training/modules/retrain-update-models-with-azure-machine-learning-pipeline/",
+            55, "advanced", "module", "core",
+            "dp100-retrain-pipeline",
+        ),
+    ],
 }
 
 # Priority bump for risk domains
