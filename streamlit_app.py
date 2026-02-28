@@ -280,6 +280,130 @@ DEMO_USERS = {
 }
 
 
+def _load_priyanka_session() -> None:
+    """Populate session state for the AI Expert demo user (Priyanka Sharma).
+    Builds all objects directly from hardcoded data — no DB required.
+    This guarantees the returning-user dashboard is shown even on a fresh
+    Streamlit Cloud deployment where the SQLite file does not exist yet.
+    Also attempts to persist to DB so the Admin Dashboard shows her cohort row.
+    """
+    import json as _js
+    from cert_prep.b1_1_study_plan_agent import StudyTask, PrereqInfo
+
+    _profile_dict = {
+        "student_name": "Priyanka Sharma",
+        "exam_target": "DP-100",
+        "experience_level": "expert_ml",
+        "learning_style": "lab_first",
+        "hours_per_week": 8.0,
+        "weeks_available": 10,
+        "total_budget_hours": 80.0,
+        "domain_profiles": [
+            {"domain_id": "ml_solution_design",   "domain_name": "Design & Prepare an ML Solution",
+             "knowledge_level": "strong",   "confidence_score": 0.82, "skip_recommended": False,
+             "notes": "Full Azure ML workspace experience including compute and datastore setup."},
+            {"domain_id": "explore_train_models", "domain_name": "Explore Data & Train Models",
+             "knowledge_level": "strong",   "confidence_score": 0.88, "skip_recommended": True,
+             "notes": "Expert pandas/sklearn; AutoML and responsible AI dashboards familiar."},
+            {"domain_id": "prepare_deployment",   "domain_name": "Prepare a Model for Deployment",
+             "knowledge_level": "moderate", "confidence_score": 0.61, "skip_recommended": False,
+             "notes": "MLflow practiced; deployment packaging and environment YAML need review."},
+            {"domain_id": "deploy_retrain",       "domain_name": "Deploy & Retrain a Model",
+             "knowledge_level": "moderate", "confidence_score": 0.55, "skip_recommended": False,
+             "notes": "Online endpoints used; batch endpoints and model monitoring are gaps."},
+        ],
+        "modules_to_skip": ["Azure ML workspace intro", "Data fundamentals overview"],
+        "risk_domains": ["deploy_retrain", "prepare_deployment"],
+        "analogy_map": {
+            "scikit-learn Pipeline": "Azure ML Pipeline + Environment",
+            "MLflow local tracking": "Azure ML MLflow remote tracking",
+            "Kubernetes deployment": "Azure ML managed online endpoints",
+        },
+        "recommended_approach": (
+            "Expert data scientist transitioning to full Azure MLOps. "
+            "Weeks 1–3 consolidate deployment packaging; weeks 4–8 focus on "
+            "online/batch endpoints, monitoring and retraining pipelines."
+        ),
+        "engagement_notes": "Lab-first: each concept followed immediately by an Azure ML notebook walkthrough.",
+    }
+
+    _raw_dict = {
+        "student_name": "Priyanka Sharma",
+        "exam_target": "DP-100",
+        "background_text": (
+            "Senior data scientist with 6 years of ML experience. "
+            "Proficient in Python, scikit-learn, XGBoost and MLflow. "
+            "Migrating team workflows from local experiments to Azure ML."
+        ),
+        "existing_certs": ["DP-900", "AZ-900"],
+        "hours_per_week": 8.0,
+        "weeks_available": 10,
+        "concern_topics": ["managed online endpoints", "model monitoring", "batch inference"],
+        "preferred_style": "Hands-on labs and notebook walkthroughs",
+        "goal_text": "Validate Azure ML expertise and move to Lead MLOps Engineer.",
+        "email": "",
+    }
+
+    _tasks = [
+        StudyTask(domain_id="ml_solution_design",   domain_name="Design & Prepare an ML Solution",
+                  start_week=1, end_week=2,   total_hours=14.0, priority="medium",   knowledge_level="strong",   confidence_pct=82),
+        StudyTask(domain_id="explore_train_models", domain_name="Explore Data & Train Models",
+                  start_week=2, end_week=3,   total_hours=14.0, priority="low",      knowledge_level="strong",   confidence_pct=88),
+        StudyTask(domain_id="prepare_deployment",   domain_name="Prepare a Model for Deployment",
+                  start_week=3, end_week=6,   total_hours=24.0, priority="high",     knowledge_level="moderate", confidence_pct=61),
+        StudyTask(domain_id="deploy_retrain",       domain_name="Deploy & Retrain a Model",
+                  start_week=6, end_week=9,   total_hours=24.0, priority="critical", knowledge_level="moderate", confidence_pct=55),
+    ]
+    _prereqs = [
+        PrereqInfo(cert_code="DP-900", cert_name="Azure Data Fundamentals",
+                   relationship="helpful", already_held=True),
+    ]
+
+    from cert_prep.b1_1_study_plan_agent import StudyPlan as _StudyPlan
+    _plan = _StudyPlan(
+        student_name="Priyanka Sharma",
+        exam_target="DP-100",
+        total_weeks=10,
+        total_hours=80.0,
+        tasks=_tasks,
+        review_start_week=10,
+        prerequisites=_prereqs,
+        prereq_gap=False,
+        prereq_message="DP-900 already held. All implicit prerequisites satisfied.",
+        plan_summary=(
+            "10-week expert-track plan for an experienced data scientist moving to Azure MLOps. "
+            "Early weeks rapidly review workspace and training fundamentals. "
+            "Final weeks focus on deployment packaging, online/batch endpoints and model monitoring."
+        ),
+    )
+
+    # ── Set session state ─────────────────────────────────────────────────────
+    st.session_state["profile"]          = LearnerProfile.model_validate(_profile_dict)
+    st.session_state["raw"]              = RawStudentInput(**{k: v for k, v in _raw_dict.items()
+                                                              if k in {f.name for f in _dc.fields(RawStudentInput)}})
+    st.session_state["plan"]             = _plan
+    st.session_state["intake_submitted"] = True
+    st.session_state["is_demo_user"]     = False
+
+    # ── Persist to DB (best-effort — non-fatal if it fails) ───────────────────
+    try:
+        init_db()
+        upsert_student("Priyanka Sharma", "1234", "learner")
+        _plan_dict = {
+            "student_name": _plan.student_name, "exam_target": _plan.exam_target,
+            "total_weeks": _plan.total_weeks, "total_hours": _plan.total_hours,
+            "review_start_week": _plan.review_start_week,
+            "prereq_gap": _plan.prereq_gap, "prereq_message": _plan.prereq_message,
+            "plan_summary": _plan.plan_summary,
+            "tasks": [t.__dict__ for t in _plan.tasks],
+            "prerequisites": [p.__dict__ for p in _plan.prerequisites],
+        }
+        save_profile("Priyanka Sharma", _js.dumps(_profile_dict), _js.dumps(_raw_dict), "DP-100")
+        save_plan("Priyanka Sharma", _js.dumps(_plan_dict))
+    except Exception:
+        pass  # DB write failure is acceptable — session state is already set
+
+
 @st.cache_resource
 def _app_startup() -> None:
     """Initialise DB and seed required demo data — runs once per app process."""
@@ -937,26 +1061,8 @@ if not st.session_state["authenticated"]:
                 st.session_state["authenticated"] = True
                 st.session_state["login_name"] = "Priyanka Sharma"
                 st.session_state["user_type"] = "learner"
-                # Load existing data from DB so returning-user mode activates
-                try:
-                    _db_p = get_student("Priyanka Sharma")
-                    if _db_p and _db_p.get("profile_json"):
-                        import json as _json_ql
-                        st.session_state["profile"]          = LearnerProfile.model_validate_json(_db_p["profile_json"])
-                        st.session_state["intake_submitted"] = True
-                        st.session_state["is_demo_user"]     = False  # returning user with saved profile
-                        st.session_state["raw"]              = _raw_from_dict(_json_ql.loads(_db_p["raw_input_json"]))
-                        if _db_p.get("plan_json"):
-                            st.session_state["plan"] = _study_plan_from_dict(_json_ql.loads(_db_p["plan_json"]))
-                        if _db_p.get("learning_path_json"):
-                            st.session_state["learning_path"] = _learning_path_from_dict(_json_ql.loads(_db_p["learning_path_json"]))
-                    else:
-                        st.session_state["is_demo_user"] = True  # first-time user — show scenario picker
-                except Exception:
-                    # Stale/incompatible DB record — fall back to fresh demo mode
-                    for _k in ("profile", "intake_submitted", "raw", "plan", "learning_path"):
-                        st.session_state.pop(_k, None)
-                    st.session_state["is_demo_user"] = True
+                # Build session state directly from hardcoded demo data — no DB dependency
+                _load_priyanka_session()
                 st.rerun()
         with _d3:
             st.markdown('''
