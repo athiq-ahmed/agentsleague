@@ -803,19 +803,25 @@ if not st.session_state["authenticated"]:
                 st.session_state["login_name"] = "Priyanka Sharma"
                 st.session_state["user_type"] = "learner"
                 # Load existing data from DB so returning-user mode activates
-                _db_p = get_student("Priyanka Sharma")
-                if _db_p and _db_p.get("profile_json"):
-                    import json as _json_ql
-                    st.session_state["profile"]          = LearnerProfile.model_validate_json(_db_p["profile_json"])
-                    st.session_state["intake_submitted"] = True
-                    st.session_state["is_demo_user"]     = False  # returning user with saved profile
-                    st.session_state["raw"]              = _raw_from_dict(_json_ql.loads(_db_p["raw_input_json"]))
-                    if _db_p.get("plan_json"):
-                        st.session_state["plan"] = _study_plan_from_dict(_json_ql.loads(_db_p["plan_json"]))
-                    if _db_p.get("learning_path_json"):
-                        st.session_state["learning_path"] = _learning_path_from_dict(_json_ql.loads(_db_p["learning_path_json"]))
-                else:
-                    st.session_state["is_demo_user"] = True  # first-time user — show scenario picker
+                try:
+                    _db_p = get_student("Priyanka Sharma")
+                    if _db_p and _db_p.get("profile_json"):
+                        import json as _json_ql
+                        st.session_state["profile"]          = LearnerProfile.model_validate_json(_db_p["profile_json"])
+                        st.session_state["intake_submitted"] = True
+                        st.session_state["is_demo_user"]     = False  # returning user with saved profile
+                        st.session_state["raw"]              = _raw_from_dict(_json_ql.loads(_db_p["raw_input_json"]))
+                        if _db_p.get("plan_json"):
+                            st.session_state["plan"] = _study_plan_from_dict(_json_ql.loads(_db_p["plan_json"]))
+                        if _db_p.get("learning_path_json"):
+                            st.session_state["learning_path"] = _learning_path_from_dict(_json_ql.loads(_db_p["learning_path_json"]))
+                    else:
+                        st.session_state["is_demo_user"] = True  # first-time user — show scenario picker
+                except Exception:
+                    # Stale/incompatible DB record — fall back to fresh demo mode
+                    for _k in ("profile", "intake_submitted", "raw", "plan", "learning_path"):
+                        st.session_state.pop(_k, None)
+                    st.session_state["is_demo_user"] = True
                 st.rerun()
         with _d3:
             st.markdown('''
