@@ -279,6 +279,141 @@ DEMO_USERS = {
     "admin":    {"name": "admin",        "pin": "agents2026", "desc": "Dashboard & traces"},
 }
 
+
+@st.cache_resource
+def _app_startup() -> None:
+    """Initialise DB and seed required demo data — runs once per app process."""
+    import json as _js
+    import textwrap
+
+    init_db()
+
+    # ── Seed Priyanka Sharma (AI Expert / DP-100 returning user) ─────────────
+    # This data lives only in the cloud DB (cert_prep_data.db is git-ignored).
+    # Without this seed, Streamlit Cloud would treat her as a new user.
+    if not get_student("Priyanka Sharma"):
+        upsert_student("Priyanka Sharma", "1234", "learner")
+
+        _profile = {
+            "student_name": "Priyanka Sharma",
+            "exam_target": "DP-100",
+            "experience_level": "expert_ml",
+            "learning_style": "lab_first",
+            "hours_per_week": 8.0,
+            "weeks_available": 10,
+            "total_budget_hours": 80.0,
+            "domain_profiles": [
+                {"domain_id": "ml_solution_design",   "domain_name": "Design & Prepare an ML Solution",
+                 "knowledge_level": "strong",   "confidence_score": 0.82, "skip_recommended": False,
+                 "notes": "Has full Azure ML workspace experience including compute and datastore setup."},
+                {"domain_id": "explore_train_models", "domain_name": "Explore Data & Train Models",
+                 "knowledge_level": "strong",   "confidence_score": 0.88, "skip_recommended": True,
+                 "notes": "Expert pandas/sklearn user; AutoML and responsible AI dashboards are familiar."},
+                {"domain_id": "prepare_deployment",   "domain_name": "Prepare a Model for Deployment",
+                 "knowledge_level": "moderate", "confidence_score": 0.61, "skip_recommended": False,
+                 "notes": "MLflow logging practiced; deployment packaging and environment YAML need review."},
+                {"domain_id": "deploy_retrain",       "domain_name": "Deploy & Retrain a Model",
+                 "knowledge_level": "moderate", "confidence_score": 0.55, "skip_recommended": False,
+                 "notes": "Online endpoints used in production; batch endpoints and model monitoring are gaps."},
+            ],
+            "modules_to_skip": ["Azure ML workspace intro", "Data fundamentals overview"],
+            "risk_domains": ["deploy_retrain", "prepare_deployment"],
+            "analogy_map": {
+                "scikit-learn Pipeline": "Azure ML Pipeline + Environment",
+                "MLflow local tracking": "Azure ML MLflow remote tracking",
+                "Kubernetes deployment": "Azure ML managed online endpoints",
+            },
+            "recommended_approach": textwrap.dedent("""\
+                Priyanka is an expert data scientist transitioning to full Azure MLOps.
+                Weeks 1–3 consolidate deployment packaging and environment management.
+                Weeks 4–8 focus on online/batch endpoints, monitoring and retraining pipelines."""),
+            "engagement_notes": "Lab-first: every concept should follow an Azure ML notebook walkthrough immediately.",
+        }
+
+        _raw = {
+            "student_name": "Priyanka Sharma",
+            "exam_target": "DP-100",
+            "background_text": (
+                "Senior data scientist with 6 years of ML experience. "
+                "Proficient in Python, scikit-learn, XGBoost and MLflow. "
+                "Currently migrating team workflows from local experiments to Azure ML."
+            ),
+            "existing_certs": ["DP-900", "AZ-900"],
+            "hours_per_week": 8.0,
+            "weeks_available": 10,
+            "concern_topics": ["managed online endpoints", "model monitoring", "batch inference pipelines"],
+            "preferred_style": "Hands-on labs and real notebook walkthroughs",
+            "goal_text": "Validate Azure ML expertise and advance to a Lead MLOps Engineer role.",
+            "email": "",
+        }
+
+        _plan = {
+            "student_name": "Priyanka Sharma",
+            "exam_target": "DP-100",
+            "total_weeks": 10,
+            "total_hours": 80.0,
+            "tasks": [
+                {"domain_id": "ml_solution_design",   "domain_name": "Design & Prepare an ML Solution",
+                 "start_week": 1, "end_week": 2, "total_hours": 14.0, "priority": "medium",
+                 "knowledge_level": "strong", "confidence_pct": 82},
+                {"domain_id": "explore_train_models", "domain_name": "Explore Data & Train Models",
+                 "start_week": 2, "end_week": 3, "total_hours": 14.0, "priority": "low",
+                 "knowledge_level": "strong", "confidence_pct": 88},
+                {"domain_id": "prepare_deployment",   "domain_name": "Prepare a Model for Deployment",
+                 "start_week": 3, "end_week": 6, "total_hours": 24.0, "priority": "high",
+                 "knowledge_level": "moderate", "confidence_pct": 61},
+                {"domain_id": "deploy_retrain",       "domain_name": "Deploy & Retrain a Model",
+                 "start_week": 6, "end_week": 9, "total_hours": 24.0, "priority": "critical",
+                 "knowledge_level": "moderate", "confidence_pct": 55},
+            ],
+            "review_start_week": 10,
+            "prerequisites": [
+                {"cert_code": "DP-900", "cert_name": "Azure Data Fundamentals",
+                 "relationship": "helpful", "already_held": True},
+            ],
+            "prereq_gap": False,
+            "prereq_message": "DP-900 already held. All implicit prerequisites satisfied.",
+            "plan_summary": textwrap.dedent("""\
+                10-week expert-track plan for an experienced data scientist moving to Azure MLOps.
+                Early weeks perform rapid review of workspace and training fundamentals.
+                Final stretch focuses on deployment packaging, online/batch endpoints and model monitoring."""),
+        }
+
+        _snapshot = {
+            "student_name": "Priyanka Sharma",
+            "exam_target": "DP-100",
+            "week_number": 6,
+            "domain_scores": {
+                "ml_solution_design":   0.87,
+                "explore_train_models": 0.91,
+                "prepare_deployment":   0.70,
+                "deploy_retrain":       0.58,
+            },
+            "readiness_pct": 76,
+            "hours_logged": 52,
+            "hours_remaining": 28,
+        }
+
+        _progress_assessment = {
+            "student_name": "Priyanka Sharma",
+            "exam_target": "DP-100",
+            "readiness_pct": 76,
+            "exam_go_nogo": "CONDITIONAL GO",
+            "weak_area_flags": ["deploy_retrain"],
+            "recommendation": textwrap.dedent("""\
+                Strong in design and training domains. Complete the remaining deployment and
+                retraining labs (weeks 7–9) to reach GO status. On track for exam success."""),
+        }
+
+        from cert_prep.database import save_profile, save_plan, save_progress
+        save_profile("Priyanka Sharma", _js.dumps(_profile), _js.dumps(_raw), "DP-100")
+        save_plan("Priyanka Sharma", _js.dumps(_plan))
+        save_progress("Priyanka Sharma", _js.dumps(_snapshot), _js.dumps(_progress_assessment))
+
+
+_app_startup()
+
+
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
     st.session_state["user_type"] = None  # "new", "existing", or "admin"
