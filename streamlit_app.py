@@ -181,6 +181,11 @@ def _study_plan_from_dict(d: dict) -> StudyPlan:
         PrereqInfo(**_dc_filter(PrereqInfo, p))
         for p in d.get("prerequisites", [])
     ]
+    # Back-compat defaults for fields added after initial DB records were saved
+    d2.setdefault("review_start_week", max((t.end_week for t in d2["tasks"]), default=d2.get("total_weeks", 8)))
+    d2.setdefault("prereq_gap", False)
+    d2.setdefault("prereq_message", "")
+    d2.setdefault("plan_summary", "")
     return StudyPlan(**d2)
 
 
